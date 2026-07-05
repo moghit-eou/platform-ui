@@ -1,3 +1,3 @@
 vulnerabilities:
-  - id: CVE-2026-54515
-    statement: "False positive, not reachable code path"
+  - id: CVE-xxxx-xxxx
+    statement: "ex: False positive, not reachable code path"

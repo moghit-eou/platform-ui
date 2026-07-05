@@ -16,37 +16,36 @@ logging.basicConfig(
     format='%(message)s' # Clean format to prevent double-timestamps in CI logs
 )
 logger = logging.getLogger("sca-orchestrator")
-
 def run_trivy():
     cmd = [
-        "trivy", "sbom",
-        "target/bom.json",
+        "trivy", "image",
+        "platform-ui:testing",
         "--format", "sarif",
         "--ignorefile", ".github/scripts/supress_trivy.yaml",
-        "--output", "trivy.sarif"
+        "--output", "trivy-image.sarif"
     ]
-
     return subprocess.run(cmd).returncode
+
 
 def run_osv_scanner():
     cmd = [
-        "osv-scanner", "scan", "source",
-        "--lockfile", "target/bom.json",
+        "osv-scanner", "scan", "image",
+        "platform-ui:testing",
         "--config", ".github/scripts/supress_osv_scanner.toml",
         "--format", "sarif",
-        "--output-file", "osv-scanner.sarif"
+        "--output-file", "osv-scanner-image.sarif"
     ]
-    
     return subprocess.run(cmd).returncode
 
 def merge_sarifs():
+
     merged = {
-        "$schema": "https://schemastore.azurewebsites.net/schemas/json/sarif-2.1.0.json",
+        "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json",
         "version": "2.1.0",
         "runs": [],
     }
 
-    for path in ("trivy.sarif", "osv-scanner.sarif"):
+    for path in ("trivy-image.sarif", "osv-scanner-image.sarif"):
         if not os.path.exists(path):
             logger.warning(f"{path} not found, skipping in merge")
             continue
@@ -54,7 +53,7 @@ def merge_sarifs():
             sarif = json.load(f, strict=False)
         merged["runs"].extend(sarif.get("runs", []))
 
-    with open("merged-SCA-platform-backend.sarif", "w") as f:
+    with open("merged-SCA-platform-backend-image.sarif", "w") as f:
         json.dump(merged, f)
 
     logger.info("SARIF files merged successfully.")
@@ -71,7 +70,7 @@ def main():
 
     merge_sarifs()  # combined artifact only, not used for the gate decision
 
-    sarif_files = {"trivy": "trivy.sarif", "osv-scanner": "osv-scanner.sarif"}
+    sarif_files = {"trivy": "trivy-image.sarif", "osv-scanner": "osv-scanner-image.sarif"}
     tool_status = {}   # "PASSED" | "WARNING" | "FAILED"
     gate_failed = False
 
@@ -85,8 +84,8 @@ def main():
         eval_result = evaluate(path)
 
         if eval_result.gate_failed:
-            tool_status[name] = "FAILED"          # this tool found CVSS >= 8.0
-            gate_failed = True
+            tool_status[name] = "FAILED"          # this tool found CVSS >= 8.0 
+            gate_failed = True                    # Fail the gate if any tool fails
         elif eval_result.gate_warn:
             tool_status[name] = "WARNING"         # this tool found 5.0 <= CVSS < 8.0
         else:
@@ -103,6 +102,7 @@ def main():
     logger.info(f"{BOLD}=========================================={RESET}\n")
 
     if gate_failed:
+        logger.error(f"{RED}One or more SCA tools failed the gate check.{RESET}")
         sys.exit(1)
 
 if __name__ == "__main__":

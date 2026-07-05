@@ -18,12 +18,12 @@ def evaluate(sarif_paths):
         for run in sarif.get("runs", []):
             rules = run["tool"]["driver"].get("rules", [])
             severities = {r["id"]: r.get("properties", {}).get("security-severity") for r in rules}
-            
-            
+                        
             for result in run.get("results", []):
                 score = severities.get(result["ruleId"])
                 if score is not None:
                     max_score = max(max_score, float(score))
+                    
     return EvaluationResult(
             gate_failed=max_score >= 8,
             gate_warn=5 <= max_score < 8,
