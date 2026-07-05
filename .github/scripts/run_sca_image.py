@@ -53,7 +53,7 @@ def merge_sarifs():
             sarif = json.load(f, strict=False)
         merged["runs"].extend(sarif.get("runs", []))
 
-    with open("merged-SCA-platform-backend-image.sarif", "w") as f:
+    with open("merged-SCA-platform-ui-image.sarif", "w") as f:
         json.dump(merged, f)
 
     logger.info("SARIF files merged successfully.")
