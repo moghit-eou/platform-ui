@@ -59,8 +59,6 @@ def merge_sarifs():
 
     logger.info("SARIF files merged successfully.")
 
-
-
 def main():
     tools = [run_trivy, run_osv_scanner]
 

@@ -19,7 +19,7 @@ case "$PROJECT_TYPE" in
     ;;
   npm)
     echo "Generating SBOM for NPM project"
-    npx --yes @cyclonedx/cyclonedx-npm --output-file bom.json
+    npx --yes @cyclonedx/cyclonedx-npm --output-file target/bom.json
     ;;
   none)
     echo "No SBOM generation needed for image pipelines"
