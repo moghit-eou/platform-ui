@@ -45,9 +45,6 @@ jobs:
       - name: Setup tools
         run: bash .github/scripts/setup-tools.sh npm
       
-      - name: Setup tools
-        run: bash .github/scripts/setup-tools.sh maven
-
       - name: Run SCA tools
         run: python .github/scripts/run_sca_app.py
 
