@@ -31,7 +31,9 @@ jobs:
           restore-keys: ${{ runner.os }}-npm-v1-
 
       - name: Install dependencies
-        run: npm ci
+        run: |
+          npm install
+          npm ci
 
       - name: Setup tools
         run: bash .github/scripts/setup-tools.sh npm
