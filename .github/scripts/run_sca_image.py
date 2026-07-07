@@ -43,9 +43,10 @@ def run_osv_scanner():
         "--format", "sarif",
         "--output-file", OSV_SARIF_OUTPUT
     ]
-   exit_code = subprocess.run(cmd).returncode
+    exit_code = subprocess.run(cmd).returncode
+
     if exit_code == 1:
-        return 0  # OSV Scanner returns 1 if vulnerabilities are found, but we want to continue the pipeline
+        return 0    # OSV Scanner returns 1 if vulnerabilities are found, but we want to continue the pipeline
     return exit_code
 
 def merge_sarifs():
@@ -67,7 +68,6 @@ def merge_sarifs():
         json.dump(merged, f)
 
     logger.info("SARIF files merged successfully.")
-
 
 def main():
 
