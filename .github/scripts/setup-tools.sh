@@ -10,7 +10,6 @@ chmod +x /usr/local/bin/osv-scanner
 
 
 # Generate SBOM based on project type
-
 PROJECT_TYPE="${1:-none}"   # maven | npm | none
 case "$PROJECT_TYPE" in
   maven)
