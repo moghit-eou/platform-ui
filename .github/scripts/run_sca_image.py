@@ -17,7 +17,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger("sca-orchestrator")
 
-# --- Configurable values, no longer hardcoded below ---
+# Configurable values
 IMAGE_NAME = os.getenv("IMAGE_NAME", "platform-ui:local")  # Default value for local testing, should be overridden in CI
 TRIVY_IGNOREFILE = os.getenv("TRIVY_IGNOREFILE", ".github/scripts/suppress_trivy.yaml")
 OSV_IGNOREFILE = os.getenv("OSV_IGNOREFILE", ".github/scripts/suppress_osv_scanner.toml")
