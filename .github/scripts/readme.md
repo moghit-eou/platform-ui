@@ -175,6 +175,7 @@ Use `npm ci`, not `npm install`, before generating the SBOM:
 - **`npm install`** will update `package-lock.json` to resolve any mismatch with `package.json`. Fine on a dev machine, but in CI it means the lockfile that got committed and reviewed isn't necessarily the one that gets scanned.
 
 If `npm ci` fails, that's a signal `package-lock.json` is stale and needs to be regenerated locally (`npm install`, then commit the updated lockfile), not something to patch around in the pipeline.
+
 ---
 
 ## 8. Running it locally
