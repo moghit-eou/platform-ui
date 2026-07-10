@@ -1,6 +1,6 @@
 # Software Composition Analysis (SCA) Pipeline
 
-Automated dependency and container vulnerability scanning for `platform-backend`, enforced during the Continuous Integration (CI) to block known vulnerabilities (CVEs) before merge automatically on Pull Requests.
+Automated dependency and container vulnerability scanning for `platform-ui`, enforced during the Continuous Integration (CI) to block known vulnerabilities (CVEs) before merge automatically on Pull Requests.
 
 The pipeline executes a dual-layer scanning strategy using **Trivy** and **OSV-Scanner**:
 
@@ -202,13 +202,13 @@ All output paths and ignore-file locations are overridable via environment varia
 ## 9. Environment variables
 | Variable | `run_sca_image.py` Default | `run_sca_app.py` Default | Purpose |
 |---|---|---|---|
-| `IMAGE_NAME` | `platform-backend:local` | — | Image reference to scan |
+| `IMAGE_NAME` | `platform-ui:local` | — | Image reference to scan |
 | `SBOM_PATH` | — | `target/bom.json` | SBOM to scan |
 | `TRIVY_IGNOREFILE` | `suppress_trivy.yaml` | `suppress_trivy.yaml` | Trivy suppression file |
 | `OSV_IGNOREFILE` | `suppress_osv_scanner.toml` | `suppress_osv_scanner.toml` | OSV-Scanner suppression file |
 | `TRIVY_SARIF_OUTPUT` | `trivy-image.sarif` | `trivy-app.sarif` | Trivy output path |
 | `OSV_SARIF_OUTPUT` | `osv-scanner-image.sarif` | `osv-scanner-app.sarif` | OSV-Scanner output path |
-| `MERGED_SARIF_OUTPUT` | `merged-SCA-platform-backend-image.sarif` | `merged-SCA-platform-backend-app.sarif` | Combined artifact path |
+| `MERGED_SARIF_OUTPUT` | `merged-SCA-platform-ui-image.sarif` | `merged-SCA-platform-ui-app.sarif` | Combined artifact path |
 
 
 Each script hardcodes a default value for every variable via `os.getenv("VAR", "default")`. 
@@ -218,7 +218,7 @@ the Python default only applies if no env var is set at all (e.g. running the sc
 For example `sca_image.yml`:
 ```yaml
 env:
-  IMAGE_NAME: platform-backend:testing
+  IMAGE_NAME: platform-ui:testing
   TRIVY_IGNOREFILE: .github/scripts/suppress_trivy.yaml
   ...
 ```
