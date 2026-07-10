@@ -123,7 +123,7 @@ The script runs with `set -euo pipefail` plus an `ERR` trap, so it stops and pri
 If it's a false positive or an accepted-risk finding, add it to the relevant ignore file below so it stops blocking the gate. 
 For example, to ignore a specific vulnerability:
 
-**Trivy** (`suppress_triviyaml`):
+**Trivy** (`suppress_trivy.yaml`):
 ```yaml
 vulnerabilities:
   - id: CVE-2026-54515
