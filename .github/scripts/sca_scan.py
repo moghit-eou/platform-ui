@@ -23,7 +23,7 @@ TRIVY_IGNOREFILE = os.getenv("TRIVY_IGNOREFILE", ".github/scripts/suppress_trivy
 OSV_IGNOREFILE = os.getenv("OSV_IGNOREFILE", ".github/scripts/suppress_osv_scanner.toml")
 TRIVY_SARIF_OUTPUT = os.getenv("TRIVY_SARIF_OUTPUT", "trivy-app.sarif")
 OSV_SARIF_OUTPUT = os.getenv("OSV_SARIF_OUTPUT", "osv-scanner-app.sarif")
-MERGED_SARIF_OUTPUT = os.getenv("MERGED_SARIF_OUTPUT", "merged-SCA-platform-ui-app.sarif")
+SCA_MERGED_SARIF_OUTPUT = os.getenv("SCA_MERGED_SARIF_OUTPUT", "merged-SCA-platform-ui-app.sarif")
 
 def run_trivy():
     cmd = [
@@ -65,7 +65,7 @@ def merge_sarifs():
             sarif = json.load(f, strict=False)
         merged["runs"].extend(sarif.get("runs", []))
 
-    with open(MERGED_SARIF_OUTPUT, "w") as f:
+    with open(SCA_MERGED_SARIF_OUTPUT, "w") as f:
         json.dump(merged, f)
 
     logger.info("SARIF files merged successfully.")
