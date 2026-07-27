@@ -1,7 +1,6 @@
 name: Software Composition Analysis (SCA)
 
 on:
-  push: #To be removed after testing
   pull_request:
   workflow_dispatch:
   schedule:

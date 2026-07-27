@@ -1,9 +1,10 @@
 name: Static Application Security Testing (SAST)
 
 on:
-  push: # To be removed after testing
   pull_request:
   workflow_dispatch:
+  schedule:
+    - cron: '0 2 * * 1' # weekly SCA scan, every Monday 02:00 UTC
 
 jobs:
   sast:
@@ -13,11 +14,11 @@ jobs:
       contents: read
       security-events: write # required for uploading SAST results to github security
     env:
-      SEMGREP_CONFIGS: "p/security-audit p/owasp-top-ten p/cwe-top-25 p/trailofbits p/java"
-      SEMGREP_EXCLUDE: ".github Dockerfile* target/** dist/** build/** node_modules/** .angular/**"
-      SEMGREP_SARIF_OUTPUT: sast-semgrep-app.sarif
-      SAST_SEVERITY: ERROR
-      SAST_ENFORCE: "false"
+      SEMGREP_CONFIG_RULESETS: >-
+              semgrep-rules/generic semgrep-rules/problem-based-packs semgrep-rules/bash
+              semgrep-rules/javascript
+      OPENGREP_EXCLUDE: "*.sarif .github/scripts Dockerfile* dist/** build/** node_modules/** .angular/**"
+      OPENGREP_SARIF_OUTPUT: sast-semgrep-app.sarif
 
     steps:
       - name: Check out repository
@@ -29,7 +30,7 @@ jobs:
           python-version: '3.14.4'
 
       - name: Setup tools
-        run: bash .github/scripts/setup-tools.sh --install-tool opengrep
+        run: bash .github/scripts/setup-tools.sh --install-tool opengrep,semgrep-rules
 
       - name: Run SAST scanning
         run: python .github/scripts/sast_scan.py
@@ -39,13 +40,12 @@ jobs:
         if: always()
         uses: github/codeql-action/upload-sarif@c35d1b164463ee62a100735382aaaa525c5d3496 #v2.25.6
         with:
-          sarif_file: ${{ env.SEMGREP_SARIF_OUTPUT }}
+          sarif_file: ${{ env.OPENGREP_SARIF_OUTPUT }}
           category: semgrep-app
-
+      
       - name: Upload SARIF artifact
-        if: ${{ always() && steps.upload_semgrep.outcome == 'success' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a #v7.0.1
         with:
           name: sast-scan-sarif-report
-          path: ${{ env.SEMGREP_SARIF_OUTPUT }}
+          path: ${{ env.OPENGREP_SARIF_OUTPUT }}
           retention-days: 30
