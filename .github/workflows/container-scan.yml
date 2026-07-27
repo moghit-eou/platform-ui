@@ -1,7 +1,6 @@
 name: Container Vulnerability Scanning
 
 on:
-  push: # To be removed after testing 
   pull_request:
   workflow_dispatch:
   schedule:
@@ -25,6 +24,8 @@ jobs:
       OSV_SCA_SARIF_OUTPUT: sca-osv-container.sarif
 
       # SAST /Linting
+      SEMGREP_CONFIG_RULESETS: >-
+              semgrep-rules/dockerfile
       OPENGREP_SAST_SARIF_OUTPUT: sast-opengrep-dockerfile.sarif
       HADOLINT_SAST_SARIF_OUTPUT: sast-hadolint-dockerfile.sarif
     
