@@ -45,7 +45,7 @@ COPY nginx.conf.template /etc/nginx/templates/default.conf.template
 RUN rm -rf /usr/share/nginx/html/*
 COPY --from=build /app/dist/fl-platform/browser /usr/share/nginx/html
 
-# TODO: temp fix/patch — run nginx as non-root to satisfy Semgrep
+# TODO: temp fix/patch, run nginx as non-root to satisfy Semgrep
 # missing-user-entrypoint finding. Needs verification that
 RUN chown -R nginx:nginx /usr/share/nginx/html /etc/nginx/conf.d /var/cache/nginx /var/run \
     && touch /var/run/nginx.pid \
