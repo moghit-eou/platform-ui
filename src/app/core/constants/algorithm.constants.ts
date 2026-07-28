@@ -7,6 +7,8 @@ export const AlgorithmNames = {
     PCA_WITH_TRANSFORMATION: 'pca_with_transformation',
     HISTOGRAM: 'histogram',
     DESCRIBE: 'describe',
+    QUARTILES: 'quartiles',
+    BINNED_MANN_WHITNEY_U_TEST: 'binned_mann_whitney_u_test',
     LMM: 'lmm',
     GLMM_BINARY: 'glmm_binary',
     GLMM_ORDINAL: 'glmm_ordinal',

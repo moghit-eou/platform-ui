@@ -6,7 +6,8 @@ import {
   NaiveBayesGaussianResult, NaiveBayesCategoricalResult, NaiveBayesCVResult,
   KMeansResult, PCAResult, PearsonResult,
   HistogramResult, DescriptiveStatsResult,
-  VariableStats, NominalDescriptiveStats, NumericalDescriptiveStats
+  VariableStats, NominalDescriptiveStats, NumericalDescriptiveStats,
+  QuartilesResult, BinnedMannWhitneyUTestResult
 } from '../../../../models/algorithm-results.model';
 import { getFeaturewiseDescribeRows } from '../../../../core/describe-result.utils';
 
@@ -926,6 +927,19 @@ export const AlgorithmTableRegistry: Record<string, TableBuilder> = {
     return AlgorithmTableRegistry['pca'](result);
   },
 
+  quartiles: (result: QuartilesResult) => {
+    if (!Array.isArray(result?.quantiles)) return [];
+    return [{
+      title: 'Quartiles',
+      columns: ['Quantile', 'Value', 'Actual quantile'],
+      rows: result.quantiles.map((item) => [
+        formatDecimal(item.q),
+        formatDecimal(item.value),
+        formatDecimal(item.actual_q),
+      ]),
+    }];
+  },
+
   describe: (result: DescriptiveStatsResult) => {
     if (!result) return [];
     const tables: TableSpec[] = [];
@@ -960,7 +974,7 @@ export const AlgorithmTableRegistry: Record<string, TableBuilder> = {
             formatDecimal(d.std),
             formatDecimal(d.min),
             formatDecimal(d.q1),
-            formatDecimal(d.q2),
+            formatDecimal(d.median ?? d.q2),
             formatDecimal(d.q3),
             formatDecimal(d.max)
           ]);
@@ -1192,6 +1206,22 @@ export const AlgorithmTableRegistry: Record<string, TableBuilder> = {
 
   histogram: buildHistogramTables,
   histogram_sql: buildHistogramTables,
+
+  binned_mann_whitney_u_test: (result: BinnedMannWhitneyUTestResult) => {
+    if (!result) return [];
+    return [{
+      title: 'Binned Mann-Whitney U Test',
+      columns: ['Metric', 'Value'],
+      rows: [
+        ['U statistic', formatDecimal(result.u_stat)],
+        ['p-value', formatDecimal(result.p_value)],
+        ['z-score', formatDecimal(result.z_score)],
+        ['Group A sample size', formatDecimal(result.n1)],
+        ['Group B sample size', formatDecimal(result.n2)],
+      ],
+      layout: 'compact',
+    }];
+  },
 
   ttest_independent: (result: TTestResult) => {
     return [{

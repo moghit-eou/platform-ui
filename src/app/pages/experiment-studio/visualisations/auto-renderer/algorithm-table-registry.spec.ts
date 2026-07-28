@@ -165,13 +165,50 @@ describe('AlgorithmTableRegistry', () => {
     expect(transformed).toEqual(base);
   });
 
+  it('renders quartiles tables and preserves unavailable quantile values', () => {
+    const tables = AlgorithmTableRegistry['quartiles']({
+      quantiles: [
+        { q: 0.25, value: 2.8124, actual_q: 0.2535211267605634 },
+        { q: 0.5, value: null, actual_q: null },
+        { q: 0.75, value: 3.3067, actual_q: 0.7549295774647887 },
+      ],
+    });
+
+    expect(tables.length).toBe(1);
+    expect(tables[0].columns).toEqual(['Quantile', 'Value', 'Actual quantile']);
+    expect(tables[0].rows.length).toBe(3);
+    expect(tables[0].rows[1]).toEqual(['0.5', '', '']);
+  });
+
+  it('renders binned Mann-Whitney U test metrics', () => {
+    const tables = AlgorithmTableRegistry['binned_mann_whitney_u_test']({
+      u_stat: 163.5,
+      p_value: 8.436804884099734e-6,
+      z_score: 4.4537889144455,
+      n1: 15,
+      n2: 80,
+    });
+
+    expect(tables.length).toBe(1);
+    expect(tables[0].rows).toContain(['U statistic', '163.5']);
+    expect(tables[0].rows).toContain(['p-value', '8.437e-6']);
+    expect(tables[0].rows).toContain(['z-score', '4.454']);
+    expect(tables[0].rows).toContain(['Group A sample size', '15']);
+    expect(tables[0].rows).toContain(['Group B sample size', '80']);
+  });
+
   it('renders describe tables for both numeric and nominal entries', () => {
     const tables = AlgorithmTableRegistry['describe']({
       featurewise: [
         {
           variable: 'age',
+          dataset: 'all datasets',
+          data: { num_dtps: 10, num_na: 1, num_total: 11, mean: 52.1, std: 4.2, min: 40, q1: 49, q2: 52, q3: 55, median: 52.5, max: 60 },
+        },
+        {
+          variable: 'height',
           dataset: 'ds1',
-          data: { num_dtps: 10, num_na: 1, num_total: 11, mean: 52.1, std: 4.2, min: 40, q1: 49, q2: 52, q3: 55, max: 60 },
+          data: { num_dtps: 8, num_na: 0, num_total: 8, mean: 170, std: 5, min: 160, q1: 166, q2: 171, q3: 174, max: 180 },
         },
         {
           variable: 'sex',
@@ -184,6 +221,9 @@ describe('AlgorithmTableRegistry', () => {
     expect(tables.some((t) => t.title === 'Featurewise Summary — Numeric')).toBeTrue();
     expect(tables.some((t) => t.title === 'Featurewise Summary — Nominal')).toBeTrue();
     expect(tables.some((t) => t.title?.includes('Model-based'))).toBeFalse();
+    const numericRows = tables.find((t) => t.title === 'Featurewise Summary — Numeric')?.rows ?? [];
+    expect(numericRows[0][9]).toBe('52.5');
+    expect(numericRows[1][9]).toBe('171');
   });
 
   it('renders outlier_report and preserves zero counts separately from null values', () => {

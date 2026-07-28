@@ -835,6 +835,69 @@ describe('ExperimentStudioService', () => {
     expect(body.analysis.algorithm.parameters.alpha).toBe(0.05);
   });
 
+  it('builds binned Mann-Whitney requests with group enum codes and missing-value preprocessing', () => {
+    service.setSelectedDataModel(mockDataModel);
+    service.setSelectedDatasets(['ds1']);
+    service.backendAlgorithms.set({
+      ...service.backendAlgorithms(),
+      binned_mann_whitney_u_test: {
+        name: 'binned_mann_whitney_u_test',
+        label: 'Binned Mann-Whitney U Test',
+        description: '',
+        inputdata: {
+          y: { label: 'Outcome', desc: '', types: ['real', 'int'], required: true, max_count: 1 },
+          x: { label: 'Grouping variable', desc: '', types: ['text'], stattypes: ['nominal'], required: true, max_count: 1 },
+        },
+        configSchema: [
+          { key: 'alt_hypothesis', label: 'Alternative hypothesis', type: 'select', options: ['two-sided', 'less', 'greater'], required: true },
+          { key: 'groupA', label: 'Group A', type: 'select', types: ['text', 'int'], enumType: 'input_var_CDE_enums', enumSource: ['x'], required: true, options: [
+            { code: '0', label: 'Control' },
+            { code: '1', label: 'Case' },
+          ] },
+          { key: 'groupB', label: 'Group B', type: 'select', types: ['text', 'int'], enumType: 'input_var_CDE_enums', enumSource: ['x'], required: true, options: [
+            { code: '0', label: 'Control' },
+            { code: '1', label: 'Case' },
+          ] },
+          { key: 'num_bins', label: 'Number of bins', type: 'number', types: ['int'], required: false, default: 40, min: 2, max: 200 },
+        ],
+        requiredVariable: ['real', 'int'],
+        covariate: ['text'],
+        category: 'Statistical Tests',
+        preprocessing: [],
+        required_preprocessing: ['missing_values_handler'],
+        isDisabled: false,
+      } as any,
+    });
+    service.algorithmConfigurations.set({
+      binned_mann_whitney_u_test: {
+        alt_hypothesis: 'two-sided',
+        groupA: 'Control',
+        groupB: { code: '1', label: 'Case' },
+        num_bins: '40',
+      },
+    });
+
+    const body = service.buildRequestBody('binned_mann_whitney_u_test', ['age'], ['sex']);
+
+    expect(body.analysis.algorithm.name).toBe('binned_mann_whitney_u_test');
+    expect(body.analysis.algorithm.y).toEqual(['age']);
+    expect(body.analysis.algorithm.x).toEqual(['sex']);
+    expect(body.analysis.algorithm.parameters).toEqual({
+      alt_hypothesis: 'two-sided',
+      groupA: '0',
+      groupB: '1',
+      num_bins: 40,
+    });
+    expect(body.analysis.preprocessing).toEqual(preprocessingSteps({
+      missing_values_handler: {
+        strategies: {
+          age: 'drop',
+          sex: 'drop',
+        },
+      },
+    }));
+  });
+
   it('keeps enum multi-select parameter values as strings even when their schema type is int', () => {
     service.setSelectedDataModel(mockDataModel);
     service.setSelectedDatasets(['ds1']);

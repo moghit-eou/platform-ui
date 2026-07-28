@@ -271,8 +271,46 @@ describe('algorithm mappers', () => {
     expect(config.configSchema.find(field => field.key === 'enabled')?.default).toBeFalse();
   });
 
+  it('maps quartiles and binned Mann-Whitney algorithms to their categories', () => {
+    const quartiles = mapRawAlgorithmToAlgorithmConfig(rawAlgorithm({
+      name: 'quartiles',
+      label: 'Quartiles',
+      parameters: {
+        num_bins: { label: 'Number of bins', desc: '', types: ['int'], required: false, min: 2, max: 100, default: 20 },
+      },
+    }));
+    const mannWhitney = mapRawAlgorithmToAlgorithmConfig(rawAlgorithm({
+      name: 'binned_mann_whitney_u_test',
+      label: 'Binned Mann-Whitney U Test',
+      parameters: {
+        groupA: {
+          label: 'Group A',
+          desc: '',
+          types: ['text', 'int'],
+          required: true,
+          multiple: false,
+          enums: { type: 'input_var_CDE_enums', source: ['x'] },
+        },
+      },
+    }));
+
+    expect(quartiles.category).toBe('Descriptive Statistics');
+    expect(quartiles.configSchema.find(field => field.key === 'num_bins')).toEqual(jasmine.objectContaining({
+      type: 'number',
+      min: 2,
+      max: 100,
+      default: 20,
+    }));
+    expect(mannWhitney.category).toBe('Statistical Tests');
+    expect(mannWhitney.configSchema.find(field => field.key === 'groupA')).toEqual(jasmine.objectContaining({
+      type: 'select',
+      enumType: 'input_var_CDE_enums',
+      enumSource: ['x'],
+    }));
+  });
+
   it('provides output schemas for new Exaflow algorithms', () => {
-    ['lmm', 'glmm_binary', 'glmm_ordinal', 'chi_squared', 'fisher_exact', 'outlier_report'].forEach((name) => {
+    ['lmm', 'glmm_binary', 'glmm_ordinal', 'chi_squared', 'fisher_exact', 'outlier_report', 'quartiles', 'binned_mann_whitney_u_test'].forEach((name) => {
       const schema = getOutputSchema(name);
       expect(schema).toBeTruthy();
       expect(schema?.length).toBeGreaterThan(0);

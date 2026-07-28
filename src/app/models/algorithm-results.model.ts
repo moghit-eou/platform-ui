@@ -78,7 +78,26 @@ export interface NumericalDescriptiveStats {
     q1: number | null;
     q2: number | null;
     q3: number | null;
+    median?: number | null;
     max: number | null;
+}
+
+export interface QuartileResult {
+    q: number;
+    value: number | null;
+    actual_q: number | null;
+}
+
+export interface QuartilesResult {
+    quantiles: QuartileResult[];
+}
+
+export interface BinnedMannWhitneyUTestResult {
+    u_stat: number;
+    p_value: number;
+    z_score: number;
+    n1: number;
+    n2: number;
 }
 
 export interface HistogramResult {

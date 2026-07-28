@@ -13,6 +13,7 @@ import { applyFallbackInputCounts, readInputCount } from './algorithm-input-coun
 const CATEGORY_MAPPING: Record<string, string> = {
   "pearson_correlation": "Correlation",
   "anova_oneway": "Statistical Tests",
+  "binned_mann_whitney_u_test": "Statistical Tests",
   "ttest_independent": "Statistical Tests",
   "ttest_onesample": "Statistical Tests",
   "ttest_paired": "Statistical Tests",
@@ -38,6 +39,7 @@ const CATEGORY_MAPPING: Record<string, string> = {
   "fisher_exact": "Statistical Tests",
   "describe": "Descriptive Statistics",
   "histogram": "Descriptive Statistics",
+  "quartiles": "Descriptive Statistics",
   "outlier_report": "Descriptive Statistics",
   "linear_svm": "Classification",
   "longitudinal_transformer": "Transformers",
@@ -445,6 +447,27 @@ export function getOutputSchema(algorithmName: string): any[] | undefined {
           getColumnsFrom: 'y',
           rowLabelPrefix: 'Cluster'
         }
+      ];
+    case 'quartiles':
+      return [
+        {
+          key: 'quantiles',
+          label: 'Quartiles',
+          type: 'table',
+          columns: [
+            { key: 'q', label: 'Quantile', format: 'float' },
+            { key: 'value', label: 'Value', format: 'float' },
+            { key: 'actual_q', label: 'Actual quantile', format: 'float' },
+          ]
+        }
+      ];
+    case 'binned_mann_whitney_u_test':
+      return [
+        { key: 'u_stat', label: 'U statistic', type: 'number', format: 'float' },
+        { key: 'p_value', label: 'p-value', type: 'number', format: 'pval' },
+        { key: 'z_score', label: 'z-score', type: 'number', format: 'float' },
+        { key: 'n1', label: 'Group A sample size', type: 'number' },
+        { key: 'n2', label: 'Group B sample size', type: 'number' },
       ];
     case 'linear_regression_cv':
       return [
