@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
   schedule:
     - cron: '0 2 * * 1' # weekly scan, every Monday 02:00 UTC
-    
+
 jobs:
   container-scan:
     name: Container Vulnerability Scanning
@@ -28,7 +28,7 @@ jobs:
               semgrep-rules/dockerfile
       OPENGREP_SAST_SARIF_OUTPUT: sast-opengrep-dockerfile.sarif
       HADOLINT_SAST_SARIF_OUTPUT: sast-hadolint-dockerfile.sarif
-    
+
     steps:
       - name: Check out repository
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
@@ -36,6 +36,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 #v6.2.0
         with:
+          # renovate: datasource=python-version depName=python
           python-version: '3.14.4'
 
       - name: Build Docker image
@@ -44,7 +45,7 @@ jobs:
       - name: Setup tools
         run: |
           bash .github/scripts/setup-tools.sh \
-          --install-tool trivy,osv-scanner,opengrep,hadolint,semgrep-rules 
+          --install-tool trivy,osv-scanner,opengrep,hadolint,semgrep-rules
 
       - name: Run SAST scanning
         run: python .github/scripts/container_scan.py --scan-type sast
@@ -98,4 +99,4 @@ jobs:
         with:
           name: container-scan-sarif-report
           path: ${{ env.CONTAINER_SCAN_MERGED_SARIF_OUTPUT }}
-          retention-days: 30      
+          retention-days: 30

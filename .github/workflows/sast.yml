@@ -4,7 +4,7 @@ on:
   pull_request:
   workflow_dispatch:
   schedule:
-    - cron: '0 2 * * 1' # weekly SCA scan, every Monday 02:00 UTC
+    - cron: '0 2 * * 1' # weekly scan, every Monday 02:00 UTC
 
 jobs:
   sast:
@@ -17,7 +17,8 @@ jobs:
       SEMGREP_CONFIG_RULESETS: >-
               semgrep-rules/generic semgrep-rules/problem-based-packs semgrep-rules/bash
               semgrep-rules/javascript
-      OPENGREP_EXCLUDE: "*.sarif .github/scripts Dockerfile* dist/** build/** node_modules/** .angular/**"
+      OPENGREP_EXCLUDE: >-
+              *.sarif .github/scripts Dockerfile* dist/** build/** node_modules/** .angular/**
       OPENGREP_SARIF_OUTPUT: sast-semgrep-app.sarif
 
     steps:
@@ -27,6 +28,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 #v6.2.0
         with:
+          # renovate: datasource=python-version depName=python
           python-version: '3.14.4'
 
       - name: Setup tools
@@ -42,8 +44,9 @@ jobs:
         with:
           sarif_file: ${{ env.OPENGREP_SARIF_OUTPUT }}
           category: semgrep-app
-      
+
       - name: Upload SARIF artifact
+        if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a #v7.0.1
         with:
           name: sast-scan-sarif-report

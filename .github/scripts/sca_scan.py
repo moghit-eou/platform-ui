@@ -23,7 +23,7 @@ TRIVY_IGNOREFILE = os.getenv("TRIVY_IGNOREFILE", ".github/scripts/suppress_trivy
 OSV_IGNOREFILE = os.getenv("OSV_IGNOREFILE", ".github/scripts/suppress_osv_scanner.toml")
 TRIVY_SARIF_OUTPUT = os.getenv("TRIVY_SARIF_OUTPUT", "trivy-app.sarif")
 OSV_SARIF_OUTPUT = os.getenv("OSV_SARIF_OUTPUT", "osv-scanner-app.sarif")
-SCA_MERGED_SARIF_OUTPUT = os.getenv("SCA_MERGED_SARIF_OUTPUT", "merged-SCA-platform-ui-app.sarif")
+SCA_MERGED_SARIF_OUTPUT = os.getenv("SCA_MERGED_SARIF_OUTPUT", "SCA-platform-ui-merged.sarif")
 
 def run_trivy():
     cmd = [
@@ -78,34 +78,34 @@ def main():
     sarif_files = {"trivy": TRIVY_SARIF_OUTPUT, "osv-scanner": OSV_SARIF_OUTPUT}
     tool_status = {}   # "PASSED" | "WARNING" | "FAILED" | "ERROR"
     gate_failed = False
-    
+
     # Run each SCA tool and collect their exit codes
     for name, tool_fn in tools.items():
         exit_code = tool_fn()
         logger.info("-" * 40)
- 
+
         path = sarif_files[name]
         if exit_code != 0 and os.path.exists(path):
             logger.error(f"{RED}[!] {name} exit code {exit_code} but wrote {path}{RESET}")
             tool_status[name] = "ERROR"
             gate_failed = True
- 
+
 
     merge_sarifs()  # combined artifact only, not used for the gate decision
-    
+
     # Evaluate each SARIF file for gate decision
     for name, path in sarif_files.items():
         if name in tool_status:
             continue  # already flagged ERROR above, don't overwrite it
- 
+
         if not os.path.exists(path):
             logger.error(f"{RED}[!] {name} SARIF missing: {path},tool failed to run (not a vulnerability){RESET}")
             tool_status[name] = "ERROR"
             gate_failed = True
             continue
- 
+
         eval_result = evaluate(path)
- 
+
         if eval_result.gate_failed:
             tool_status[name] = "FAILED"          # this tool found CVSS >= 8.0
             gate_failed = True
@@ -113,7 +113,7 @@ def main():
             tool_status[name] = "WARNING"         # this tool found 5.0 <= CVSS < 8.0
         else:
             tool_status[name] = "PASSED"          # this tool found nothing >= 5.0
-    
+
     # Print summary of results
     logger.info(f"\n{BOLD}========== SCA PIPELINE SUMMARY =========={RESET}")
     for name, status in tool_status.items():
@@ -126,11 +126,11 @@ def main():
         else:
             logger.error(f"[{name}]: {RED}FAILED (CVSS >= 8.0 found){RESET}")
     logger.info(f"{BOLD}=========================================={RESET}\n")
-    
+
     # Exit with non-zero code if any tool failed the gate
     if gate_failed:
         logger.error(f"{RED}One or more SCA tools failed the gate check.{RESET}")
         sys.exit(1)
- 
+
 if __name__ == "__main__":
     main()
