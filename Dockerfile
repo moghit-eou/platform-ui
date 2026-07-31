@@ -45,9 +45,8 @@ COPY nginx.conf.template /etc/nginx/templates/default.conf.template
 RUN rm -rf /usr/share/nginx/html/*
 COPY --from=build /app/dist/fl-platform/browser /usr/share/nginx/html
 
-RUN chown -R nginx:nginx /usr/share/nginx/html /etc/nginx/conf.d /var/cache/nginx /var/run \
-    && touch /var/run/nginx.pid \
-    && chown nginx:nginx /var/run/nginx.pid
+RUN chown -R nginx:nginx /usr/share/nginx/html /etc/nginx/conf.d /var/cache/nginx \
+     && install -o nginx -g nginx -m 0644 /dev/null /var/run/nginx.pid
 
 USER nginx
 EXPOSE 80
