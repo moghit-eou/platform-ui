@@ -1,21 +1,5 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["config:recommended"],
-  "enabledManagers": ["custom.regex"],
-  "labels": ["dependencies"],
-  "packageRules": [
-    {
-      "description": "Never update a checksum for an existing version: a re-uploaded release asset must fail CI, not be auto-repinned",
-      "matchDatasources": ["github-release-attachments"],
-      "matchUpdateTypes": ["digest"],
-      "enabled": false
-    },
-    {
-      "description": "Cooldown: only propose releases at least 72h old, so yanked or compromised releases never reach a PR",
-      "matchDatasources": ["github-release-attachments", "npm"],
-      "minimumReleaseAge": "3 days"
-    }
-  ],
   "customManagers": [
     {
       "customType": "regex",
@@ -33,6 +17,37 @@
       "matchStrings": [
         "# renovate: datasource=(?<datasource>[a-z-]+) depName=(?<depName>[^\\s]+)\\n\\s*python-version:\\s*'(?<currentValue>[0-9][0-9.]*)'"
       ]
+    }
+  ],
+  "enabledManagers": [
+    "custom.regex"
+  ],
+  "extends": [
+    "config:recommended"
+  ],
+  "labels": [
+    "dependencies"
+  ],
+  "packageRules": [
+    {
+      "description": "Never update a checksum for an existing version: a re-uploaded release asset must fail CI, not be auto-repinned",
+      "enabled": false,
+      "matchDatasources": [
+        "github-release-attachments"
+      ],
+      "matchUpdateTypes": [
+        "digest"
+      ]
+    },
+    {
+      "description": "Cooldown: only propose releases at least 7 days old, so yanked or compromised releases never reach a PR",
+      "matchDatasources": [
+        "github-release-attachments",
+        "github-tags",
+        "npm",
+        "python-version"
+      ],
+      "minimumReleaseAge": "7 days"
     }
   ]
 }
