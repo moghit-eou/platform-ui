@@ -16,7 +16,8 @@ jobs:
     env:
       SEMGREP_CONFIG_RULESETS: >-
               semgrep-rules/generic semgrep-rules/problem-based-packs semgrep-rules/bash
-              semgrep-rules/javascript
+              semgrep-rules/javascript semgrep-rules/yaml semgrep-rules/package_managers semgrep-rules/generic p/default
+              semgrep-rules/json
       OPENGREP_EXCLUDE: >-
               *.sarif .github/scripts Dockerfile* dist/** build/** node_modules/** .angular/**
       OPENGREP_SARIF_OUTPUT: sast-semgrep-app.sarif
