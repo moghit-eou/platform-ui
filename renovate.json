@@ -40,7 +40,7 @@
       ]
     },
     {
-      "description": "Cooldown: only propose releases at least 7 days old, so yanked or compromised releases never reach a PR",
+      "description": "Cooldown:only propose releases at least 7 days old, so yanked or compromised releases never reach a PR",
       "matchDatasources": [
         "github-release-attachments",
         "github-tags",
