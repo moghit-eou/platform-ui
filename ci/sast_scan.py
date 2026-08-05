@@ -22,7 +22,7 @@ SEMGREP_CONFIG_RULESETS = os.getenv(
 ).split()
 OPENGREP_EXCLUDE = os.getenv(
     "OPENGREP_EXCLUDE",
-    ".github/scripts *.sarif Dockerfile* dist/** build/** node_modules/** .angular/**"
+    "ci/ *.sarif Dockerfile* dist/** build/** node_modules/** .angular/**"
 ).split()
 OPENGREP_SARIF_OUTPUT = os.getenv("OPENGREP_SARIF_OUTPUT", "sast-opengrep-app.sarif")
 
