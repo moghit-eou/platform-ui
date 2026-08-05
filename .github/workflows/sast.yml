@@ -19,7 +19,7 @@ jobs:
               semgrep-rules/javascript semgrep-rules/yaml semgrep-rules/package_managers p/default
               semgrep-rules/json
       OPENGREP_EXCLUDE: >-
-              *.sarif .github/scripts Dockerfile* dist/** build/** node_modules/** .angular/**
+              *.sarif ci/ Dockerfile* dist/** build/** node_modules/** .angular/**
       OPENGREP_SARIF_OUTPUT: sast-semgrep-app.sarif
 
     steps:
@@ -33,10 +33,10 @@ jobs:
           python-version: '3.14.4'
 
       - name: Setup tools
-        run: bash .github/scripts/setup-tools.sh --install-tool opengrep,semgrep-rules
+        run: bash ci/setup-tools.sh --install-tool opengrep,semgrep-rules
 
       - name: Run SAST scanning
-        run: python .github/scripts/sast_scan.py
+        run: python ci/sast_scan.py
 
       - name: Upload Semgrep SARIF to GitHub Security tab
         id: upload_semgrep
