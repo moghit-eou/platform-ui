@@ -19,8 +19,8 @@ logger = logging.getLogger("sca-orchestrator")
 
 # Configurable values
 SBOM_PATH = os.getenv("SBOM_PATH", "target/bom.json")
-TRIVY_IGNOREFILE = os.getenv("TRIVY_IGNOREFILE", ".github/scripts/suppress_trivy.yaml")
-OSV_IGNOREFILE = os.getenv("OSV_IGNOREFILE", ".github/scripts/suppress_osv_scanner.toml")
+TRIVY_IGNOREFILE = os.getenv("TRIVY_IGNOREFILE", "ci/suppress_trivy.yaml")
+OSV_IGNOREFILE = os.getenv("OSV_IGNOREFILE", "ci/suppress_osv_scanner.toml")
 TRIVY_SARIF_OUTPUT = os.getenv("TRIVY_SARIF_OUTPUT", "trivy-app.sarif")
 OSV_SARIF_OUTPUT = os.getenv("OSV_SARIF_OUTPUT", "osv-scanner-app.sarif")
 SCA_MERGED_SARIF_OUTPUT = os.getenv("SCA_MERGED_SARIF_OUTPUT", "SCA-platform-ui-merged.sarif")
