@@ -1,0 +1,6 @@
+# No allowlist needed currently.
+# Add an [allowlist] section here if false positives need excluding later:
+# [allowlist]
+# paths = [
+#   '''test/fixtures/.*''',
+# ]
