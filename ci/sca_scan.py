@@ -3,7 +3,7 @@ import os
 import sys
 import logging
 import json
-from parse_sarif import evaluate
+from parse_sarif import evaluate, GATE_FAIL_THRESHOLD, GATE_WARN_THRESHOLD
 
 GREEN = '\033[92m'
 RED = '\033[91m'
@@ -27,14 +27,12 @@ SCA_MERGED_SARIF_OUTPUT = os.getenv("SCA_MERGED_SARIF_OUTPUT", "SCA-platform-ui-
 
 def run_trivy():
     cmd = [
-        "trivy", "sbom",
-        SBOM_PATH,
+        "trivy", "sbom", SBOM_PATH,
         "--format", "sarif",
         "--ignorefile", TRIVY_IGNOREFILE,
         "--output", TRIVY_SARIF_OUTPUT
     ]
     return subprocess.run(cmd).returncode
-
 
 def run_osv_scanner():
     cmd = [
@@ -48,7 +46,6 @@ def run_osv_scanner():
     if exit_code == 1:
         return 0  # OSV Scanner returns 1 if vulnerabilities are found, but we want to continue the pipeline
     return exit_code
-
 
 def merge_sarifs():
     merged = {
@@ -70,8 +67,6 @@ def merge_sarifs():
 
     logger.info("SARIF files merged successfully.")
 
-
-
 def main():
 
     tools = {"trivy": run_trivy, "osv-scanner": run_osv_scanner}
@@ -89,7 +84,6 @@ def main():
             logger.error(f"{RED}[!] {name} exit code {exit_code} but wrote {path}{RESET}")
             tool_status[name] = "ERROR"
             gate_failed = True
-
 
     merge_sarifs()  # combined artifact only, not used for the gate decision
 
@@ -120,12 +114,11 @@ def main():
         if status == "PASSED":
             logger.info(f"[{name}]: {GREEN}PASSED{RESET}")
         elif status == "WARNING":
-            logger.warning(f"[{name}]: {YELLOW}WARNING (findings between 5.0 and 8.0){RESET}")
+            logger.warning(f"[{name}]: {YELLOW}WARNING (findings between {GATE_WARN_THRESHOLD} and {GATE_FAIL_THRESHOLD}){RESET}")
         elif status == "ERROR":
             logger.error(f"[{name}]: {RED}ERROR (tool did not run correctly){RESET}")
         else:
-            logger.error(f"[{name}]: {RED}FAILED (CVSS >= 8.0 found){RESET}")
-    logger.info(f"{BOLD}=========================================={RESET}\n")
+            logger.error(f"[{name}]: {RED}FAILED (CVSS >= {GATE_FAIL_THRESHOLD} found){RESET}")
 
     # Exit with non-zero code if any tool failed the gate
     if gate_failed:
