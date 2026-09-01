@@ -54,7 +54,7 @@
   "overrides": {
     "@babel/core": "7.29.7",
     "@hono/node-server": "2.0.12",
-    "dompurify": "3.4.12",
+    "dompurify": "3.4.13",
     "esbuild": "0.28.1",
     "express@4.22.2": {
       "body-parser": "1.20.6"
@@ -77,7 +77,7 @@
       "tar": "7.5.22"
     },
     "piscina": "5.2.0",
-    "postcss": "8.5.18",
+    "postcss": "8.5.23",
     "shell-quote": "1.9.0",
     "tmp": "0.2.7",
     "undici": "7.29.0",

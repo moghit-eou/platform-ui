@@ -4,7 +4,9 @@
     {
       "customType": "regex",
       "description": "Bump tool versions and their pinned release-asset SHA256 in CI setup scripts",
-      "managerFilePatterns": ["/(^|/)setup-tools\\.sh$/"],
+      "managerFilePatterns": [
+        "/(^|/)setup-tools\\.sh$/"
+      ],
       "matchStrings": [
         "# renovate: datasource=(?<datasource>[a-z-]+) depName=(?<depName>[^\\s]+)\\n[A-Z_]+_VERSION=\"\\$\\{[A-Z_]+_VERSION:-(?<currentValue>v[0-9][0-9.]*)\\}\"\\n[A-Z_]+_SHA256=\"\\$\\{[A-Z_]+_SHA256:-(?<currentDigest>[a-f0-9]{64})\\}\"",
         "# renovate: datasource=(?<datasource>npm) depName=(?<depName>[^\\s]+)\\n[A-Z_]+_VERSION=\"\\$\\{[A-Z_]+_VERSION:-(?<currentValue>[0-9][0-9.]*)\\}\""
@@ -13,14 +15,28 @@
     {
       "customType": "regex",
       "description": "Bump python-version pinned in workflow files",
-      "managerFilePatterns": ["/^\\.github/workflows/.+\\.ya?ml$/"],
+      "managerFilePatterns": [
+        "/^\\.github/workflows/.+\\.ya?ml$/"
+      ],
       "matchStrings": [
         "# renovate: datasource=(?<datasource>[a-z-]+) depName=(?<depName>[^\\s]+)\\n\\s*python-version:\\s*'(?<currentValue>[0-9][0-9.]*)'"
+      ]
+    },
+    {
+      "currentValueTemplate": "develop",
+      "customType": "regex",
+      "description": "Track a git branch head pinned as a commit SHA in CI setup scripts",
+      "managerFilePatterns": [
+        "/(^|/)setup-tools\\.sh$/"
+      ],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>git-refs) depName=(?<depName>[^\\s]+)\\n[A-Z_]+_REF=\"\\$\\{[A-Z_]+_REF:-(?<currentDigest>[a-f0-9]{40})\\}\""
       ]
     }
   ],
   "enabledManagers": [
-    "custom.regex"
+    "custom.regex",
+    "pre-commit"
   ],
   "extends": [
     "config:recommended"
@@ -44,8 +60,10 @@
       "matchDatasources": [
         "github-release-attachments",
         "github-tags",
+        "github-releases",
         "npm",
-        "python-version"
+        "python-version",
+        "git-refs"
       ],
       "minimumReleaseAge": "7 days"
     }
