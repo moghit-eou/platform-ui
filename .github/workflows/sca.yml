@@ -48,26 +48,12 @@ jobs:
       - name: Run SCA tools
         run: python ci/sca_scan.py
 
-      - name: Upload merged Trivy SARIF to GitHub Security tab
-        if: ${{ !cancelled() && hashFiles(env.TRIVY_SARIF_OUTPUT) != '' }}
-        uses: github/codeql-action/upload-sarif@4e94bd11f71e507f7f87df81788dff88d1dacbfb # v4.31.2
-        with:
-          sarif_file: ${{ env.TRIVY_SARIF_OUTPUT }}
-          category: sca-app-trivy
-
-      - name: Upload merged OSV SARIF to GitHub Security tab
-        if: ${{ !cancelled() && hashFiles(env.OSV_SARIF_OUTPUT) != '' }}
-        uses: github/codeql-action/upload-sarif@4e94bd11f71e507f7f87df81788dff88d1dacbfb # v4.31.2
-        with:
-          sarif_file: ${{ env.OSV_SARIF_OUTPUT }}
-          category: osv-scanner-app
-
       - name: Upload merged SARIF to GitHub Security tab
         if: ${{ !cancelled() && hashFiles(env.SCA_MERGED_SARIF_OUTPUT) != '' }}
         uses: github/codeql-action/upload-sarif@4e94bd11f71e507f7f87df81788dff88d1dacbfb # v4.31.2
         with:
           sarif_file: ${{ env.SCA_MERGED_SARIF_OUTPUT }}
-          category: sca-app-merged
+          category: sca-app
 
       - name: Encrypt SARIF report
         id: encrypt

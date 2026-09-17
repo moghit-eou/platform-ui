@@ -1,6 +1,7 @@
 name: Static Application Security Testing (SAST)
 
 on:
+  pull_request:
   workflow_dispatch:
   schedule:
     - cron: '0 2 * * 1' # weekly scan, every Monday 02:00 UTC
@@ -36,7 +37,6 @@ jobs:
 
       - name: Run SAST scanning
         run: python ci/sast_scan.py
-
 
       - name: Upload SARIF to GitHub Security tab
         if: ${{ !cancelled() && hashFiles(env.OPENGREP_SARIF_OUTPUT) != '' }}
