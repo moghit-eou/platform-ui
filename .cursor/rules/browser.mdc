@@ -1,0 +1,12 @@
+---
+description: Use Cursor IDE browser MCP for UI checks; never Playwright unless asked
+alwaysApply: true
+---
+
+# Browser for UI verification
+
+Use the Cursor IDE browser MCP only (`browser_navigate`, `browser_lock`, `browser_snapshot`, `browser_take_screenshot`, `browser_click`).
+
+Do not use Playwright, playwright-cli, `npx playwright`, Puppeteer, or a headed Chromium from the shell unless the user explicitly asks.
+
+If the MCP browser is missing, stop and say so. Do not install or run Playwright as a substitute.

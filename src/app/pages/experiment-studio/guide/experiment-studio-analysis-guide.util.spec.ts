@@ -11,5 +11,6 @@ describe('experiment-studio-analysis-guide.util', () => {
     });
     expect(getAnalysisGuideLayout('analysis-preprocessing')?.preprocessingStep).toBe('missing');
     expect(getAnalysisGuideLayout('analysis-processed-summary')?.expandSection).toBe('processed');
+    expect(getAnalysisGuideLayout('analysis-transformation')?.expandSection).toBe('transformation');
   });
 });

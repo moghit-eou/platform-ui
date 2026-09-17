@@ -23,13 +23,7 @@
       <div class="meta-header">
         <span class="meta-pill">Experiment</span>
 
-        <span
-          class="status-chip"
-          [class.completed]="selectedExperiment()?.status === 'success'"
-          [class.error]="selectedExperiment()?.status === 'error'"
-        >
-          {{ selectedExperiment()?.status }}
-        </span>
+        <app-experiment-status [status]="selectedExperiment()?.status || 'unknown'" />
       </div>
 
       <div class="experiment-title-row">

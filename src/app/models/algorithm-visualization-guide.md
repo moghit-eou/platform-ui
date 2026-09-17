@@ -25,8 +25,6 @@ This document describes what the frontend currently renders for each algorithm a
 - Tables:
   - Two-way ANOVA table (term, sum sq, df, F, p-value).
 
-Notes:
-- Legacy `anova` payload names are normalized to `anova_twoway` in mapping logic.
 
 ### T-Tests (`ttest_independent`, `ttest_paired`, `ttest_onesample`)
 
@@ -77,7 +75,7 @@ Notes:
   - Coefficients table.
   - Model summary table.
 
-### Logistic Regression CV (`logistic_regression_cv`, `logistic_regression_cv_fedaverage`)
+### Logistic Regression CV (`logistic_regression_cv`)
 
 - Charts:
   - Confusion matrix heatmap.

@@ -1,0 +1,788 @@
+/* Centre-pane canvas for one analysis set. The member rows carry the same recipe as the
+   experiment rows they came from (surface, radius, status pill, meta line) so the two lists
+   read as one product; only the header is new. */
+.folder-canvas {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 4px 4px 8px;
+}
+
+/* DnD: the canvas is the drop target for a run dragged out of the list. The ring is an outline
+   on the member stack rather than a box around the canvas — the centre pane scrolls, so a ring
+   drawn past the canvas edge would clip or summon scrollbars mid-drag. */
+.folder-canvas--receiving {
+  background: rgba(43, 51, 233, 0.03);
+}
+
+/* THE SIGNATURE, spent here rather than on a chip: the header wears a card with one slab
+   stacked behind it, because an analysis set is a stack of runs. At 28px a layered edge is
+   noise; at card height it is the one thing a user will remember about this view. */
+.folder-canvas-header {
+  position: relative;
+  z-index: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 16px 18px;
+  background: var(--studio-card-header-bg);
+  border: 1px solid var(--studio-card-header-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--studio-card-shadow);
+}
+
+.folder-canvas-header::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  left: 18px;
+  right: 18px;
+  bottom: -7px;
+  height: 8px;
+  background: color-mix(in srgb, var(--primary-color) 8%, var(--card-bg));
+  border: 1px solid var(--studio-card-header-border);
+  border-top: none;
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+
+.folder-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+}
+
+.folder-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  padding: 4px 10px 4px 6px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.folder-back-btn i {
+  font-size: 0.7rem;
+}
+
+.folder-back-btn:hover {
+  color: var(--primary-color);
+  border-color: var(--primary-color);
+  background: rgba(148, 163, 184, 0.1);
+}
+
+.folder-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.folder-title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--text-main);
+  letter-spacing: -0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The canvas' second gesture: the set's composition, not only its size. */
+.folder-summary {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.6;
+  color: #64748b;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Count badge: the compare button's recipe, so a count looks the same everywhere. */
+.count-badge {
+  background: var(--primary-color);
+  color: white;
+  font-size: 0.6rem;
+  font-weight: 800;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 4px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.folder-rename-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.folder-rename-input {
+  flex: 1;
+  min-width: 180px;
+  max-width: 360px;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  background: var(--card-bg);
+  color: var(--text-main);
+  font: inherit;
+  font-size: 0.9rem;
+  outline: none;
+}
+
+.folder-rename-input:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 1px rgba(43, 51, 233, 0.3);
+}
+
+.folder-form-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.5);
+  background: white;
+  color: #475569;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.folder-form-action i {
+  font-size: 0.85rem;
+}
+
+.folder-form-action:hover {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+/* The header's Delete is an entry point, not the commit: it reddens on hover the way the
+   row-level delete icon does, and only the confirm button itself wears the red edge. */
+.folder-form-action.delete:hover {
+  border-color: #b91c1c;
+  color: #991b1b;
+}
+
+.folder-form-action.cancel:hover {
+  border-color: rgba(148, 163, 184, 0.8);
+  color: var(--text-muted);
+}
+
+.folder-form-action.danger {
+  border-color: var(--danger);
+  color: #991b1b;
+}
+
+.folder-form-action.danger:hover {
+  background: #fee2e2;
+  border-color: #b91c1c;
+  color: #991b1b;
+}
+
+.folder-form-error {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #991b1b;
+}
+
+/* A drop reports itself once, then gets out of the way: the count badge alone cannot tell
+   "added" apart from "that one was already here". */
+.folder-drop-notice {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  margin: 0;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #047857;
+  background: #ecfdf5;
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.folder-drop-notice i {
+  font-size: 0.7rem;
+}
+
+.folder-drop-notice--duplicate {
+  color: var(--text-muted);
+  background: var(--bg-neutral);
+  border-color: var(--border-color);
+}
+
+.folder-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.folder-compare-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #ffffff;
+  background: var(--primary-color);
+  border: 1px solid var(--primary-dark);
+  box-shadow: 0 4px 10px rgba(43, 51, 233, 0.1);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.folder-compare-btn:hover:not(:disabled) {
+  background: var(--primary-dark);
+  box-shadow: var(--shadow-md);
+}
+
+.folder-compare-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.folder-delete-confirm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+/* MEMBER ROWS */
+.folder-members {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.folder-canvas--receiving .folder-members {
+  outline: 2px dashed var(--primary-color);
+  outline-offset: 2px;
+}
+
+.member-row {
+  position: relative;
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  cursor: pointer;
+  text-align: left;
+  box-shadow: var(--glass-shadow);
+  transition: all 0.2s ease;
+}
+
+.member-row:hover {
+  border-color: var(--primary-light);
+  box-shadow: var(--shadow-md);
+}
+
+.member-row--gone {
+  cursor: default;
+  background: var(--bg-neutral);
+  border-style: dashed;
+}
+
+.member-row--gone:hover {
+  border-color: var(--border-color);
+  box-shadow: var(--glass-shadow);
+}
+
+/* The row a drop just added lands with one breath of primary, so the pointer's aim is confirmed
+   where the member actually appeared and not only in the header. */
+.member-row--landed {
+  animation: memberRowLanded 900ms ease-out;
+}
+
+@keyframes memberRowLanded {
+  from {
+    background: #f1f5ff;
+    border-color: var(--primary-color);
+    transform: scale(0.99);
+  }
+
+  to {
+    background: var(--glass-bg);
+    border-color: var(--glass-border);
+    transform: none;
+  }
+}
+
+/* The canvas' first gesture: the set has an order the paginated list does not, so members
+   are numbered in the mono slot the dashboard already uses for figures and ids. */
+.member-index {
+  flex-shrink: 0;
+  min-width: 20px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.row-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.row-title-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.member-name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-main);
+  letter-spacing: 0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.member-name--gone {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.row-meta-line {
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 0.78rem;
+  color: #64748b;
+  min-width: 0;
+}
+
+.meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.meta-item i {
+  font-size: 0.8rem;
+}
+
+.algo-item {
+  opacity: 0.85;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.member-skeleton {
+  display: block;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #eef2f7 25%, #e2e8f0 37%, #eef2f7 63%);
+  background-size: 400% 100%;
+  animation: memberSkeletonShimmer 1.4s ease-in-out infinite;
+}
+
+.member-skeleton--title {
+  height: 14px;
+  width: 45%;
+}
+
+.member-skeleton--meta {
+  height: 10px;
+  width: 30%;
+}
+
+@keyframes memberSkeletonShimmer {
+  from {
+    background-position: 100% 50%;
+  }
+
+  to {
+    background-position: 0 50%;
+  }
+}
+
+/* Same icon button as the experiment rows, so an action weighs the same in both panes. */
+.icon-btn {
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.icon-btn:hover {
+  background: #f1f5f9;
+  color: var(--primary-color);
+  border-color: var(--primary-color);
+}
+
+/* The open trigger stays lit while its menu is, the way the list row's does. */
+.icon-btn.active {
+  background: #f1f5ff;
+  color: var(--primary-color);
+  border-color: var(--primary-color);
+}
+
+.icon-btn.danger:hover {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.row-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+/* SET HEADINGS */
+/* The canvas partitions its members the way the compare workspace will section them, so it reads
+   as one order wearing headings — not a card around a card. The heading is a hairline over a
+   small caps label plus the one count recipe; the rows below keep their own surfaces untouched. */
+.folder-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.member-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.member-group-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.member-group-toggle {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.member-group-toggle:hover {
+  background: #f1f5f9;
+  color: var(--primary-color);
+  border-color: var(--primary-color);
+}
+
+.member-group-name {
+  min-width: 0;
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-main);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Folded away, the heading is the only thing left, so it goes quiet rather than bold. */
+.member-group--collapsed .member-group-name {
+  color: var(--text-muted);
+}
+
+.member-group-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.member-group-confirm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.member-group-rename {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.member-group-rename-input {
+  flex: 1;
+  min-width: 140px;
+  max-width: 280px;
+  padding: 5px 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  background: var(--card-bg);
+  color: var(--text-main);
+  font: inherit;
+  font-size: 0.8rem;
+  outline: none;
+}
+
+.member-group-rename-input:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 1px rgba(43, 51, 233, 0.3);
+}
+
+/* An empty set is a name the user made on purpose, so it keeps its heading and says why it is bare. */
+.member-group-empty {
+  margin: 0;
+  padding-left: 32px;
+  font-size: 0.78rem;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
+/* MOVE-TO-SET MENU */
+/* House menu surface, hung off the row for the same reason the list row's is: the centre pane
+   clips horizontally, and a menu anchored to a trigger at the row's right edge loses its left
+   edge — and its check column — to that clip. */
+.set-menu-anchor {
+  display: inline-flex;
+}
+
+.set-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 12px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  min-width: min(230px, calc(100% - 24px));
+  max-width: calc(100% - 24px);
+  padding: 6px 0;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  color: var(--text-main);
+}
+
+.set-menu__hint {
+  margin: 0;
+  padding: 8px 12px;
+  font-size: 0.75rem;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
+.set-menu__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  font: inherit;
+  font-size: 0.8rem;
+  color: var(--text-main);
+  text-align: left;
+  cursor: pointer;
+}
+
+.set-menu__item:hover {
+  background: #f1f5ff;
+}
+
+.set-menu__check {
+  width: 14px;
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  color: var(--primary-color);
+}
+
+.set-menu__check--off {
+  color: transparent;
+}
+
+.set-menu__name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.set-menu__item--unset {
+  color: var(--text-muted);
+}
+
+.set-menu__item--new {
+  border-top: 1px solid var(--border-color);
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.set-menu__form {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--border-color);
+}
+
+.set-menu__input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+  background: var(--card-bg);
+  color: var(--text-main);
+  font: inherit;
+  font-size: 0.78rem;
+  outline: none;
+}
+
+.set-menu__input:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 1px rgba(43, 51, 233, 0.3);
+}
+
+.set-menu__form-action {
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.5);
+  background: white;
+  color: #475569;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.set-menu__form-action:hover {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+.set-menu__error {
+  margin: 0;
+  padding: 0 12px 4px;
+  font-size: 0.72rem;
+  color: #991b1b;
+}
+
+/* EMPTY STATE */
+.folder-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 48px 24px;
+  text-align: center;
+  border: 1px dashed var(--border-color);
+  border-radius: 20px;
+}
+
+.folder-empty-icon {
+  font-size: 40px;
+  color: var(--primary-color);
+  opacity: 0.7;
+}
+
+/* The empty state already wears a dashed ring, so receiving only tightens it to primary. */
+.folder-empty--receiving {
+  border-color: var(--primary-color);
+  background: rgba(43, 51, 233, 0.03);
+}
+
+.folder-empty--receiving .folder-empty-icon {
+  opacity: 1;
+}
+
+.folder-empty h3 {
+  margin: 8px 0 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.folder-empty p {
+  margin: 0;
+  max-width: 340px;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
+@media (max-width: 1100px) {
+  .member-row {
+    padding: 10px 12px;
+  }
+
+  .member-group-confirm {
+    font-size: 0.7rem;
+  }
+
+  .folder-canvas-header {
+    gap: 12px;
+  }
+}

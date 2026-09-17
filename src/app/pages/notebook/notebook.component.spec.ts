@@ -103,11 +103,11 @@ describe('NotebookComponent', () => {
 
   it('marks the notebook nav as visited on init', async () => {
     const notebookNav = TestBed.inject(NotebookNavService);
-    expect(notebookNav.hasVisitedNotebook()).toBeFalse();
+    expect(notebookNav.hasVisited()).toBeFalse();
 
     await settleComponent(fixture);
 
-    expect(notebookNav.hasVisitedNotebook()).toBeTrue();
+    expect(notebookNav.hasVisited()).toBeTrue();
   });
 
   it('embeds JupyterLab when the Hub session is available', async () => {

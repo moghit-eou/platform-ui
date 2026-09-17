@@ -1,0 +1,13 @@
+---
+description: MIP UI must match DESIGN.md tokens and existing studio chrome
+globs: "**/*.{css,html,scss},**/experiment-studio/**"
+alwaysApply: false
+---
+
+# MIP UI
+
+Read [DESIGN.md](DESIGN.md) before changing visuals. Reuse existing CSS variables and Angular Material chrome. Do not invent palettes, display type, or animation libraries.
+
+Conflict rule: live tokens in `src/styles.css` `:root` win for app chrome; charter rules in DESIGN.md still win for logo geometry and logo colorways.
+
+After any visual change, follow the `ui-review` skill: render the affected page, compare to an unchanged sibling panel, fix mismatches, do not restyle the whole app. Cursor: IDE browser MCP. Pi: `.pi/skills/ui-review` (CDP + `read` PNG). Do not use Playwright unless explicitly asked.

@@ -5,7 +5,7 @@ import {
 
 export { EXPERIMENT_STUDIO_GUIDE_LABELS };
 
-export type ExperimentsDashboardGuidePlacement = 'top' | 'right' | 'bottom' | 'left' | 'center';
+type ExperimentsDashboardGuidePlacement = 'top' | 'right' | 'bottom' | 'left' | 'center';
 
 export interface ExperimentsDashboardGuideStep {
   id: string;
@@ -18,22 +18,27 @@ export interface ExperimentsDashboardGuideStep {
   advanceOnTargetClick?: boolean;
   requirementHint?: string;
   maskBackground?: string;
+  /** When true, skipped only if selector is missing/zero-size. Never put Complete behind optional steps. */
   optional?: boolean;
 }
 
+/**
+ * Order matters: open → workbench → actions → results, then optional compare,
+ * then Guide Complete LAST. compare-workspace must not outrank Complete.
+ */
 export const EXPERIMENTS_DASHBOARD_GUIDE_STEPS: ExperimentsDashboardGuideStep[] = [
   {
     id: 'dashboard-overview',
     section: 'Explore',
-    title: 'Experiments Dashboard',
-    body: 'The dashboard is your entry point for saved work. From here you can create a new experiment, reopen an existing one, see experiments shared with you, or compare multiple runs.',
+    title: 'My experiments',
+    body: 'This is your experiments home (<strong>My experiments</strong> in the header). From here you can create a new experiment, reopen an existing one, see experiments shared with you, or compare multiple runs. Open Studio anytime from the header <strong>Studio</strong> link.',
     maskBackground: 'transparent',
   },
   {
     id: 'workspace',
     section: 'Explore',
-    title: 'Experiment List',
-    body: 'The left pane contains your experiment history. Select a run to inspect it in the workbench, or use New when you want to start an experiment from scratch.',
+    title: 'Experiment list',
+    body: 'The left pane is your experiment history. Select a run to inspect it in the workbench on the right, or use <strong>New</strong> to start from scratch in Studio.',
     selector: '[data-guide="dashboard-workspace"]',
     placement: 'right',
   },
@@ -50,25 +55,16 @@ export const EXPERIMENTS_DASHBOARD_GUIDE_STEPS: ExperimentsDashboardGuideStep[] 
     id: 'tabs',
     section: 'Explore',
     title: 'My Experiments and Shared',
-    body: 'Switch between experiments you own and experiments shared with you.',
+    body: 'Switch between experiments you own and experiments shared with you. Shared stays empty until someone shares a run with you.',
     selector: '[data-guide="dashboard-tabs"]',
-    placement: 'bottom',
-    allowTargetInteraction: true,
-  },
-  {
-    id: 'compare',
-    section: 'Explore',
-    title: 'Compare Mode',
-    body: 'Turn on compare mode to select multiple experiments from the list and inspect them side by side.',
-    selector: '[data-guide="dashboard-compare"]',
     placement: 'bottom',
     allowTargetInteraction: true,
   },
   {
     id: 'new-experiment',
     section: 'Experiment',
-    title: 'New Experiment',
-    body: 'Open Experiment Studio to create a new experiment from scratch.',
+    title: 'New experiment',
+    body: 'Use <strong>New</strong> to open Experiment Studio and create an experiment from scratch. You can also jump there with the header <strong>Studio</strong> link.',
     selector: '[data-guide="dashboard-new"]',
     placement: 'bottom',
   },
@@ -88,7 +84,7 @@ export const EXPERIMENTS_DASHBOARD_GUIDE_STEPS: ExperimentsDashboardGuideStep[] 
     id: 'workbench',
     section: 'Explore',
     title: 'Experiment Workbench',
-    body: 'After you select an experiment, this workbench shows its details, configuration, stored results, and comparison views.',
+    body: 'After you select an experiment, this workbench shows its details, configuration, and stored results.',
     selector: '[data-guide="dashboard-detail-card"]',
     placement: 'left',
     allowTargetInteraction: true,
@@ -98,7 +94,7 @@ export const EXPERIMENTS_DASHBOARD_GUIDE_STEPS: ExperimentsDashboardGuideStep[] 
     id: 'actions',
     section: 'Results',
     title: 'Experiment Actions',
-    body: 'Use these actions to edit the experiment in Studio, export as PDF, copy the link, share, or delete it.',
+    body: 'From here you can open the run in Studio or use the toolbar actions on this experiment (export, copy link, share, or delete when available).',
     selector: '[data-guide="dashboard-detail-actions"]',
     placement: 'left',
     optional: true,
@@ -114,20 +110,28 @@ export const EXPERIMENTS_DASHBOARD_GUIDE_STEPS: ExperimentsDashboardGuideStep[] 
     optional: true,
   },
   {
-    id: 'dashboard-guide-complete',
-    section: 'Results',
-    title: 'Guide Complete',
-    body: 'You successfully completed the dashboard guide.',
-    optional: true,
+    id: 'compare',
+    section: 'Explore',
+    title: 'Compare Mode',
+    body: 'Optional: turn on <strong>Compare</strong> to pick two or more runs and inspect them side by side. You can skip this and finish the guide.',
+    selector: '[data-guide="dashboard-compare"]',
+    placement: 'bottom',
+    allowTargetInteraction: true,
   },
   {
     id: 'compare-workspace',
     section: 'Results',
     title: 'Comparison Workspace',
-    body: 'When compare mode is active, this area shows multiple selected experiments side by side. Pick at least two runs from the list to use it.',
+    body: 'With compare on, select a <strong>second</strong> run from the list (at least two). Or press <strong>Skip</strong> to finish without comparing.',
     selector: '[data-guide="dashboard-compare-workspace"]',
     placement: 'left',
     allowTargetInteraction: true,
     optional: true,
+  },
+  {
+    id: 'dashboard-guide-complete',
+    section: 'Results',
+    title: 'Guide Complete',
+    body: 'You successfully completed the dashboard guide.',
   },
 ];

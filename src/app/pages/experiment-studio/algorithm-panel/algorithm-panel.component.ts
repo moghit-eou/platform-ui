@@ -1,25 +1,23 @@
 import { SessionStorageService } from './../../../services/session-storage.service';
-import { ChangeDetectionStrategy, Component, inject, signal, computed, effect, untracked } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, signal, computed, effect, untracked, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ExperimentStudioService } from '../../../services/experiment-studio.service';
-import { FormBuilder, FormControl, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormControl, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { buildFormControl } from '../../shared/utils/form-control.factory';
-import { AlgorithmResultComponent } from './algorithm-result/algorithm-result.component';
-import { getOutputSchema } from '../../../core/algorithm-mappers';
-import { formatInputCountRange, resolveInputMaxCount, resolveInputMinCount } from '../../../core/algorithm-input-counts';
+import { getOutputSchema, prettifyLabel as toHumanLabel } from '../../../core/algorithm-mappers';
+import { formatInputCountRange } from '../../../core/algorithm-input-counts';
 import {
   omitEmptyOptionalParameters,
   optionBindingValue,
   serializeAlgorithmParameterValue,
 } from '../../../core/algorithm-parameter.utils';
-import { AlgorithmAvailabilityDetail, AlgorithmAvailabilityRole, AlgorithmConfig } from '../../../models/algorithm-definition.model';
+import { AlgorithmAvailabilityDetail, AlgorithmConfig } from '../../../models/algorithm-definition.model';
 import { ResultsPdfExportService } from '../../../services/export-results-pdf.service';
 import { ErrorService } from '../../../services/error.service';
 import { AuthService } from '../../../services/auth.service';
 import { AlgorithmNames, VariableTypes } from '../../../core/constants/algorithm.constants';
 import { RuntimeEnvService } from '../../../services/runtime-env.service';
 import { ExperimentStudioNavigationService } from '../../../services/experiment-studio-navigation.service';
-import { RouterLink } from '@angular/router';
 import {
   createDefaultOutlierRule,
   defaultFoldForStrategy,
@@ -33,6 +31,9 @@ import {
   serializeOutlierRules,
   validateOutlierRule,
 } from '../../../core/outlier-rules';
+import { AlgorithmRoleAssignmentComponent } from './algorithm-role-assignment/algorithm-role-assignment.component';
+
+type AlgorithmStudioSubstep = 'setup' | 'parameters';
 
 type AlgorithmRunRequirementKind = 'availability' | 'preprocessing';
 
@@ -48,8 +49,7 @@ interface AlgorithmRunRequirement {
     CommonModule,
     FormsModule,
     ReactiveFormsModule,
-    AlgorithmResultComponent,
-    RouterLink
+    AlgorithmRoleAssignmentComponent,
   ],
   templateUrl: './algorithm-panel.component.html',
   styleUrl: './algorithm-panel.component.css',
@@ -62,20 +62,21 @@ export class AlgorithmPanelComponent {
   private authService = inject(AuthService);
   private runtimeEnvService = inject(RuntimeEnvService);
   private studioNavigation = inject(ExperimentStudioNavigationService);
-  Object = Object;
   experimentStudioService = inject(ExperimentStudioService);
   sessionStorage = inject(SessionStorageService);
-  formBuilder = inject(FormBuilder);
-  result = signal<any | null>(null);
   lastUsedAlgorithm = '';
   errorMsg = signal<string | null>(null);
   readonly isRunning = this.experimentStudioService.isRunning;
 
-  lastExperimentUUID = this.experimentStudioService.currentExperimentUUID;
-  saveAsMode = signal(false);
-  saveAsName = signal('');
-  loadingText = signal('Processing experiment...');
-  showSuccessNotification = signal(false);
+  /** Studio: setup (roles + methods), then parameters (configure + run). Results live in the Execution step. */
+  readonly studioSubstep = signal<AlgorithmStudioSubstep>('setup');
+  readonly studioSubstepChange = output<AlgorithmStudioSubstep>();
+
+  setStudioSubstep(step: AlgorithmStudioSubstep): void {
+    this.studioSubstep.set(step);
+    this.studioSubstepChange.emit(step);
+  }
+
   readonly mipVersion = this.runtimeEnvService.mipVersion;
 
   readonly selectedAlgorithm = this.experimentStudioService.selectedAlgorithm;
@@ -116,9 +117,9 @@ export class AlgorithmPanelComponent {
 
     return requirements;
   });
-  readonly enumMaps = computed(() => this.experimentStudioService.getCategoricalEnumMaps());
-  readonly yVar = computed(() => this.experimentStudioService.selectedVariables()[0]?.code ?? null);
-  readonly xVar = computed(() => this.experimentStudioService.selectedCovariates()[0]?.code ?? null);
+  readonly selectedAlgorithmCategory = computed(() => this.selectedAlgorithm()?.category?.trim() ?? '');
+  readonly yVar = computed(() => this.experimentStudioService.algorithmY()[0]?.code ?? null);
+  readonly xVar = computed(() => this.experimentStudioService.algorithmX()[0]?.code ?? null);
   readonly crossValidationEnabled = signal(false);
   private readonly crossValidationSelections: Record<string, boolean> = {};
   readonly transformationEnabled = signal(false);
@@ -164,70 +165,47 @@ export class AlgorithmPanelComponent {
     const algorithm = this.selectedAlgorithm();
     if (!algorithm) return null;
     if (algorithm.name === AlgorithmNames.OUTLIER_REPORT) return null;
-    if (this.experimentStudioService.hasAppliedDescriptivePreprocessing()) return null;
+    if (
+      this.experimentStudioService.hasAppliedDescriptivePreprocessing() ||
+      this.experimentStudioService.hasRequestPreprocessingForRun(algorithm.name)
+    ) return null;
     return 'Apply missing value preprocessing before running algorithms.';
   });
-  readonly labelMap = computed(() => {
-    const map: Record<string, string> = {};
-    const items = [
-      ...this.experimentStudioService.selectedVariables(),
-      ...this.experimentStudioService.selectedCovariates(),
-      ...this.experimentStudioService.selectedFilters(),
-    ];
-    items.forEach((item) => {
-      if (item?.code && item?.label) {
-        map[item.code] = item.label;
-      }
-    });
-    return map;
+  private readonly formInvalid = signal(false);
+  readonly canRun = computed(() => (
+    !!this.selectedAlgorithm() &&
+    !this.isRunning() &&
+    !this.selectedAlgorithmUnavailable() &&
+    !this.preprocessingRunBlockMessage() &&
+    !this.formInvalid()
+  ));
+  readonly runDisabledReason = computed(() => {
+    if (this.isRunning()) return 'Experiment is running';
+    if (!this.selectedAlgorithm()) return 'Select an algorithm to run';
+    if (this.selectedAlgorithmUnavailable()) return 'Algorithm unavailable for the current selection';
+    const preprocessing = this.preprocessingRunBlockMessage();
+    if (preprocessing) return preprocessing;
+    if (this.formInvalid()) return 'Complete variable and algorithm selection to proceed';
+    return 'Execute experiment';
   });
-  readonly resultAlgorithmLabel = computed(() => {
-    const algoKey =
-      this.experimentStudioService.lastUsedAlgorithm() ||
-      this.selectedAlgorithm()?.name ||
-      '';
+  readonly labelMap = this.experimentStudioService.variableLabelMap;
 
-    if (!algoKey) return 'Algorithm';
-
-    const algoConfig = this.experimentStudioService.backendAlgorithms()[algoKey];
-    return algoConfig?.label || this.prettifyLabel(algoKey);
-  });
-  readonly resultDisplayTitle = computed(() => {
-    const explicitTitle = this.result()?.title;
-    if (typeof explicitTitle === 'string' && explicitTitle.trim()) {
-      return explicitTitle.trim();
-    }
-    return `Result ${this.resultAlgorithmLabel()}`;
-  });
-
-  readonly lastUsedSchema = signal<any[]>([]);
-  readonly availableAlgorithmCategories = computed(() => {
-    const grouped = this.experimentStudioService.availableGroupedAlgorithms();
-    return Object.entries(grouped).map(([name, algorithms]) => ({ name, algorithms }));
-  });
-
-  // UI toggle: show only enabled algorithms
+  // UI toggle: the catalog defaults to runnable methods only — each group lists just the
+  // available algorithms. Switching to All re-lists unavailable methods with their reason.
   readonly showOnlyActive = signal(true);
+  /** Instant text filter over label, name, description, documentation, category, and flags. */
+  readonly algoSearchQuery = signal('');
   readonly hasAnyVisibleAlgorithms = computed(() => {
     return this.filteredAlgorithmCategories().some(c => c.algorithms?.length > 0);
   });
 
-  prettifyLabel(label: string): string {
-    if (!label) return '';
-    return label
-      .replace(/_/g, ' ')
-      .replace(/\b\w/g, c => c.toUpperCase());
-  }
-
   prettyFieldLabel(field: any): string {
     let base = field.label ?? field.key;
     if ((field.key === 'groupA' || field.key === 'groupB')) {
-      const x = this.experimentStudioService.selectedCovariates();
-      if (x.length === 1) {
-        const cov = x[0];
-        const covName = cov?.label || cov?.name || cov?.code;
-        if (covName) base = `${base} (${covName})`;
-      }
+      const x = this.experimentStudioService.algorithmX();
+      const cov = x[0];
+      const covName = cov?.label || cov?.name || cov?.code;
+      if (covName) base = `${base} (${covName})`;
     }
     return base;
   }
@@ -237,9 +215,9 @@ export class AlgorithmPanelComponent {
     return roleList.flatMap((role) => {
       const selected =
         role === 'y'
-          ? this.experimentStudioService.selectedVariables()
+          ? this.experimentStudioService.algorithmY()
           : role === 'x'
-            ? this.experimentStudioService.selectedCovariates()
+            ? this.experimentStudioService.algorithmX()
             : [];
 
       return selected
@@ -254,12 +232,11 @@ export class AlgorithmPanelComponent {
         .filter((item): item is { code: string; label: string } => !!item);
     });
   }
-
   private enumOptionsForRole(role: string | null | undefined): any[] {
     const selected =
       role === 'x'
-        ? this.experimentStudioService.selectedCovariates()[0]
-        : this.experimentStudioService.selectedVariables()[0];
+        ? this.experimentStudioService.algorithmX()[0]
+        : this.experimentStudioService.algorithmY()[0];
     return Array.isArray(selected?.enumerations) ? [...selected.enumerations] : [];
   }
 
@@ -323,8 +300,8 @@ export class AlgorithmPanelComponent {
     if (!varCode) return [];
 
     const variables = [
-      ...this.experimentStudioService.selectedVariables(),
-      ...this.experimentStudioService.selectedCovariates(),
+      ...this.experimentStudioService.algorithmY(),
+      ...this.experimentStudioService.algorithmX(),
     ];
     const variable = variables.find((item) => String(item?.code) === String(varCode));
     if (!variable) return [];
@@ -414,7 +391,7 @@ export class AlgorithmPanelComponent {
 
     effect(() => {
       const algorithm = this.selectedAlgorithm();
-      const variables = this.experimentStudioService.selectedVariables();
+      const variables = this.experimentStudioService.algorithmY();
       if (!algorithm) {
         this.transformationEnabled.set(false);
         this.transformationAssignments = {};
@@ -453,13 +430,12 @@ export class AlgorithmPanelComponent {
     effect(() => {
       // Establish dependencies
       this.selectedAlgorithm();
-      this.experimentStudioService.selectedVariables();
-      this.experimentStudioService.selectedCovariates();
+      this.experimentStudioService.algorithmY();
+      this.experimentStudioService.algorithmX();
 
-      // Clear results and reset Save As mode on any selection change
-      this.result.set(null);
-      this.saveAsMode.set(false);
-      this.saveAsName.set('');
+      // A new selection invalidates whatever the last run produced
+      this.experimentStudioService.runResult.set(null);
+      this.experimentStudioService.runError.set(null);
     });
 
     effect(() => {
@@ -481,6 +457,7 @@ export class AlgorithmPanelComponent {
         this.lastBuiltFormSchemaSignature = '';
         this.eventVarSelection.set(null);
         this.configForm.set(new FormGroup({}));
+        this.formInvalid.set(false);
         return;
       }
 
@@ -525,7 +502,7 @@ export class AlgorithmPanelComponent {
         const label =
           field.label && field.label.trim() !== ''
             ? field.label
-            : this.prettifyLabel(field.key);
+            : toHumanLabel(field.key);
 
         const prettyField = {
           ...field,
@@ -560,6 +537,7 @@ export class AlgorithmPanelComponent {
 
       const form = new FormGroup(group, { updateOn: 'change' });
       this.configForm.set(form);
+      this.formInvalid.set(form.invalid);
 
       Object.values(this.configForm().controls).forEach(control => {
         if (control.valid) {
@@ -567,6 +545,7 @@ export class AlgorithmPanelComponent {
         }
       });
 
+      const statusSub = form.statusChanges.subscribe(() => this.formInvalid.set(form.invalid));
       const subscription = form.valueChanges.subscribe((values) => {
         this.syncEventVarSelectionFromValues(algorithm.name, values);
         this.persistCurrentFormConfig(
@@ -574,12 +553,15 @@ export class AlgorithmPanelComponent {
           untracked(() => this.visibleConfigSchema())
         );
       });
-      onCleanup(() => subscription.unsubscribe());
+      onCleanup(() => {
+        subscription.unsubscribe();
+        statusSub.unsubscribe();
+      });
 
       this.formKey++;
     });
     effect(() => {
-      const res = this.result();
+      const res = this.experimentStudioService.runResult();
       const schema = this.outputSchema();
 
       if (!res || !schema.length) return;
@@ -590,30 +572,10 @@ export class AlgorithmPanelComponent {
       }
     });
 
-    // Auto-expand categories when they contain available algorithms
     effect(() => {
       const categories = this.filteredAlgorithmCategories();
-      const newlyAvailable = categories
-        .filter(c => c.algorithms.some(a => !a.isDisabled))
-        .map(c => c.name);
-
-      if (newlyAvailable.length > 0) {
-        this.openCategories.update(current => {
-          const next = [...current];
-          let changed = false;
-          newlyAvailable.forEach(cat => {
-            if (!next.includes(cat)) {
-              next.push(cat);
-              changed = true;
-            }
-          });
-          return changed ? next : current;
-        });
-      }
-    });
-
-    effect(() => {
-      this.showOnlyActive.set(this.algoCounts().active > 0);
+      const selectedName = this.selectedAlgorithm()?.name ?? null;
+      untracked(() => this.syncMatchCategoryOpen(categories, selectedName));
     });
   }
 
@@ -629,14 +591,13 @@ export class AlgorithmPanelComponent {
     // Basic algorithm schema (shallow copy)
     const schema = (algorithm.configSchema ?? []).map(f => ({ ...f }));
 
-    const yVars = this.experimentStudioService.selectedVariables();
-    const xVars = this.experimentStudioService.selectedCovariates();
+    const yVars = this.experimentStudioService.algorithmY();
+    const xVars = this.experimentStudioService.algorithmX();
     const yVar = yVars[0];
     const xVar = xVars[0];
     const eventVarCode = this.selectedEventVarCode();
     const positiveClassOptions = this.enumOptionsForVariableCode(eventVarCode);
     const isCox = this.isCoxRegressionAlgorithm(algorithm.name);
-
     const enriched = schema.map(field => {
       let options = field.options ?? [];
       const enumSource = Array.isArray(field.enumSource) ? field.enumSource : [];
@@ -677,7 +638,7 @@ export class AlgorithmPanelComponent {
         : field.default;
 
       // Normalize label and desc
-      const label = field.label?.trim() || this.prettifyLabel(field.key);
+      const label = field.label?.trim() || toHumanLabel(field.key);
       const desc =
         field.key === 'positive_class' && isCox
           ? 'Event level mapped to 1; other observed levels are mapped to 0.'
@@ -719,10 +680,8 @@ export class AlgorithmPanelComponent {
   });
 
   readonly outlierReportVariables = computed(() => {
-    const selectedVars = this.experimentStudioService.selectedVariables();
-    const selectedCovars = this.experimentStudioService.selectedCovariates();
     const unique = new Map<string, any>();
-    [...selectedVars, ...selectedCovars].forEach((variable: any) => {
+    this.experimentStudioService.algorithmAssignableVariables().forEach((variable: any) => {
       if (variable?.code) unique.set(String(variable.code), variable);
     });
     return Array.from(unique.values()).filter((variable) => isOutlierEligibleVariable(variable));
@@ -732,19 +691,41 @@ export class AlgorithmPanelComponent {
     getOutputSchema(this.selectedAlgorithm()?.name ?? '') ?? []
   );
 
+  readonly searchActive = computed(() => this.algoSearchQuery().trim().length > 0);
+
+  private matchesAlgorithmSearch(algorithm: AlgorithmConfig, query: string): boolean {
+    if (!query) return true;
+    const haystack = [
+      algorithm.label,
+      algorithm.name,
+      algorithm.description,
+      algorithm.documentation ?? '',
+      algorithm.category ?? '',
+      (algorithm.flags ?? []).join(' '),
+    ].join(' ').toLowerCase();
+    return query.split(/\s+/).every((term) => haystack.includes(term));
+  }
+
   readonly filteredAlgorithmCategories = computed(() => {
     const grouped = this.experimentStudioService.availableGroupedAlgorithms();
     const onlyActive = this.showOnlyActive();
+    const query = this.algoSearchQuery().trim().toLowerCase();
 
     const entries = Object.entries(grouped ?? {}).map(([name, algorithms]) => {
-      const filtered = onlyActive
-        ? algorithms.filter(a => !a.isDisabled)
-        : algorithms;
+      let filtered = (algorithms ?? []).filter(a => this.matchesAlgorithmSearch(a, query));
+      if (onlyActive) {
+        filtered = filtered.filter(a => !a.isDisabled);
+      }
 
-      return { name, algorithms: filtered };
+      // Runnable-first: when showing all methods, surface runnable ones before disabled ones.
+      const ordered = onlyActive
+        ? filtered
+        : [...filtered].sort((a, b) => Number(a.isDisabled) - Number(b.isDisabled));
+
+      return { name, algorithms: ordered };
     });
 
-    return onlyActive ? entries.filter(c => c.algorithms.length > 0) : entries;
+    return entries.filter(c => c.algorithms.length > 0);
   });
 
   readonly algoCounts = computed(() => {
@@ -758,6 +739,91 @@ export class AlgorithmPanelComponent {
     this.showOnlyActive.update(v => !v);
   }
 
+  onSearchInput(event: Event): void {
+    this.algoSearchQuery.set((event.target as HTMLInputElement)?.value ?? '');
+  }
+
+  clearSearch(): void {
+    this.algoSearchQuery.set('');
+  }
+
+  /**
+   * Collapsed Matching-method categories. A category missing from this set is open, so
+   * categories coming back after a filter switch keep the state the user left them in.
+   */
+  private readonly collapsedMatchCategories = signal<ReadonlySet<string>>(new Set<string>());
+  /** Categories the user opened/closed themselves; these are never changed automatically. */
+  private readonly matchCategoryUserToggles = new Set<string>();
+  private lastMatchSelectionName: string | null | undefined;
+
+  isMatchCategoryOpen(categoryName: string): boolean {
+    return !this.collapsedMatchCategories().has(categoryName);
+  }
+
+  toggleMatchCategory(categoryName: string): void {
+    this.matchCategoryUserToggles.add(categoryName);
+    const next = new Set(this.collapsedMatchCategories());
+    if (next.has(categoryName)) {
+      next.delete(categoryName);
+    } else {
+      next.add(categoryName);
+    }
+    this.collapsedMatchCategories.set(next);
+  }
+
+  /**
+   * Default state: a group is open only when it holds the selected method or at least one
+   * runnable method — with nothing runnable in a group it stays collapsed so the catalog
+   * opens straight to what can actually be executed. Beyond that default, the group a new
+   * selection lands in is revealed; groups the user toggled are never changed automatically.
+   */
+  private syncMatchCategoryOpen(
+    categories: Array<{ name: string; algorithms: AlgorithmConfig[] }>,
+    selectedName: string | null,
+  ): void {
+    const selectionChanged = this.lastMatchSelectionName !== selectedName;
+    this.lastMatchSelectionName = selectedName;
+
+    const selectedCategory = selectedName
+      ? categories.find((category) =>
+          category.algorithms.some((algorithm) => algorithm.name === selectedName))?.name
+      : null;
+
+    const next = new Set(this.collapsedMatchCategories());
+    let changed = false;
+
+    categories.forEach((category) => {
+      if (this.matchCategoryUserToggles.has(category.name)) return;
+      const shouldOpen =
+        category.name === selectedCategory ||
+        category.algorithms.some((algorithm) => !algorithm.isDisabled);
+      if (shouldOpen === !next.has(category.name)) return;
+      if (shouldOpen) {
+        next.delete(category.name);
+      } else {
+        next.add(category.name);
+      }
+      changed = true;
+    });
+
+    if (selectedCategory && selectionChanged && next.delete(selectedCategory)) {
+      changed = true;
+    }
+
+    if (changed) this.collapsedMatchCategories.set(next);
+  }
+
+  algorithmUnavailableReason(algorithm: AlgorithmConfig): string {
+    const availability = this.experimentStudioService.getAlgorithmAvailability(algorithm.name);
+    const summary = availability?.summary || algorithm.availability?.summary || '';
+    if (summary) return this.formatAvailabilityMessage(summary);
+    const details = availability?.details?.length
+      ? availability.details
+      : (algorithm.availability?.details ?? []);
+    const first = details.find((detail) => detail.messages.length > 0);
+    return first ? this.formatAvailabilityMessage(first.messages[0]) : 'Unavailable';
+  }
+
 
   readonly datasetsWithLabels = computed(() => {
     const codes = this.experimentStudioService.selectedDatasets();
@@ -765,7 +831,7 @@ export class AlgorithmPanelComponent {
     const fallbackMap = this.labelMap();
     return codes.map((code) => ({
       code,
-      label: labelByCode[code] ?? fallbackMap[code] ?? this.prettifyLabel(code),
+      label: labelByCode[code] ?? fallbackMap[code] ?? toHumanLabel(code),
     }));
   });
 
@@ -793,95 +859,13 @@ export class AlgorithmPanelComponent {
 
     return {
       experimentName: defaultName,
-      variables: this.experimentStudioService.selectedVariables(),
-      covariates: this.experimentStudioService.selectedCovariates(),
+      variables: this.experimentStudioService.algorithmY(),
+      covariates: this.experimentStudioService.algorithmX(),
       filters: this.experimentStudioService.selectedFilters(),
       algorithmConfigs: configs,
       preprocessingSteps,
     };
   });
-
-  readonly filterPreviewExpression = computed(() => {
-    const logic = this.experimentStudioService.filterLogic();
-    if (!logic || !Array.isArray((logic as any).rules) || !(logic as any).rules.length) return '';
-    return this.formatFilterNode(logic);
-  });
-
-
-  objectKeys(obj: any): string[] {
-    return obj ? Object.keys(obj) : [];
-  }
-
-  preprocessingStepDetails(value: string): string[] {
-    const trimmed = value?.trim();
-    if (!trimmed) return [];
-
-    const parts = trimmed.includes('; ')
-      ? trimmed.split('; ')
-      : trimmed.split(',');
-
-    return parts.map((part) => part.trim()).filter(Boolean);
-  }
-
-  private formatFilterNode(node: any): string {
-    if (!node) return '';
-
-    if (Array.isArray(node.rules)) {
-      const parts = node.rules
-        .map((rule: any) => this.formatFilterNode(rule))
-        .filter(Boolean);
-      if (!parts.length) return '';
-
-      const condition = String(node.condition || 'AND').toUpperCase() === 'OR' ? 'OR' : 'AND';
-      const expression = parts.join(` ${condition} `);
-      return parts.length > 1 ? `(${expression})` : expression;
-    }
-
-    const field = String(node.field ?? node.id ?? '');
-    const label = this.labelMap()[field] ?? (field || 'Variable');
-    const operator = this.filterOperatorLabel(String(node.operator ?? 'equal'));
-
-    if (node.operator === 'is_null' || node.operator === 'is_not_null') {
-      return `${label} ${operator}`;
-    }
-
-    return `${label} ${operator} ${this.formatFilterValue(field, node.value)}`;
-  }
-
-  private filterOperatorLabel(operator: string): string {
-    switch (operator) {
-      case 'equal':
-      case '=':
-        return '=';
-      case 'not_equal':
-      case '!=':
-        return '!=';
-      case 'greater':
-      case '>':
-        return '>';
-      case 'greater_or_equal':
-      case '>=':
-        return '>=';
-      case 'less':
-      case '<':
-        return '<';
-      case 'less_or_equal':
-      case '<=':
-        return '<=';
-      case 'is_null':
-        return 'IS NULL';
-      case 'is_not_null':
-        return 'IS NOT NULL';
-      default:
-        return operator;
-    }
-  }
-
-  private formatFilterValue(field: string, value: any): string {
-    if (value === null || value === undefined || value === '') return 'value';
-    const valueKey = String(value);
-    return this.enumMaps()[field]?.[valueKey] ?? valueKey;
-  }
 
   private syncPositiveClassWithEventVar(algorithmName: string): void {
     const positiveControl = this.configForm().get('positive_class');
@@ -1107,23 +1091,18 @@ export class AlgorithmPanelComponent {
     return true;
   }
 
-  prettifyKey(key: string): string {
-    return key
-      .replace(/_/g, ' ')
-      .replace(/\b\w/g, (char) => char.toUpperCase());
-  }
 
-
+  /** Transformation grid operates on the assigned outcome variables (y). */
   get selectedVariables() {
-    return this.experimentStudioService.selectedVariables();
+    return this.experimentStudioService.algorithmY();
   }
 
-  get selectedCovariates() {
-    return this.experimentStudioService.selectedCovariates();
+  /** Assignable pool drives the role-assignment UI (shown without a selected algorithm). */
+  get assignablePool() {
+    return this.experimentStudioService.algorithmAssignableVariables();
   }
 
-  openCategories = signal<string[]>([]);
-  readonly infoPanelOpen = signal(false);
+
   readonly tooltipVisible = signal(false);
   readonly tooltipPosition = signal({ x: 0, y: 0 });
   readonly tooltipData = signal<any | null>(null);
@@ -1133,12 +1112,24 @@ export class AlgorithmPanelComponent {
     this.eventVarSelection.set(null);
     // Use service method so it enriches configSchema and persists to sessionStorage
     this.experimentStudioService.setAlgorithm(algorithm);
-    this.result.set(null);
+    this.experimentStudioService.runResult.set(null);
+    this.experimentStudioService.runError.set(null);
     this.errorMsg.set(null);
   }
 
   onAlgorithmClick(algorithm: AlgorithmConfig) {
     this.selectAlgorithm(algorithm);
+    // Parent bookkeeping only: the details and parameters bands render from
+    // selectedAlgorithm() below the row, so no substep navigation or page scroll.
+    this.setStudioSubstep('parameters');
+    this.hideTooltip();
+  }
+
+  /** Scrolls a studio anchor; `scroll-margin-top` on the target clears sticky chrome. */
+  private scrollStudioTargetIntoView(target: HTMLElement | null, focus = false): void {
+    if (!target) return;
+    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (focus) target.focus({ preventScroll: true });
   }
 
   onClickRunExp() {
@@ -1166,7 +1157,10 @@ export class AlgorithmPanelComponent {
     const algo = this.experimentStudioService.selectedAlgorithm();
     this.errorMsg.set(null);
     this.errorService.clearError();
-    this.loadingText.set('Processing experiment...');
+    this.experimentStudioService.runStatusText.set('Processing experiment...');
+    this.experimentStudioService.hasRunStarted.set(true);
+    this.experimentStudioService.runError.set(null);
+    this.experimentStudioService.runResult.set(null);
     this.experimentStudioService.setRunning(true);
 
     if (!algo) {
@@ -1174,6 +1168,7 @@ export class AlgorithmPanelComponent {
       const msg = 'Please choose an algorithm before running.';
       this.errorMsg.set(msg);
       this.experimentStudioService.setRunning(false);
+      this.experimentStudioService.hasRunStarted.set(false);
       return;
     }
 
@@ -1225,6 +1220,10 @@ export class AlgorithmPanelComponent {
       ...(effectiveAlgorithmName !== baseAlgorithmName ? { [effectiveAlgorithmName]: configValues } : {})
     });
 
+    // Freeze the setup before the request leaves: the Execution step describes the run from
+    // this snapshot, and parameter edits after the run must not rewrite it.
+    this.experimentStudioService.captureRunSetup(finalAlgorithmName);
+
     const result$ = this.experimentStudioService.runSelectedAlgorithmTransient(
       baseAlgorithmName,
       finalAlgorithmName
@@ -1232,11 +1231,8 @@ export class AlgorithmPanelComponent {
     if (!result$) {
       const msg = 'Unable to start the run. Check your selections.';
       this.errorMsg.set(msg);
-      this.result.set({
-        status: 'error',
-        error: msg,
-      });
       this.experimentStudioService.setRunning(false);
+      this.experimentStudioService.hasRunStarted.set(false);
       return;
     }
 
@@ -1249,51 +1245,25 @@ export class AlgorithmPanelComponent {
             payload?.data ||
             payload?.message ||
             'The server returned an error for this run.';
-          this.errorMsg.set(msg);
-          this.result.set({
-            status: 'error',
-            error: msg,
-            payload,
-          });
+          this.experimentStudioService.runError.set(msg);
           return;
         }
 
         const schema = getOutputSchema(finalAlgorithmName ?? '') ?? [];
-        this.result.set({
+        this.experimentStudioService.runResult.set({
           ...res?.result ?? { message: "No result returned" },
         });
         this.lastUsedAlgorithm = finalAlgorithmName;
-        this.lastUsedSchema.set(schema);
+        this.experimentStudioService.lastRunSchema.set(schema);
       },
       error: () => {
-        this.errorMsg.set('Unable to run experiment. Please try again.');
+        this.experimentStudioService.runError.set('Unable to run experiment. Please try again.');
       },
       complete: () => {
         this.experimentStudioService.setRunning(false);
       }
     });
 
-  }
-
-  isRunButtonDisabled(): boolean {
-    const algo = this.selectedAlgorithm();
-
-    // if no algorithm -> disabled
-    if (!algo) return true;
-
-    // if experiment running -> disabled
-    if (this.isRunning()) return true;
-
-    if (this.selectedAlgorithmUnavailable()) return true;
-
-    if (this.preprocessingRunBlockMessage()) return true;
-
-
-    if (this.configForm() && Object.keys(this.configForm().controls).length > 0) {
-      return this.configForm().invalid;
-    }
-
-    return false;
   }
 
   toggleCrossValidation(event: Event) {
@@ -1400,28 +1370,6 @@ export class AlgorithmPanelComponent {
     return (algorithm ?? this.tooltipData())?.availability?.details ?? [];
   }
 
-  hasAvailabilityRoleIssue(algorithm: AlgorithmConfig, role: AlgorithmAvailabilityRole): boolean {
-    return this.availabilityDetails(algorithm).some(
-      (detail) => detail.role === role && detail.messages.length > 0
-    );
-  }
-
-  hasVariableAvailabilityIssue(algorithm: AlgorithmConfig): boolean {
-    return this.hasAvailabilityRoleIssue(algorithm, 'y');
-  }
-
-  hasCovariateAvailabilityIssue(algorithm: AlgorithmConfig): boolean {
-    return this.hasAvailabilityRoleIssue(algorithm, 'x');
-  }
-
-  isVariableAvailabilityDetail(detail: AlgorithmAvailabilityDetail): boolean {
-    return detail.role === 'y';
-  }
-
-  isCovariateAvailabilityDetail(detail: AlgorithmAvailabilityDetail): boolean {
-    return detail.role === 'x';
-  }
-
   availabilityRequirementText(detail: AlgorithmAvailabilityDetail): string {
     const count = this.formatAvailabilityCount(detail);
     const parts = [detail.label + ': ' + count + ', selected ' + detail.selectedCount];
@@ -1438,7 +1386,7 @@ export class AlgorithmPanelComponent {
 
   private formatAvailabilityMessage(message: string): string {
     return message.replace(
-      /((?:Variable|Covariate) type must be one of )([^.]*)\./g,
+      /((?:Outcome|Predictor) type must be one of )([^.]*)\./g,
       (_match, prefix: string, types: string) => {
         const displayTypes = this.formatRequirementTypes(
           types.split(',').map((type) => type.trim())
@@ -1453,8 +1401,14 @@ export class AlgorithmPanelComponent {
       this.studioNavigation.goToPreprocessing();
       return;
     }
-
-    this.studioNavigation.goToVariableSelection('parameters-listing');
+    // Availability issues are fixed on the setup board, which stays on screen above.
+    this.setStudioSubstep('setup');
+    requestAnimationFrame(() =>
+      this.scrollStudioTargetIntoView(
+        document.querySelector<HTMLElement>('[data-guide="guide-role-assignment"]'),
+        true
+      )
+    );
   }
 
   private availabilityRequirementActionLabel(algorithmName: string): string {
@@ -1464,14 +1418,10 @@ export class AlgorithmPanelComponent {
       .find((detail) => !detail.satisfied && detail.messages.length > 0);
 
     if (failingDetail?.role === 'x') {
-      return 'Select covariate';
+      return 'Assign predictor';
     }
 
-    return 'Select variable';
-  }
-
-  toggleInfoPanel() {
-    this.infoPanelOpen.update((open) => !open);
+    return 'Assign outcome';
   }
 
   showTooltip(algorithm: any, event: MouseEvent) {
@@ -1547,12 +1497,6 @@ export class AlgorithmPanelComponent {
     };
   }
 
-  hasText(value: any): boolean {
-    if (value === null || value === undefined) return false;
-    const text = String(value).trim();
-    return text.length > 0;
-  }
-
   private normalizeRequirementDisplayType(type: unknown): string | null {
     const normalized = String(type ?? '').trim().toLowerCase();
     if (!normalized) return null;
@@ -1582,38 +1526,9 @@ export class AlgorithmPanelComponent {
     return unique.length ? unique : null;
   }
 
-  getRoleRequirement(field: any, label: string, algorithmName?: string | null): string | null {
-    if (!field) return null;
-
-    const minCount = resolveInputMinCount(field, label === 'Variable' ? 'y' : 'x', algorithmName);
-    if (label === 'Covariate' && minCount < 1) {
-      return null;
-    }
-
-    const count = formatInputCountRange(minCount, resolveInputMaxCount(field, label === 'Variable' ? 'y' : 'x', algorithmName));
-    const types = this.formatRequirementTypes(field.types);
-
-    const parts = [`${label}: ${count}`];
-    if (types) {
-      parts.push(`types: ${types.join(',')}`);
-    }
-
-    return parts.join(' • ');
-  }
-
-  getVariableRequirement(algo?: any): string | null {
-    const target = algo || this.tooltipData();
-    return this.getRoleRequirement(target?.inputdata?.y, 'Variable', target?.name);
-  }
-
-  getCovariateRequirement(algo?: any): string | null {
-    const target = algo || this.tooltipData();
-    const field = target?.inputdata?.x;
-    return this.getRoleRequirement(field, 'Covariate', target?.name);
-  }
-
-  onSaveAs() {
-    if (!this.saveAsName().trim()) {
+  onSaveAs(name: string) {
+    const experimentName = name.trim();
+    if (!experimentName) {
       this.errorMsg.set('Please provide a name for the experiment.');
       return;
     }
@@ -1666,10 +1581,10 @@ export class AlgorithmPanelComponent {
     const result$ = this.experimentStudioService.runSelectedAlgorithm(
       baseAlgorithmName,
       finalAlgorithmName,
-      this.saveAsName()
+      experimentName
     );
 
-    this.loadingText.set('Saving experiment...');
+    this.experimentStudioService.runStatusText.set('Saving experiment...');
 
     if (!result$) {
       this.errorMsg.set('Unable to start the save process.');
@@ -1688,10 +1603,7 @@ export class AlgorithmPanelComponent {
           return;
         }
 
-        this.saveAsMode.set(false);
-        this.saveAsName.set('');
-        this.result.set(null); // Return to parameters view
-        this.triggerSuccessNotification();
+        this.experimentStudioService.notifySaveSucceeded();
       },
       error: () => {
         this.errorMsg.set('Failed to save experiment.');
@@ -1702,40 +1614,8 @@ export class AlgorithmPanelComponent {
     });
   }
 
-  cancelSaveAs() {
-    this.saveAsMode.set(false);
-    this.saveAsName.set('');
-  }
-
-  toggleSaveAsMode() {
-    this.saveAsMode.update(v => !v);
-    if (this.saveAsMode()) {
-      this.saveAsName.set(this.experimentInfo().experimentName);
-    }
-  }
-
-  backToParameters() {
-    this.result.set(null);
-    this.saveAsMode.set(false);
-    this.saveAsName.set('');
-  }
-
-  isCategoryOpen(category: string): boolean {
-    return this.openCategories().includes(category);
-  }
-
-  toggleCategory(category: string): void {
-    this.openCategories.update(current => {
-      if (current.includes(category)) {
-        return current.filter(c => c !== category);
-      } else {
-        return [...current, category];
-      }
-    });
-  }
-
   onExportResult(section: HTMLElement) {
-    const result = this.result();
+    const result = this.experimentStudioService.runResult();
     if (!section || !result) {
       console.warn('No result or element to export');
       return;
@@ -1788,12 +1668,5 @@ export class AlgorithmPanelComponent {
       result,
       chartContainer: section,
     });
-  }
-
-  private triggerSuccessNotification() {
-    this.showSuccessNotification.set(true);
-    setTimeout(() => {
-      this.showSuccessNotification.set(false);
-    }, 8000);
   }
 }

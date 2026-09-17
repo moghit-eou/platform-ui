@@ -1,4 +1,13 @@
 <div id="chart">
+  <div class="map-chrome">
+    <div class="map-legend" aria-label="Map legend">
+      <span><span class="map-legend-swatch group"></span>Group</span>
+      <span><span class="map-legend-swatch available"></span>Available</span>
+      @if (selectedVariables().length) {
+      <span><span class="map-legend-swatch pool"></span>In pool</span>
+      }
+    </div>
+  </div>
   <div class="chart-body">
     <div id="chart-canvas" #chartCanvas></div>
   </div>

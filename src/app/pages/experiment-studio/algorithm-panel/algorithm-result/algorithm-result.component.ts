@@ -1,11 +1,11 @@
 import { ChartBuilderService } from './../../visualisations/charts/chart-builder.service';
-import { Component, input, signal, computed, inject, ChangeDetectionStrategy } from '@angular/core';
+import { Component, input, computed, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { AutoRendererComponent } from '../../visualisations/auto-renderer/auto-renderer.component';
 import { ChartRendererComponent } from '../../visualisations/charts/charts-renderer/charts-renderer.component';
-import { EChartsOption } from 'echarts';
 import { NgxEchartsModule } from 'ngx-echarts';
 import { EnumMaps, LabelMap, mapAlgorithmResultEnums } from '../../../../core/algorithm-result-enum-mapper';
+import { prettifyLabel } from '../../../../core/algorithm-mappers';
 
 @Component({
   selector: 'app-algorithm-result',
@@ -61,67 +61,13 @@ export class AlgorithmResultComponent {
     const label = this.algorithmLabel()?.trim();
     if (label) return `Result ${label}`;
 
-    return `Result ${this.prettifyAlgorithmName(this.algorithm())}`;
+    return `Result ${prettifyLabel(this.algorithm()) || 'Algorithm'}`;
   });
 
-  chartOptions = computed<EChartsOption[]>(() =>
-    this.errorMessage()
-      ? []
-      : this.chartBuilder.getChartsForAlgorithm(
-        this.algorithm(),
-        this.mappedResult(),
-        this.fallbackResultTitle()
-      )
-  );
 
   renderedCharts = computed(() => {
     if (!this.result() || !this.algorithm() || this.errorMessage()) return [];
     return this.chartBuilder.getChartsForAlgorithm(this.algorithm(), this.mappedResult(), this.fallbackResultTitle());
   });
-
-  getMatrixRows(data: any): any[][] {
-    if (!Array.isArray(data)) return [];
-
-    if (data[0]?.values) {
-      return data.map((r: any) => r.values);
-    }
-
-    if (Array.isArray(data[0])) {
-      return data;
-    }
-
-    return [];
-  }
-
-  expandedPanels = signal<Set<string>>(new Set());
-
-  getObjectKeys(obj: Record<string, any>): string[] {
-    return obj ? Object.keys(obj) : [];
-  }
-
-  getKeys(obj: any): string[] {
-    return obj && typeof obj === 'object' ? Object.keys(obj) : [];
-  }
-
-  isArray(value: any): boolean {
-    return Array.isArray(value);
-  }
-
-  togglePanel(key: string) {
-    const current = this.expandedPanels();
-    const updated = new Set(current);
-    updated.has(key) ? updated.delete(key) : updated.add(key);
-    this.expandedPanels.set(updated);
-  }
-
-  isExpanded(key: string): boolean {
-    return this.expandedPanels().has(key);
-  }
-
-  private prettifyAlgorithmName(name: string): string {
-    if (!name) return 'Algorithm';
-    return name
-      .replace(/_/g, ' ')
-      .replace(/\b\w/g, (c) => c.toUpperCase());
-  }
 }
+

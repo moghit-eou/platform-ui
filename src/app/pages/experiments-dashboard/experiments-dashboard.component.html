@@ -1,5 +1,4 @@
-<div class="experiments-dashboard full-bleed premium-page"
-  [class.has-pathology-warning]="!!visiblePathologyAccessWarning()">
+<div class="experiments-dashboard full-bleed">
 
   <div class="studio-main full-width">
     @if (visiblePathologyAccessWarning(); as warning) {
@@ -27,27 +26,38 @@
         <i class="fas fa-exclamation-triangle"></i>
         <span>{{ errorMessage() }}</span>
       </div>
-      <button type="button" class="banner-close" (click)="dismissError()">
-        &times;
-      </button>
+      <div class="banner-actions">
+        <button type="button" class="banner-retry" (click)="experimentsService.retryLastRequest()">
+          Retry
+        </button>
+        <button type="button" class="banner-close" (click)="dismissError()">
+          &times;
+        </button>
+      </div>
     </div>
     }
 
-    <!-- TOP: Greeting Header -->
-    <header class="dashboard-greeting">
-      <div class="greeting-content">
-        <h1>Welcome back, {{ greetingName() }}!</h1>
-        <p>You have {{ experimentsService.experiments().length }} experiments in your history.</p>
+    <!-- TOP: Compact page toolbar -->
+    <header class="dashboard-toolbar">
+      <div class="toolbar-heading">
+        <h1>Experiments</h1>
+        <p>{{ experimentSummary() }}</p>
       </div>
+
+      <button class="btn-new-experiment primary" (click)="goToNewExperiment()" title="New Experiment"
+        data-guide="dashboard-new">
+        <i class="fas fa-plus"></i>
+        <span>New experiment</span>
+      </button>
     </header>
 
     <!-- MAIN TRIPLE PANE CONTENT (now integrated actions) -->
-    <div class="command-center-layout" data-guide="dashboard-overview">
+    <div class="command-center-layout" [class.command-center-layout--detail]="mobileDetailOpen()" data-guide="dashboard-overview">
       <!-- LEFT: NAVIGATION & SELECTION -->
       <aside class="side-pane experiments-pane" data-guide="dashboard-workspace">
         <div class="pane-header workspace-pane-header">
           <div class="workspace-label-group">
-            <h2>Dashboard</h2>
+            <h2>Your experiments</h2>
           </div>
 
           <div class="pane-actions">
@@ -61,43 +71,142 @@
               }
             </button>
 
-            <!-- New Experiment -->
-            <button class="btn-new-experiment primary" (click)="goToNewExperiment()" title="New Experiment"
-              data-guide="dashboard-new">
-              <i class="fas fa-plus"></i>
-              New
-            </button>
           </div>
         </div>
         <div class="pane-content">
           <app-experiments-list [selectedExperimentId]="selectedExperiment()?.id ?? null"
-            [currentUserEmail]="currentUserEmail()" [compareIds]="compareIds()" [compareMode]="compareMode()"
-            [initialOnlyMine]="!hasDeepLink()" (experimentSelected)="onExperimentSelected($event)"
+            [selectedFolderId]="selectedFolderId()" [currentUserEmail]="currentUserEmail()"
+            [compareIds]="compareIds()" [compareMode]="compareMode()" [initialOnlyMine]="!hasDeepLink()"
+            (experimentSelected)="onExperimentSelected($event)" (folderSelected)="onFolderSelected($event)"
+            (clearCompareSelection)="clearCompareSelection()"
             (editRequested)="onEditExperiment($event)" (deleteRequested)="onDeleteFromList($event)" />
         </div>
       </aside>
 
       <!-- CENTER: MAIN WORKSPACE -->
-      <main class="main-pane">
-        @if (!compareMode()) {
+      <section class="main-pane" aria-label="Experiment workbench">
+        @if (mobileDetailOpen()) {
+        <button type="button" class="mobile-back-btn" (click)="closeMobileDetail()">
+          <i class="fas fa-arrow-left" aria-hidden="true"></i>
+          Back to experiments
+        </button>
+        }
+
+        @if (selectedFolderId(); as folderId) {
+        <app-experiment-folder [folderId]="folderId" (back)="onFolderSelected(null)"
+          (openExperiment)="onExperimentSelected($event)" (compareRequested)="onFolderCompare($event)" />
+        } @else if (!compareMode()) {
         <app-experiment-details [selectedExperiment]="selectedExperiment()" [currentUserEmail]="currentUserEmail()"
           (run)="onRunExperiment($event)" (deleteExperiment)="onDeleteRequested()"
           (nameUpdated)="onNameUpdated($event)" />
         } @else {
         <div class="compare-workspace" data-guide="dashboard-compare-workspace">
-          @if (experimentsForCompare().length < 2) { <div class="compare-placeholder">
-            <div class="placeholder-icon">
-              <i class="fas fa-layer-group"></i>
+          @if (experimentsForCompare().length < 2) {
+          <div class="compare-placeholder" [class.has-selection]="experimentsForCompare().length === 1">
+            <div class="compare-placeholder-visual">
+              <div class="placeholder-icon-badge">
+                <i class="fas fa-layer-group" aria-hidden="true"></i>
+              </div>
             </div>
-            <h3>Comparison Workspace</h3>
-            <p>Select at least two experiments from the left panel to compare their results side by side.</p>
-        </div>
-        } @else {
-        <app-experiments-compare [experiments]="experimentsForCompare()" />
-        }
+
+            <div class="placeholder-header">
+              <div class="placeholder-pill" [class.placeholder-pill--active]="experimentsForCompare().length === 1">
+                <span class="pill-dot" [class.pill-dot--active]="experimentsForCompare().length === 1"></span>
+                <span>{{ experimentsForCompare().length === 1 ? '1 of 2 selected' : 'Side-by-side analysis' }}</span>
+              </div>
+              <h3 class="placeholder-title">
+                {{ experimentsForCompare().length === 1 ? 'Select 1 more experiment to compare' : 'Comparison Workspace' }}
+              </h3>
+              <p class="placeholder-desc">
+                {{ experimentsForCompare().length === 1
+                  ? 'Choose an additional run from the list on the left to inspect metrics, parameters, and visualizations side by side.'
+                  : 'Select at least two experiments from the left panel to compare their configurations and analytical results side by side.' }}
+              </p>
+            </div>
+
+            <div class="compare-slots-preview" aria-label="Comparison slots preview">
+              @if (experimentsForCompare()[0]; as firstExp) {
+              <div class="slot-card slot-card--filled">
+                <div class="slot-badge">Run 1</div>
+                <button type="button" class="slot-remove-btn" (click)="removeFromCompare(firstExp.id)"
+                  title="Remove from comparison" aria-label="Remove experiment from comparison">
+                  <i class="fas fa-times" aria-hidden="true"></i>
+                </button>
+                <div class="slot-card-body">
+                  <span class="slot-name" [title]="firstExp.name">
+                    {{ firstExp.name || "Untitled Investigation" }}
+                  </span>
+                  <div class="slot-meta">
+                    <span class="slot-algo">
+                      <i class="fas fa-flask" aria-hidden="true"></i>
+                      {{ getAlgorithmLabel(firstExp.algorithmName) }}
+                    </span>
+                    <app-experiment-status [status]="firstExp.status" [compact]="true" />
+                  </div>
+                </div>
+              </div>
+              } @else {
+              <div class="slot-card slot-card--empty">
+                <div class="slot-badge">Run 1</div>
+                <div class="slot-card-body">
+                  <div class="slot-empty-icon">
+                    <i class="far fa-check-circle" aria-hidden="true"></i>
+                  </div>
+                  <span class="slot-empty-label">Select 1st experiment</span>
+                  <span class="slot-empty-sub">Choose from the left list</span>
+                </div>
+              </div>
+              }
+
+              <div class="slot-vs-divider">
+                <span class="vs-circle">VS</span>
+              </div>
+
+              <div class="slot-card slot-card--empty slot-card--waiting">
+                <div class="slot-badge">Run 2</div>
+                <div class="slot-card-body">
+                  <div class="slot-empty-icon pulse-icon">
+                    <i class="fas fa-plus" aria-hidden="true"></i>
+                  </div>
+                  <span class="slot-empty-label">Select 2nd experiment</span>
+                  <span class="slot-empty-sub">
+                    {{ experimentsForCompare().length === 1 ? 'Pick another run to launch comparison' : 'Choose from the left list' }}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div class="placeholder-actions">
+              @if (compareOriginFolderName(); as originName) {
+              <button type="button" class="btn-action btn-back" (click)="onBackToOriginFolder()">
+                <i class="fas fa-arrow-left" aria-hidden="true"></i>
+                Back to {{ originName }}
+              </button>
+              }
+              @if (experimentsForCompare().length > 0) {
+              <button type="button" class="btn-action btn-clear" (click)="clearCompareSelection()">
+                <i class="far fa-trash-alt" aria-hidden="true"></i>
+                Clear selection
+              </button>
+              } @else if (canQuickCompare()) {
+              <button type="button" class="btn-action btn-quick" (click)="selectFirstTwoForCompare()">
+                <i class="fas fa-bolt" aria-hidden="true"></i>
+                Compare top 2 runs
+              </button>
+              }
+              <button type="button" class="btn-action btn-exit" (click)="toggleCompareMode()">
+                <i class="fas fa-arrow-right-from-bracket" aria-hidden="true"></i>
+                Exit compare mode
+              </button>
+            </div>
+          </div>
+          } @else {
+          <app-experiments-compare [experiments]="experimentsForCompare()" [originFolderId]="compareOriginFolderId()"
+            (backToFolder)="onBackToOriginFolder()" />
+          }
     </div>
     }
-    </main>
+    </section>
 
   </div>
 
@@ -115,7 +224,7 @@
 
       <div class="modal-body">
         <p>
-          Permanently delete this experiment?
+          Permanently delete “{{ deleteTargetName() }}”? This action cannot be undone.
         </p>
       </div>
 

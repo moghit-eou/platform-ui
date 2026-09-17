@@ -1,13 +1,15 @@
 import { CommonModule, DOCUMENT } from '@angular/common';
-import { AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, OnDestroy, ViewChild, computed, effect, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, Input, OnDestroy, OnInit, ViewChild, computed, effect, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import {
   EXPERIMENT_STUDIO_GUIDE_LABELS,
   EXPERIMENT_STUDIO_GUIDE_STEPS,
   ExperimentStudioGuideStep,
+  GuideSection,
 } from './experiment-studio-guide.content';
 import { ExperimentStudioService } from '../../../services/experiment-studio.service';
 import { GuideOnboardingService } from '../../../services/guide-onboarding.service';
+import { GuideLauncherService, GuideLauncher } from '../../../services/guide-launcher.service';
 import { ExperimentStudioGuideStateService } from './experiment-studio-guide-state.service';
 import { computeGuideBlockingRects, measureGuideInteractionRect } from './experiment-studio-guide-mask.util';
 
@@ -33,17 +35,34 @@ interface GuideRect {
     '(document:click)': 'onDocumentClick($event)',
   },
 })
-export class ExperimentStudioGuideComponent implements AfterViewInit, OnDestroy {
+export class ExperimentStudioGuideComponent implements OnInit, OnDestroy {
   private readonly document = inject(DOCUMENT);
   private readonly router = inject(Router);
   private readonly experimentStudioService = inject(ExperimentStudioService);
   private readonly guideOnboarding = inject(GuideOnboardingService);
+  private readonly guideLauncher = inject(GuideLauncherService);
   private readonly guideState = inject(ExperimentStudioGuideStateService);
   private layoutTimer: number | null = null;
   private autoAdvanceTimer: number | null = null;
   private targetResizeObserver: ResizeObserver | null = null;
   private observedTarget: HTMLElement | null = null;
   private domMutationObserver: MutationObserver | null = null;
+
+  /** The bar draws this (see GuideLauncherService); the launcher button used to be a
+   *  fixed circle floating over the header at z 10001. */
+  private readonly launcherHandle: GuideLauncher = {
+    label: EXPERIMENT_STUDIO_GUIDE_LABELS.launcher,
+    start: () => this.startGuide(),
+  };
+
+  /**
+   * View-activation hook provided by the studio shell. The guide must activate a
+   * rail-switched view before querying/measuring a target inside it, because hidden
+   * views are display:none and report zero dimensions. The step id lets the shell
+   * additionally open the relevant sub-tab inside the activated view (e.g. an
+   * Analysis tour step opens its statistics sub-tab before the guide measures it).
+   */
+  @Input() activateGuideTarget?: (view: GuideSection, stepId?: string) => void;
 
   @ViewChild('guideCard')
   private guideCard?: ElementRef<HTMLElement>;
@@ -101,18 +120,20 @@ export class ExperimentStudioGuideComponent implements AfterViewInit, OnDestroy 
     switch (step.requirement) {
       case 'selected-sex':
         return this.replaceGuideTargets('Either use the search bar to find the Sex variable or click the green-highlighted variable through the bubble chart to continue.');
-      case 'covariate-sex':
-        return 'Click "+ Covariates" button in order to continue.';
+      case 'variable-sex':
+        return 'Click Add to put ' + this.guideCovariateLabel + ' into the experiment. Open the selected-variables count in the details header to review the list.';
       case 'selected-age':
         return this.replaceGuideTargets('Either use the search bar to find the Age variable or click the green-highlighted variable through the bubble chart to continue. You can also explore the chart and details on the right.');
       case 'variable-age':
-        return 'Click "+ Variables" button in order to continue.';
+        return 'Click Add to put ' + this.guideVariableLabel + ' into the experiment. Open the selected-variables count in the details header to review the list.';
+      case 'roles-assigned':
+        return 'Assign each added variable as an outcome (Variables / y) or a predictor (Covariates / x) on the algorithm panel to continue.';
       case 'algorithm-selected':
         return 'Select any available algorithm with a green tick to continue.';
       case 'experiment-result-ready':
         return 'Run the experiment and wait for the result view to load before continuing.';
       case 'save-as-opened':
-        return 'Click Save As to open the save form and continue.';
+        return 'Click Save as to open the save form and continue.';
       case 'experiment-saved-as':
         return 'Enter a name and click Save. The guide continues automatically once the experiment has been saved.';
       default:
@@ -141,8 +162,10 @@ export class ExperimentStudioGuideComponent implements AfterViewInit, OnDestroy 
 
     effect(() => {
       this.experimentStudioService.selectedVariables();
-      this.experimentStudioService.selectedCovariates();
+      this.experimentStudioService.algorithmY();
+      this.experimentStudioService.algorithmX();
       this.experimentStudioService.selectedAlgorithm();
+      this.experimentStudioService.runResult();
       this.experimentStudioService.currentExperimentUUID();
       this.guideState.selectedHierarchyNode();
       const step = this.currentStep();
@@ -166,11 +189,12 @@ export class ExperimentStudioGuideComponent implements AfterViewInit, OnDestroy 
     });
   }
 
-  ngAfterViewInit(): void {
-    window.setTimeout(() => this.startGuide(false), 900);
+  ngOnInit(): void {
+    this.guideLauncher.register(this.launcherHandle);
   }
 
   ngOnDestroy(): void {
+    this.guideLauncher.unregister(this.launcherHandle);
     this.disconnectTargetObserver();
     this.disconnectDomObserver();
     this.clearLayoutTimer();
@@ -348,17 +372,29 @@ export class ExperimentStudioGuideComponent implements AfterViewInit, OnDestroy 
       return;
     }
 
-    const target = step.selector ? this.findTarget(step.selector) : null;
-    this.observeTarget(target);
-    if (target) {
-      target.scrollIntoView({
-        behavior: 'smooth',
-        block: this.getScrollBlock(step),
-        inline: 'nearest',
-      });
-    }
+    // Reveal the owning view before measuring the target (hidden views have no size).
+    this.activateViewForStep(step);
 
-    this.scheduleLayoutUpdate(target ? 260 : 0, true);
+    const scrollAndObserve = () => {
+      const target = step.selector ? this.findTarget(step.selector) : null;
+      this.observeTarget(target);
+      if (target) {
+        target.scrollIntoView({
+          behavior: 'smooth',
+          block: this.getScrollBlock(step),
+          inline: 'nearest',
+        });
+      }
+      this.scheduleLayoutUpdate(target ? 260 : 0, true);
+    };
+
+    scrollAndObserve();
+
+    // The owning view may not be rendered yet after activation, so retry the
+    // target scroll once the view has had a change-detection cycle to appear.
+    if (!step.selector || !this.findTarget(step.selector)) {
+      window.setTimeout(scrollAndObserve, 60);
+    }
   }
 
   private scheduleLayoutUpdate(delayMs: number, focusGuideCard = false): void {
@@ -441,6 +477,9 @@ export class ExperimentStudioGuideComponent implements AfterViewInit, OnDestroy 
       return;
     }
 
+    // Ensure the owning view is active so the target is measurable.
+    this.activateViewForStep(step);
+
     const target = step.selector ? this.findTarget(step.selector) : null;
     this.highlightRect.set(target ? this.expandRect(target.getBoundingClientRect()) : null);
 
@@ -479,6 +518,19 @@ export class ExperimentStudioGuideComponent implements AfterViewInit, OnDestroy 
     }
 
     return !active.isContentEditable;
+  }
+
+  /**
+   * Activates the studio view that owns this guide step so its target is visible,
+   * and opens the relevant sub-tab for steps inside a tabbed view. Steps are
+   * grouped by section: Explore -> variables, Analysis -> statistics,
+   * Experiment -> algorithm, Results -> execution.
+   */
+  private activateViewForStep(step: ExperimentStudioGuideStep): void {
+    if (!this.activateGuideTarget) {
+      return;
+    }
+    this.activateGuideTarget(step.section, step.id);
   }
 
   private getScrollBlock(step: ExperimentStudioGuideStep): ScrollLogicalPosition {
@@ -537,18 +589,26 @@ export class ExperimentStudioGuideComponent implements AfterViewInit, OnDestroy 
     switch (step.requirement) {
       case 'selected-sex':
         return this.hasSelectedHierarchyNode(this.guideState.guideCovariate.value);
-      case 'covariate-sex':
-        return this.hasCovariate(this.guideState.guideCovariate.value);
+      case 'variable-sex':
+        return this.hasVariable(this.guideState.guideCovariate.value);
       case 'selected-age':
-        return this.hasCovariate(this.guideState.guideCovariate.value)
+        return this.hasVariable(this.guideState.guideCovariate.value)
           && this.hasSelectedHierarchyNode(this.guideState.guideVariable.value);
       case 'variable-age':
-        return this.hasCovariate(this.guideState.guideCovariate.value)
+        return this.hasVariable(this.guideState.guideCovariate.value)
           && this.hasVariable(this.guideState.guideVariable.value);
+      case 'roles-assigned':
+        // The guide 'variable' target (e.g. age) must be assigned to y and the
+        // guide 'covariate' target (e.g. sex) to x, so the tutorial stays on a
+        // mapping compatible with the available algorithms (y max 1).
+        return this.hasRoleVariable(this.guideState.guideVariable.value)
+          && this.hasRoleCovariate(this.guideState.guideCovariate.value);
       case 'algorithm-selected':
         return !!this.experimentStudioService.selectedAlgorithm();
       case 'experiment-result-ready':
-        return !!this.findTarget('[data-guide="experiment-result"]');
+        // Prefer service state: the Execution view can be display:none while the
+        // Run step still owns Algorithm Selection, so a DOM size check would miss it.
+        return !!this.experimentStudioService.runResult();
       case 'save-as-opened':
         return !!this.findTarget('[data-guide="save-as-form"]');
       case 'experiment-saved-as': {
@@ -566,23 +626,36 @@ export class ExperimentStudioGuideComponent implements AfterViewInit, OnDestroy 
 
   private shouldAutoAdvance(step: ExperimentStudioGuideStep | null): boolean {
     return step?.requirement === 'selected-sex'
-      || step?.requirement === 'covariate-sex'
+      || step?.requirement === 'variable-sex'
       || step?.requirement === 'selected-age'
       || step?.requirement === 'variable-age'
+      || step?.requirement === 'roles-assigned'
       || step?.requirement === 'algorithm-selected'
       || step?.requirement === 'experiment-result-ready'
       || step?.requirement === 'save-as-opened'
       || step?.requirement === 'experiment-saved-as';
   }
 
-  private hasCovariate(expected: string): boolean {
-    return this.experimentStudioService.selectedCovariates().some((node) =>
+  /**
+   * Pool membership: does the code exist in the variables-panel pool
+   * (selectedVariables). Used by the Explore add-to-pool steps.
+   */
+  private hasVariable(expected: string): boolean {
+    return this.experimentStudioService.selectedVariables().some((node) =>
       this.guideState.matchesTutorialCovariate(node, expected)
     );
   }
 
-  private hasVariable(expected: string): boolean {
-    return this.experimentStudioService.selectedVariables().some((node) =>
+  /** Role membership: code assigned as outcome (algorithmY). */
+  private hasRoleVariable(expected: string): boolean {
+    return this.experimentStudioService.algorithmY().some((node) =>
+      this.guideState.matchesTutorialCovariate(node, expected)
+    );
+  }
+
+  /** Role membership: code assigned as predictor/covariate (algorithmX). */
+  private hasRoleCovariate(expected: string): boolean {
+    return this.experimentStudioService.algorithmX().some((node) =>
       this.guideState.matchesTutorialCovariate(node, expected)
     );
   }

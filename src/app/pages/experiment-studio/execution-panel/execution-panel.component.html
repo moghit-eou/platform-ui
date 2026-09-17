@@ -1,0 +1,116 @@
+@if (isRunning()) {
+  <div class="panel-loader">
+    <div class="studio-skeleton-card studio-skeleton-card--chart" role="status" aria-label="Experiment running">
+      <span class="studio-skeleton-line long"></span>
+      <span class="studio-skeleton-line medium"></span>
+      <div class="studio-skeleton-chart" aria-hidden="true">
+        <span class="studio-skeleton-bar" style="height: 38%"></span>
+        <span class="studio-skeleton-bar" style="height: 56%"></span>
+        <span class="studio-skeleton-bar" style="height: 72%"></span>
+        <span class="studio-skeleton-bar" style="height: 50%"></span>
+        <span class="studio-skeleton-bar" style="height: 82%"></span>
+      </div>
+    </div>
+    <p>{{ loadingText() }}</p>
+  </div>
+} @else if (runError(); as error) {
+  <div class="execution-error" role="alert">
+    <i class="fas fa-triangle-exclamation" aria-hidden="true"></i>
+    <div class="execution-error-copy">
+      <h3 class="execution-error-title">The experiment did not finish</h3>
+      <p class="execution-error-message">{{ error }}</p>
+    </div>
+    <button type="button" class="execution-error-action" (click)="backToAlgorithm()">
+      Back to Algorithm Selection
+    </button>
+  </div>
+} @else if (result()) {
+  <div class="experiment-panel-workspace experiment-panel-workspace--result">
+    <section class="experiment-panel-main result-section" #resultSection data-guide="experiment-result">
+      <div class="result-section-toolbar" [class.result-section-toolbar--save-as]="saveAsMode()">
+        <h2 class="result-section-title">{{ resultDisplayTitle() }}</h2>
+
+        @if (!saveAsMode()) {
+        <div class="result-toolbar-actions" data-guide="save-as-flow" role="group" aria-label="Result actions">
+          <button type="button" class="toolbar-btn toolbar-btn--ghost" (click)="backToAlgorithm()"
+            title="Edit parameters" data-guide="edit-parameters-action">
+            <span class="toolbar-btn-icon" aria-hidden="true"><i class="fas fa-sliders-h"></i></span>
+            <span class="toolbar-btn-label">Edit parameters</span>
+          </button>
+          <button type="button" class="toolbar-btn toolbar-btn--primary" (click)="toggleSaveAsMode()"
+            data-guide="save-as-action">
+            <span class="toolbar-btn-icon" aria-hidden="true"><i class="fas fa-copy"></i></span>
+            <span class="toolbar-btn-label">Save as</span>
+          </button>
+          <span class="toolbar-divider" aria-hidden="true"></span>
+          <button type="button" class="toolbar-btn toolbar-btn--ghost" (click)="exportPdf.emit(resultSection)"
+            data-guide="result-export" title="Export as PDF">
+            <span class="toolbar-btn-icon" aria-hidden="true"><i class="fas fa-file-pdf"></i></span>
+            <span class="toolbar-btn-label">Export PDF</span>
+          </button>
+        </div>
+        } @else {
+        <div class="result-toolbar-actions result-toolbar-actions--save-as" data-guide="save-as-form">
+          <div class="save-as-inline">
+            <label class="save-as-inline-label" for="save-as-name-input">Experiment name</label>
+            <input id="save-as-name-input" type="text" [ngModel]="saveAsName()" (ngModelChange)="saveAsName.set($event)"
+              placeholder="Enter a name for this experiment" class="save-as-input" />
+          </div>
+          <div class="result-toolbar-action-buttons">
+            <button type="button" class="toolbar-btn toolbar-btn--ghost" (click)="cancelSaveAs()">
+              <span class="toolbar-btn-label">Cancel</span>
+            </button>
+            <button type="button" class="toolbar-btn toolbar-btn--primary" (click)="onSaveAs()"
+              [disabled]="!saveAsName().trim() || isRunning()">
+              <span class="toolbar-btn-label">{{ isRunning() ? "Saving..." : "Save experiment" }}</span>
+            </button>
+          </div>
+        </div>
+        }
+      </div>
+
+      <div class="result-section-body">
+        <app-algorithm-result [result]="result()" [schema]="schema()" [algorithm]="resultAlgorithmKey()"
+          [enumMaps]="enumMaps()" [yVar]="yVar()" [xVar]="xVar()" [labelMap]="labelMap()"
+          [algorithmLabel]="resultAlgorithmLabel()" />
+      </div>
+
+      @if (mipVersion) {
+      <div class="mip-version-bar">
+        <span class="mip-version-label">MIP Version:</span>
+        <span class="mip-version-value">{{ mipVersion }}</span>
+      </div>
+      }
+    </section>
+
+    @if (setupSnapshot()) {
+    <aside class="experiment-panel-aside" aria-label="Experiment setup">
+      <app-experiment-setup-summary></app-experiment-setup-summary>
+    </aside>
+    }
+  </div>
+} @else {
+  <div class="execution-empty">
+    <div class="execution-empty-icon"><i class="fas fa-play" aria-hidden="true"></i></div>
+    <h3>No results yet</h3>
+    <p>Configure the algorithm parameters and run the experiment to see its results here.</p>
+    <button type="button" class="execution-empty-action" (click)="backToAlgorithm()">
+      Back to Algorithm Selection
+    </button>
+  </div>
+}
+
+@if (showSuccessNotification()) {
+<div class="success-notification" role="status" aria-live="polite">
+  <div class="notification-content">
+    <i class="fas fa-check-circle"></i>
+    <div class="notification-body">
+      <span class="notification-title">Experiment saved successfully!</span>
+      <span class="notification-subtext">
+        Review and compare your experiments on the
+        <a class="notification-link" routerLink="/experiments-dashboard">dashboard</a>.
+      </span>
+    </div>
+  </div>
+</div>
+}

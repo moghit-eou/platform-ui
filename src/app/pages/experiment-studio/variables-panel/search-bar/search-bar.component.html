@@ -1,70 +1,154 @@
-<div class="search-container" data-guide="search-bar">
-  <div class="search-input-container">
-    <label class="search-field" for="search-bar">
-      <i class="fas fa-search search-field-icon" aria-hidden="true"></i>
-      <input type="text" id="search-bar" placeholder="Search variables or groups" aria-label="Search variables or groups"
-        [(ngModel)]="searchQuery" (focus)="onSearchFocus()" (input)="handleSearch(searchQuery)" />
+<div class="search-container">
+  <!-- Top Search Input Header -->
+  <div class="search-header-row">
+    <i class="fas fa-search search-icon" aria-hidden="true"></i>
+    <input
+      type="text"
+      id="search-bar"
+      class="search-input"
+      placeholder="Search variables or groups..."
+      aria-label="Search variables or groups"
+      role="combobox"
+      [attr.aria-expanded]="searchSuggestionsVisible"
+      [attr.aria-controls]="searchSuggestionsVisible ? 'search-results-listbox' : null"
+      [attr.aria-activedescendant]="activeDescendantId()"
+      [(ngModel)]="searchQuery"
+      (focus)="onSearchFocus()"
+      (input)="handleSearch(searchQuery)"
+      (keydown)="onSearchKeydown($event)"
+      autocomplete="off"
+      spellcheck="false" />
 
-      @if (searchQuery) {
-      <button type="button" class="clear-btn" aria-label="Clear search" (click)="closeSearch()">×</button>
-      }
-    </label>
-
-    <div class="search-filter-group" aria-label="Search filters">
-      <select class="search-filter-select" [(ngModel)]="filterType" (change)="applyFilter(filterType)" aria-label="Search target">
-        <option value="variables">Variables</option>
-        <option value="groups">Groups</option>
-      </select>
-
-      @if (filterType === 'variables') {
-      <select class="search-filter-select" [(ngModel)]="variableTypeFilter" (change)="applyVariableTypeFilter(variableTypeFilter)" aria-label="Variable type filter">
-        <option value="">All types</option>
-        @for (type of variableTypes; track type) {
-        <option [value]="type">{{ type }}</option>
-        }
-      </select>
-      }
-    </div>
+    @if (searchQuery) {
+    <button
+      type="button"
+      class="clear-btn"
+      aria-label="Clear search"
+      title="Clear search"
+      (click)="clearSearch()">
+      <i class="fas fa-times" aria-hidden="true"></i>
+    </button>
+    }
   </div>
 
-  <!-- Suggestions Results -->
+  @if (searchSuggestionsVisible) {
+  <div class="search-divider" aria-hidden="true"></div>
+  }
+
+  <!-- Suggestions / Results Area -->
   @if (searchSuggestionsVisible) {
   <div class="suggestions-container">
-    @if (filteredItems.length > 0) {
-    <div class="section-header">
-      {{ filterType === 'variables' ? 'Variables' : 'Groups' }}
+    <div class="search-toolbar">
+      <div class="search-toolbar-main">
+        <!-- Variables vs Groups toggle -->
+        <div
+          class="search-kind-segment"
+          role="group"
+          aria-label="Search kind"
+          style="--segment-count: 2"
+          [style.--segment-active-index]="kindIndex">
+          <span class="search-segment-track" aria-hidden="true">
+            <span class="search-segment-indicator"></span>
+          </span>
+          <button
+            type="button"
+            class="search-segment-btn"
+            [class.active]="filterType === 'variables'"
+            [attr.aria-pressed]="filterType === 'variables'"
+            (click)="setFilterType('variables')">
+            <span>Variables</span>
+          </button>
+          <button
+            type="button"
+            class="search-segment-btn"
+            [class.active]="filterType === 'groups'"
+            [attr.aria-pressed]="filterType === 'groups'"
+            (click)="setFilterType('groups')">
+            <span>Groups</span>
+          </button>
+        </div>
+
+        <span class="search-results-counter">
+          {{ filteredItems.length }} {{ filterType === 'variables' ? (filteredItems.length === 1 ? 'variable' : 'variables') : (filteredItems.length === 1 ? 'group' : 'groups') }}
+        </span>
+      </div>
+
+      <!-- Variable Type Filter Chips -->
+      @if (filterType === 'variables' && variableTypes.length > 0) {
+      <div class="search-type-chips" role="group" aria-label="Filter by variable type">
+        <button
+          type="button"
+          class="search-type-chip"
+          [class.is-active]="!variableTypeFilter"
+          [attr.aria-pressed]="!variableTypeFilter"
+          (click)="setVariableTypeFilter('')">
+          All
+        </button>
+        @for (type of variableTypes; track type) {
+        <button
+          type="button"
+          class="search-type-chip"
+          [class.is-active]="variableTypeFilter === type"
+          [attr.aria-pressed]="variableTypeFilter === type"
+          (click)="setVariableTypeFilter(type)">
+          {{ type }}
+        </button>
+        }
+      </div>
+      }
     </div>
-    <ul>
+
+    @if (filteredItems.length > 0) {
+    <ul class="search-results-list" id="search-results-listbox" role="listbox" aria-label="Search results">
       @for (item of filteredItems; track item.id) {
       <li
         class="search-result-item"
+        role="option"
+        [attr.id]="'search-result-' + $index"
         [class.is-group]="item.kind === 'group'"
+        [class.is-active]="$index === activeIndex"
+        [attr.aria-selected]="$index === activeIndex"
         (click)="onItemClick(item)"
         [title]="generateTooltip(item)">
-        <div class="search-result-head">
-          <span class="search-result-label" [innerHTML]="highlight(item.label)"></span>
-          @if (item.kind === 'variable') {
-          <span class="search-result-type">{{ variableType(item) }}</span>
-          } @else {
-          <span class="search-result-kind">Group</span>
-          }
+        @let groupCount = groupVariableCount(item);
+        <div class="search-result-content">
+          <div class="search-result-head">
+            <span class="search-result-label" [innerHTML]="highlight(item.label)"></span>
+            @if (item.kind === 'variable') {
+            <span class="search-result-badge variable-badge">{{ variableType(item) }}</span>
+            } @else {
+            <span class="search-result-badge group-badge">
+              {{ groupCount }} {{ groupCount === 1 ? 'var' : 'vars' }}
+            </span>
+            }
+          </div>
+          <div class="search-result-breadcrumb" [title]="item.path">
+            <span>{{ breadcrumbPath(item) }}</span>
+          </div>
         </div>
-        @if (item.kind === 'variable') {
-        <span class="search-result-parent">{{ parentGroupLabel(item) }}</span>
-        }
-        <span class="search-result-path">{{ item.path }}</span>
       </li>
       }
     </ul>
     } @else {
     <div class="no-results">
-      @if (searchQuery.trim()) {
-      No results found for "{{ searchQuery }}"
-      } @else {
-      No {{ filterType === 'variables' ? 'variables' : 'groups' }} available
-      }
+      <p class="no-results-title">
+        @if (searchQuery.trim()) {
+        No results found for "{{ searchQuery }}"
+        } @else {
+        No {{ filterType === 'variables' ? 'variables' : 'groups' }} available
+        }
+      </p>
+      <p class="no-results-hint">Try adjusting your query or switching filter options.</p>
     </div>
     }
+
+    <div class="search-footer-hint">
+      <span class="hint-item"><kbd>↑</kbd><kbd>↓</kbd> navigate</span>
+      <span class="hint-sep">·</span>
+      <span class="hint-item"><kbd>↵</kbd> select</span>
+      <span class="hint-sep">·</span>
+      <span class="hint-item"><kbd>esc</kbd> close</span>
+    </div>
   </div>
   }
 </div>

@@ -1,5 +1,5 @@
-export type AnalysisWorkflowSection = 'filters' | 'raw' | 'setup' | 'processed' | 'none';
-export type AnalysisSummaryTab = 'Statistics' | 'Charts' | 'Histogram';
+type AnalysisWorkflowSection = 'filters' | 'raw' | 'setup' | 'processed' | 'transformation' | 'none';
+type AnalysisSummaryTab = 'Statistics' | 'Charts' | 'Histogram';
 export type AnalysisPreprocessingStep = 'missing' | 'outlier' | 'longitudinal';
 
 export interface AnalysisGuideLayout {
@@ -15,6 +15,7 @@ const ANALYSIS_GUIDE_LAYOUTS: Record<string, AnalysisGuideLayout> = {
   'analysis-raw-statistics': { expandSection: 'raw', summaryKind: 'raw', summaryTab: 'Statistics' },
   'analysis-preprocessing': { expandSection: 'setup', preprocessingStep: 'missing' },
   'analysis-processed-summary': { expandSection: 'processed', summaryKind: 'processed', summaryTab: 'Statistics' },
+  'analysis-transformation': { expandSection: 'transformation' },
 };
 
 export function getAnalysisGuideLayout(stepId: string | null): AnalysisGuideLayout | null {

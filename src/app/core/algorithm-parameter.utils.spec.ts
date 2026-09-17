@@ -1,4 +1,5 @@
 import {
+  formatAlgorithmParameterValue,
   omitEmptyOptionalParameters,
   optionBindingValue,
   serializeAlgorithmParameterValue,
@@ -65,5 +66,35 @@ describe('algorithm-parameter.utils', () => {
 
     expect(result['positive_class']).toBeNull();
     expect(result['event_var']).toBe('procedure');
+  });
+});
+
+describe('formatAlgorithmParameterValue', () => {
+  const selectField = {
+    key: 'groupA',
+    type: 'select',
+    options: [
+      { code: '1', label: 'female' },
+      { code: '0', label: 'male' },
+    ],
+  };
+
+  it('reads option labels instead of codes', () => {
+    expect(formatAlgorithmParameterValue('1', selectField)).toBe('female');
+    expect(formatAlgorithmParameterValue({ code: '0' }, selectField)).toBe('male');
+    expect(formatAlgorithmParameterValue(['1', '0'], { ...selectField, type: 'multi-select' })).toBe('female, male');
+  });
+
+  it('reads booleans and leaves plain scalars alone', () => {
+    expect(formatAlgorithmParameterValue(true)).toBe('Yes');
+    expect(formatAlgorithmParameterValue(false)).toBe('No');
+    expect(formatAlgorithmParameterValue(0.95)).toBe('0.95');
+    expect(formatAlgorithmParameterValue('spearman')).toBe('spearman');
+  });
+
+  it('flattens a nested value and drops the unset ones', () => {
+    expect(formatAlgorithmParameterValue({ min_value: 1, tail: 'both' })).toBe('min value: 1; tail: both');
+    expect(formatAlgorithmParameterValue(null)).toBe('');
+    expect(formatAlgorithmParameterValue('   ')).toBe('');
   });
 });

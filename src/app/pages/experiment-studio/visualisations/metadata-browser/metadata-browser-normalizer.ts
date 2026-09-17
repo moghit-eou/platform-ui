@@ -138,7 +138,7 @@ export function normalizeMetadataTree(root: D3HierarchyNode): NormalizedMetadata
   };
 }
 
-export function listMetadataSearchResults(index: NormalizedMetadataIndex): MetadataSearchResult[] {
+function listMetadataSearchResults(index: NormalizedMetadataIndex): MetadataSearchResult[] {
   const groupResults = index.groupIds.map((id) => toGroupSearchResult(index.groupsById[id]));
   const variableResults = index.variableIds.map((id) => toVariableSearchResult(index.variablesById[id]));
 
@@ -151,25 +151,30 @@ export function searchMetadataIndex(index: NormalizedMetadataIndex, query: strin
     return listMetadataSearchResults(index);
   }
 
-  const groupResults = index.groupIds
-    .map((id) => index.groupsById[id])
-    .filter((group) => matchesSearch(normalizedQuery, [group.label, group.code]))
-    .map((group) => toGroupSearchResult(group));
+  const scored: Array<{ result: MetadataSearchResult; score: number }> = [];
 
-  const variableResults = index.variableIds
-    .map((id) => index.variablesById[id])
-    .filter((variable) => matchesSearch(normalizedQuery, [
-      variable.label,
-      variable.code,
-      variable.description,
+  index.groupIds.forEach((id) => {
+    const group = index.groupsById[id];
+    const score = matchScore(normalizedQuery, group.label, group.code, '', []);
+    if (score >= 0) {
+      scored.push({ result: toGroupSearchResult(group), score });
+    }
+  });
+
+  index.variableIds.forEach((id) => {
+    const variable = index.variablesById[id];
+    const enumTexts = [
       ...variable.enumerations.map((item) => item.label),
       ...variable.enumerations.map((item) => item.code),
-    ]))
-    .map((variable) => toVariableSearchResult(variable, normalizedQuery));
+    ];
+    const score = matchScore(normalizedQuery, variable.label, variable.code, variable.description, enumTexts);
+    if (score >= 0) {
+      scored.push({ result: toVariableSearchResult(variable, normalizedQuery), score });
+    }
+  });
 
-  return [...groupResults, ...variableResults]
-    .sort((a, b) => a.path.localeCompare(b.path))
-    .slice(0, 50);
+  scored.sort((a, b) => a.score - b.score || a.result.label.localeCompare(b.result.label));
+  return scored.map((entry) => entry.result).slice(0, 50);
 }
 
 function toGroupSearchResult(group: NormalizedGroupNode): MetadataSearchResult {
@@ -340,8 +345,45 @@ function normalizeCategorical(node: D3HierarchyNode): boolean {
   return Array.isArray(node.enumerations) && node.enumerations.length > 0;
 }
 
-function matchesSearch(query: string, candidates: string[]): boolean {
-  return candidates.some((candidate) => normalizeSearchText(candidate).includes(query));
+function matchScore(
+  query: string,
+  label: string,
+  code: string,
+  description: string,
+  extraTexts: string[]
+): number {
+  const labelNorm = normalizeSearchText(label);
+  const codeNorm = normalizeSearchText(code);
+  const descNorm = normalizeSearchText(description);
+  const extraNorms = extraTexts.map((text) => normalizeSearchText(text));
+
+  if (labelNorm === query || codeNorm === query) {
+    return 0;
+  }
+  if (labelNorm.startsWith(query) || codeNorm.startsWith(query)) {
+    return 1;
+  }
+
+  const tokens = query.split(/\s+/).filter(Boolean);
+  if (tokens.length > 1) {
+    if (tokens.every((token) => labelNorm.includes(token))) {
+      return 2;
+    }
+  }
+
+  if (labelNorm.includes(query) || codeNorm.includes(query)) {
+    return 3;
+  }
+
+  if (descNorm.includes(query)) {
+    return 4;
+  }
+
+  if (extraNorms.some((text) => text.includes(query))) {
+    return 5;
+  }
+
+  return -1;
 }
 
 function bestMatchText(query: string, variable: NormalizedVariableNode): string {

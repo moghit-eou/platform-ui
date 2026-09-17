@@ -36,7 +36,7 @@
 
 .metadata-info-header h3 {
   margin: 0;
-  color: #0f172a;
+  color: var(--text-main);
   font-size: 1.05rem;
   font-weight: 800;
   line-height: 1.25;
@@ -45,7 +45,7 @@
 .metadata-description,
 .metadata-long-text {
   margin: 0;
-  color: #334155;
+  color: var(--chart-label-color);
   font-size: 0.82rem;
   line-height: 1.5;
 }
@@ -76,7 +76,7 @@
   min-width: 0;
   padding: 10px 12px;
   border-radius: var(--radius-md, 8px);
-  background: var(--studio-card-header-bg, #f8fbff);
+  background: var(--studio-card-header-bg);
   border: 1px solid var(--studio-card-header-border, rgba(43, 51, 233, 0.08));
 }
 
@@ -100,7 +100,7 @@
 .metadata-path span {
   display: inline;
   max-width: 100%;
-  color: var(--text-muted, #475569);
+  color: var(--text-muted);
   font-size: 0.76rem;
   font-weight: 500;
   line-height: 1.45;
@@ -108,14 +108,14 @@
 }
 
 .metadata-path span.current {
-  color: var(--primary-color, #2b33e9);
+  color: var(--primary-color);
   font-weight: 700;
 }
 
 .metadata-path i {
   flex-shrink: 0;
   align-self: center;
-  color: var(--primary-light, #7f9ce8);
+  color: var(--primary-light);
   font-size: 0.5rem;
   opacity: 0.85;
   margin: 0 1px;
@@ -173,7 +173,7 @@
 .metadata-field-grid dd,
 .metadata-metric-grid dd {
   overflow-wrap: anywhere;
-  color: var(--text-main, #0f172a);
+  color: var(--text-main);
   font-size: 0.8rem;
   font-weight: 600;
   line-height: 1.45;
@@ -181,7 +181,7 @@
 
 .metadata-metric-grid dd {
   font-variant-numeric: tabular-nums;
-  color: var(--primary-color, #2b33e9);
+  color: var(--primary-color);
   font-weight: 700;
 }
 
@@ -197,7 +197,7 @@
 .enumeration-list li {
   min-width: 0;
   padding: 6px 0 6px 14px;
-  color: #334155;
+  color: var(--chart-label-color);
   font-size: 0.8rem;
   font-weight: 500;
   line-height: 1.4;
@@ -214,7 +214,7 @@
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: var(--primary-color, #2b33e9);
+  background: var(--primary-color);
   opacity: 0.55;
 }
 

@@ -42,8 +42,8 @@
         <dd>{{ directVariableCount() }}</dd>
         <dt>Total variables</dt>
         <dd>{{ totalVariableCount() }}</dd>
-        @if (groupInfo()) {
-        <dt>{{ groupInfo()?.hasGroups ? 'Chart groups' : 'Chart variables' }}</dt>
+        @if (groupInfo()?.hasGroups) {
+        <dt>Chart groups</dt>
         <dd>{{ groupInfo()?.groupCount }}</dd>
         }
       </dl>

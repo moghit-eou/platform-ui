@@ -1,49 +1,113 @@
-<header class="header header--transparent">
-  <!-- Logo -->
-  <a class="branding" routerLink="/experiments-dashboard" (click)="goHome($event)" aria-label="Go to home">
-    <img src="assets/mip-logo-short.png" alt="MIP Logo" class="logo" />
+<header class="header" [class.header--scrolled]="isScrolled()">
+  <!-- SLOT 1 — branding. One asset, one size, on every route. -->
+  <a class="branding" href="/experiments-dashboard" (click)="goHome($event)" aria-label="Go to home">
+    <img src="assets/mip-logo-short.png" alt="MIP logo" class="logo" width="480" height="162" />
   </a>
 
-  <!-- Theme Toggle + User Icon -->
-  <div class="header-actions">
-    @if (runtimeEnv.notebookEnabled && isLoggedIn()) {
-    <nav class="header-nav header-nav--actions" aria-label="Primary">
+  <!-- SLOT 2 — the product's navigation: the SAME items on every route, left-aligned
+       against the hairline that ends the brand. The bar does not draw which page you are
+       on — aria-current carries that for assistive tech and nothing more — and items
+       never appear or disappear per route. -->
+  <div class="header-nav-slot">
+    <nav class="header-nav" aria-label="Primary">
+      <a
+        href="/experiments-dashboard"
+        [attr.aria-current]="isDashboardRoute() ? 'page' : null"
+        class="header-nav-link header-nav-link--dashboard"
+        (click)="goHome($event)"
+      >
+        <span class="header-nav-link__title">My experiments</span>
+      </a>
+      <a
+        routerLink="/experiment-studio"
+        [attr.aria-current]="isStudioRoute() ? 'page' : null"
+        class="header-nav-link header-nav-link--studio"
+      >
+        <span class="header-nav-link__title">Studio</span>
+      </a>
+      @if (runtimeEnv.notebookEnabled && isLoggedIn()) {
       <a
         routerLink="/notebook"
-        routerLinkActive="header-nav-link--active"
+        [attr.aria-current]="notebookRouteActive() ? 'page' : null"
         class="header-nav-link header-nav-link--notebook"
         [class.header-nav-link--discover]="!notebookNav.hasVisited()"
-        aria-label="Jupyter Notebook, powered by AI agents"
+        aria-label="Jupyter Notebook"
       >
         <span class="header-nav-link__text">
           <span class="header-nav-link__title">Jupyter Notebook</span>
-          <span class="header-nav-link__subtitle">Powered by AI agents</span>
         </span>
-        <img src="assets/notebook-ai-icon.svg" alt="" class="header-nav-link__icon" width="28" height="28" />
+        <img src="assets/notebook-ai-icon.svg" alt="" class="header-nav-link__icon" width="20" height="20" />
       </a>
+      }
     </nav>
-  }
+  </div>
 
-    @if (showGuideSlot()) {
-    <div class="header-guide-slot" aria-hidden="true"></div>
+  <!-- SLOT 3 — the route's Guide (only pages that have a tour register one) and the
+       account. Left of this group sits the bar's second hairline, so the group reads as
+       "you", not as part of the product navigation. -->
+  <div class="header-actions">
+    @if (guideLauncher(); as guide) {
+    <button
+      type="button"
+      class="header-guide"
+      data-guide="launcher"
+      (click)="guide.start()"
+      [attr.aria-label]="guide.label"
+      [attr.title]="guide.label"
+    >
+      <i class="fas fa-compass header-guide__icon" aria-hidden="true"></i>
+      <span class="header-guide__label">{{ guide.label }}</span>
+    </button>
     }
 
-    <div class="user-icon">
-      @if (isLoggedIn()) {
-      <!-- LOGGED IN: go to account -->
-      <a class="sign-in-btn" routerLink="/account">
-        <span class="account-guide-target" data-guide="header-account">
-          <img src="assets/user-icon.png" alt="User Picture" class="account-picture" />
+    @if (isLoggedIn()) {
+    <!-- The avatar used to be a link to /account, whose real job was to hold a "Sign Out"
+         button. It is a trigger now: one click to the menu, one to the action. -->
+    <div class="account-control" #accountControl>
+      <button
+        type="button"
+        class="sign-in-btn"
+        #accountToggle
+        data-guide="header-account"
+        aria-haspopup="menu"
+        [attr.aria-expanded]="accountMenuOpen()"
+        [attr.aria-controls]="accountMenuId"
+        [attr.aria-label]="accountMenuOpen() ? 'Close account menu' : 'Account menu'"
+        (click)="toggleAccountMenu()"
+        (keydown.escape)="closeAccountMenu()"
+      >
+        <span class="account-guide-target">
+          <img src="assets/user-icon.png" alt="" class="account-picture" width="32" height="32" />
         </span>
-      </a>
-      } @else {
-      <!-- LOGGED OUT: trigger login -->
-      <button class="sign-in-btn" (click)="login()">
-        <span class="account-guide-target" data-guide="header-account">
-          <img src="assets/grey-avatar.png" alt="Sign In" class="account-picture" />
-        </span>
+        <span class="sign-in-btn__label">{{ displayName() }}</span>
       </button>
+
+      @if (accountMenuOpen()) {
+      <!-- Menu geometry is the house surface (card bg + chrome border + shadow), its
+           shape is Ferryhopper's: right-aligned so it can never hang off the bar's right
+           edge, min-width so a short label still reads as a menu. -->
+      <div class="account-menu" [id]="accountMenuId" cdkMenu (keydown.escape)="closeAccountMenu()">
+        <a class="account-menu__item" cdkMenuItem routerLink="/account">
+          <i class="fas fa-user-gear account-menu__icon" aria-hidden="true"></i>
+          <span>Account settings</span>
+        </a>
+        <!-- cdkMenuItemTriggered, not (triggered): the output is aliased, and an
+             unrecognised name binds as a plain DOM event that never fires — silently,
+             with no template error and no failing build. -->
+        <button type="button" class="account-menu__item" cdkMenuItem (cdkMenuItemTriggered)="signOut()">
+          <i class="fas fa-sign-out-alt account-menu__icon" aria-hidden="true"></i>
+          <span>Sign Out</span>
+        </button>
+      </div>
       }
     </div>
+    } @else {
+    <button class="sign-in-btn" data-guide="header-account" (click)="login()" aria-label="Sign in">
+      <span class="account-guide-target">
+        <img src="assets/grey-avatar.png" alt="" class="account-picture" width="32" height="32" />
+      </span>
+      <span class="sign-in-btn__label">Sign in</span>
+    </button>
+    }
   </div>
 </header>

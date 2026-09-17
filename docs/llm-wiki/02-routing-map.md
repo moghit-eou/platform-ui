@@ -5,7 +5,7 @@ Routes live in `src/app/app.routes.ts`.
 | Route | Guards / matchers | Purpose |
 |---|---|---|
 | `/` | redirect | `/experiments-dashboard` |
-| `/experiments-dashboard` | `AuthGuard`, `TermsGuard`, onboarding guard | default app area |
+| `/experiments-dashboard` | `AuthGuard`, `TermsGuard` | default app area |
 | `/terms` | `AuthGuard` | terms acceptance |
 | `/account` | `AuthGuard`, `TermsGuard` | account page |
 | `/experiment-studio` | `AuthGuard`, `TermsGuard` | experiment creation/results |

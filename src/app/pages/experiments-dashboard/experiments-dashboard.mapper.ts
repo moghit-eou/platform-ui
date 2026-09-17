@@ -1,6 +1,6 @@
 import { BackendExperiment } from "../../models/backend-experiment.model";
 import { BackendFilter } from "../../models/filters.model";
-import { Experiment, AlgorithmDetails, UserDetails } from './../../models/experiments-dashboard.model';
+import { Experiment } from './../../models/experiments-dashboard.model';
 import { AnalysisPreprocessingStep } from "../../models/backend-algorithms.model";
 
 
@@ -79,32 +79,3 @@ export function mapBackendToFrontend(backend: BackendExperiment): Experiment {
   };
 }
 
-
-// Map BackendExperiment to AlgorithmDetails
-export function mapBackendToAlgorithmDetails(backend: BackendExperiment): AlgorithmDetails {
-  return {
-    name: backend.analysis.algorithm.name,
-    datasets: normalizeToStringArray(backend.analysis.inputdata.datasets),
-    parameters: backend.analysis.algorithm.parameters ?? {},
-    dataModel: backend.analysis.inputdata.data_model,
-  };
-}
-
-// Map BackendExperiment to UserDetails
-export function mapBackendToUserDetails(backend: BackendExperiment): UserDetails {
-  return {
-    username: backend.createdBy.username,
-    fullname: backend.createdBy.fullname,
-    email: backend.createdBy.email,
-  };
-}
-
-// Map Experiment to BackendExperiment (Frontend to Backend)
-export function mapFrontendToBackend(frontend: Experiment): Partial<BackendExperiment> {
-  return {
-    uuid: frontend.id,
-    name: frontend.name,
-    created: frontend.dateCreated.toISOString(),
-    status: frontend.status,
-  };
-}

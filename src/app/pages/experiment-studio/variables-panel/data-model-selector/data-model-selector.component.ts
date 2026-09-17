@@ -1,5 +1,4 @@
-import { ChangeDetectionStrategy, Component, SimpleChanges, OnChanges, OnInit, output, input } from '@angular/core';
-import { FormsModule } from "@angular/forms";
+import { ChangeDetectionStrategy, Component, computed, input, OnChanges, OnInit, output, SimpleChanges } from '@angular/core';
 import { DataModel } from '../../../../models/data-model.interface';
 
 @Component({
@@ -7,9 +6,6 @@ import { DataModel } from '../../../../models/data-model.interface';
   templateUrl: './data-model-selector.component.html',
   styleUrl: './data-model-selector.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [
-    FormsModule,
-  ]
 })
 export class DataModelSelectorComponent implements OnChanges, OnInit {
   readonly crossSectionalModels = input<DataModel[]>([]);
@@ -19,6 +15,9 @@ export class DataModelSelectorComponent implements OnChanges, OnInit {
   readonly dataModelChange = output<DataModel | null>();
 
   selectedDataModel: DataModel | null = null;
+
+  /** Single flat list for the chip loop (cross-sectional first). */
+  readonly models = computed(() => [...this.crossSectionalModels(), ...this.longitudinalModels()]);
 
   ngOnInit(): void {
     this.updateSelectedModel();
@@ -43,8 +42,13 @@ export class DataModelSelectorComponent implements OnChanges, OnInit {
     }
   }
 
-  onDataModelChange(): void {
+  selectModel(model: DataModel): void {
+    this.selectedDataModel = model;
     this.dataModelChange.emit(this.selectedDataModel);
+  }
+
+  isOptionSelected(model: DataModel): boolean {
+    return this.isSameModel(this.selectedDataModel, model);
   }
 
   private isSameModel(a: DataModel | null, b: DataModel | null): boolean {

@@ -10,6 +10,7 @@ import {
   QuartilesResult, BinnedMannWhitneyUTestResult
 } from '../../../../models/algorithm-results.model';
 import { getFeaturewiseDescribeRows } from '../../../../core/describe-result.utils';
+import { prettifyLabel } from '../../../../core/algorithm-mappers';
 
 export interface TableSpec {
   title?: string;
@@ -18,7 +19,7 @@ export interface TableSpec {
   layout?: 'compact' | 'full';
 }
 
-export type TableBuilder = (result: any) => TableSpec[];
+type TableBuilder = (result: any) => TableSpec[];
 
 function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
@@ -53,11 +54,6 @@ function formatAnovaMetric(value: any): string {
   return value.toFixed(3);
 }
 
-function formatFixedMetric(value: any): string {
-  if (typeof value !== 'number' || isNaN(value)) return value ?? '';
-  if (!Number.isFinite(value)) return String(value);
-  return value.toFixed(3);
-}
 
 function formatNullableOutlierValue(value: any): string {
   if (value === null || value === undefined) return 'Unavailable';
@@ -89,9 +85,7 @@ function formatTTestKey(key: string): string {
   if (map[key]) return map[key];
 
   // Fallback for unknown keys
-  return key
-    .replace(/_/g, ' ')
-    .replace(/\b\w/g, (c) => c.toUpperCase());
+  return prettifyLabel(key);
 }
 
 function buildTTestRows(
@@ -1205,7 +1199,6 @@ export const AlgorithmTableRegistry: Record<string, TableBuilder> = {
   },
 
   histogram: buildHistogramTables,
-  histogram_sql: buildHistogramTables,
 
   binned_mann_whitney_u_test: (result: BinnedMannWhitneyUTestResult) => {
     if (!result) return [];
@@ -1235,7 +1228,7 @@ export const AlgorithmTableRegistry: Record<string, TableBuilder> = {
     return [{
       title: 'Paired T-Test',
       columns: ['Metric', 'Value'],
-      rows: buildTTestRows(result as Record<string, any>, formatFixedMetric)
+      rows: buildTTestRows(result as Record<string, any>, formatAnovaMetric)
     }];
   },
 
@@ -1248,7 +1241,6 @@ export const AlgorithmTableRegistry: Record<string, TableBuilder> = {
   },
 
   // Legacy/Aliases
-  logistic_regression_cv_fedaverage: (result) => AlgorithmTableRegistry['logistic_regression_cv'](result),
   linear_svm: (result) => {
     if (!result) return [];
 
@@ -1278,3 +1270,11 @@ export const AlgorithmTableRegistry: Record<string, TableBuilder> = {
   // Default fallback
   default: () => []
 };
+
+
+/** Safe key lookup for callers holding an algorithm name from the backend. */
+export function getAlgorithmTableBuilder(algorithmKey: string | null | undefined): TableBuilder | undefined {
+  if (!algorithmKey) return undefined;
+  const entry = Object.entries(AlgorithmTableRegistry).find(([key]) => key === algorithmKey);
+  return entry?.[1];
+}

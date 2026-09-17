@@ -1,8 +1,8 @@
 :host {
   display: block;
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.875rem;
-  color: var(--text-main, #0f172a);
+  color: var(--text-main);
 }
 
 /* CONTAINER – GRID LAYOUT */
@@ -45,7 +45,7 @@
     rgba(248, 251, 255, 0.98) 0%,
     rgba(255, 255, 255, 0.96) 100%
   );
-  color: #0f172a;
+  color: var(--text-main);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -59,38 +59,11 @@
   font-weight: 700;
   font-size: 0.88rem;
   letter-spacing: 0.02em;
-  color: var(--primary-color, #2b33e9);
+  color: var(--primary-color);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   margin-right: 12px;
-}
-
-/* EXPORT BUTTON */
-.ar-export-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: rgba(43, 51, 233, 0.06);
-  border: 1px solid rgba(127, 156, 232, 0.35);
-  color: var(--primary-color, #2b33e9);
-  padding: 4px 10px;
-  border-radius: 999px;
-  font-size: 0.72rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease, transform 0.12s ease;
-  white-space: nowrap;
-}
-
-.ar-export-btn:hover {
-  background: rgba(43, 51, 233, 0.1);
-  border-color: rgba(43, 51, 233, 0.45);
-  transform: translateY(-1px);
-}
-
-.ar-export-btn:active {
-  transform: translateY(0);
 }
 
 /* TABLE WRAPPER */
@@ -121,7 +94,7 @@
 /* Header row */
 .ar-table thead th {
   background-color: rgba(43, 51, 233, 0.08);
-  color: var(--primary-color, #2b33e9);
+  color: var(--primary-color);
   font-weight: 600;
   text-align: left;
   padding: 10px 12px;
@@ -132,7 +105,7 @@
 
 /* Body rows */
 .ar-table tbody tr:nth-child(even) {
-  background-color: var(--bg-color, #f8fafc);
+  background-color: var(--bg-color);
 }
 
 .ar-table tbody tr:hover {
@@ -143,8 +116,8 @@
 .ar-table td {
   padding: 8px 12px;
   border-bottom: 1px solid var(--border-color, rgba(43, 51, 233, 0.1));
-  color: var(--text-main, #0f172a);
-  font-family: 'Roboto Mono', monospace;
+  color: var(--text-main);
+  font-family: var(--font-mono);
   font-size: 0.85rem;
   transition: background 0.2s ease;
 }
@@ -152,28 +125,28 @@
 /* First column emphasis */
 .ar-table td:first-child {
   font-weight: 500;
-  color: var(--primary-color, #2b33e9);
+  color: var(--primary-color);
   text-align: left;
 }
 
 .ar-table td.ar-cell-text {
   text-align: left;
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-sans);
 }
 
 .ar-table td.ar-role-factor {
   font-weight: 700;
-  color: var(--covariate-color, #8b7355);
+  color: var(--covariate-color);
 }
 
 .ar-table td.ar-role-outcome {
   font-weight: 700;
-  color: var(--primary-color, #2b33e9);
+  color: var(--primary-color);
 }
 
 .ar-table td.ar-cell-text:nth-child(2) {
   font-weight: 600;
-  color: var(--text-main, #0f172a);
+  color: var(--text-main);
 }
 
 .ar-table td:not(:first-child),

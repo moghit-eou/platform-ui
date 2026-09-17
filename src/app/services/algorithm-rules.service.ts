@@ -79,7 +79,11 @@ export class AlgorithmRulesService {
         const messages: string[] = [];
 
         if (selected.length < minCount) {
-            messages.push(label + ' needs at least ' + minCount + ', selected ' + selected.length + '.');
+            if (selected.length === 0) {
+                messages.push(label + ' needs at least ' + minCount + ' (none assigned).');
+            } else {
+                messages.push(label + ' needs at least ' + minCount + ', selected ' + selected.length + '.');
+            }
         }
 
         if (maxCount !== null && selected.length > maxCount) {
@@ -108,7 +112,7 @@ export class AlgorithmRulesService {
                 return !!normalized && !reqStatTypes.includes(normalized);
             });
             if (invalid) {
-                this.pushUnique(messages, this.typeRequirementMessage(label, types));
+                this.pushUnique(messages, this.typeRequirementMessage(label, stattypes));
             }
         }
 
@@ -153,12 +157,12 @@ export class AlgorithmRulesService {
         if (!this.hasOverlap(y, x)) return;
         const yDetail = details.find((detail) => detail.role === 'y');
         const xDetail = details.find((detail) => detail.role === 'x');
-        yDetail?.messages.push('Variable is already selected as a covariate.');
-        xDetail?.messages.push('Covariate is already selected as a variable.');
+        yDetail?.messages.push('Outcome is already selected as a predictor.');
+        xDetail?.messages.push('Predictor is already selected as an outcome.');
     }
 
     private roleLabel(role: AlgorithmAvailabilityRole): string {
-        return role === 'y' ? 'Variable' : 'Covariate';
+        return role === 'y' ? 'Outcome' : 'Predictor';
     }
 
     private typeRequirementMessage(label: string, types: string[]): string {

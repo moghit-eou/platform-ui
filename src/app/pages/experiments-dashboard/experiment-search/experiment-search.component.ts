@@ -28,15 +28,6 @@ export class ExperimentSearchComponent implements OnDestroy {
     this.filtersChange.emit({ datePreset: value });
   }
 
-  onAlgorithmInput(value: string) {
-    const v = value.trim();
-    this.filtersChange.emit({ algorithm: v ? v : null });
-  }
-
-  onAuthorInput(value: string) {
-    const v = value.trim();
-    this.filtersChange.emit({ author: v ? v : null });
-  }
 
   onClear() {
     this.filtersChange.emit({

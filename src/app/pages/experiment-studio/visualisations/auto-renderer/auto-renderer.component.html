@@ -4,7 +4,7 @@
   <div class="ar-card" [class.ar-card--full]="!isCompactTable(table)" [class.ar-card--compact]="isCompactTable(table)">
     <div class="ar-header" data-guide="result-actions">
       <div class="ar-title">{{ table.title || 'Result Table' }}</div>
-      <button class="ar-export-btn" (click)="exportToCSV(table)" title="Export to CSV">
+      <button class="studio-export-btn" (click)="exportToCSV(table)" title="Export to CSV">
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
           stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />

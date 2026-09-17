@@ -85,6 +85,77 @@ describe('CollapsibleTreeBrowserComponent', () => {
     expect(highlightedNode?.textContent).toContain('Demographics');
   });
 
+  it('skips rebuilds for unchanged observer sizes and refits on real resizes', async () => {
+    type CaptureCallback = (entries: ResizeObserverEntry[]) => void;
+    let observerCallback: CaptureCallback | undefined;
+    const globals = globalThis as Record<string, unknown>;
+    const previousObserver = globals['ResizeObserver'];
+    globals['ResizeObserver'] = class {
+      constructor(callback: CaptureCallback) {
+        observerCallback = callback;
+      }
+      observe(): void {}
+      unobserve(): void {}
+      disconnect(): void {}
+    };
+    const restoreObserver = (): void => {
+      if (previousObserver === undefined) {
+        delete globals['ResizeObserver'];
+      } else {
+        globals['ResizeObserver'] = previousObserver;
+      }
+    };
+
+    try {
+      const fixture = TestBed.createComponent(CollapsibleTreeBrowserComponent);
+      const component = fixture.componentInstance;
+      fixture.componentRef.setInput('data', model);
+      fixture.detectChanges();
+
+      const svg = fixture.nativeElement.querySelector('svg.collapsible-tree-svg');
+      expect(svg).toBeTruthy();
+      const renderer = (component as any).renderer;
+      spyOn(renderer, 'resize');
+      const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+      // The component compares each observer size against the box it actually drew
+      // into, so the fake observer and the measured box have to agree.
+      const canvas = fixture.nativeElement.querySelector('.chart-canvas') as HTMLElement;
+      let measuredBox = { width: 0, height: 0 };
+      spyOn(canvas, 'getBoundingClientRect').and.callFake(() => ({
+        width: measuredBox.width,
+        height: measuredBox.height,
+        top: 0,
+        left: 0,
+        right: measuredBox.width,
+        bottom: measuredBox.height,
+        x: 0,
+        y: 0,
+      }) as DOMRect);
+
+      // Same as the initial (zero) snapshot: no work scheduled.
+      observerCallback!([{ contentRect: { width: 0, height: 0 } }] as unknown as ResizeObserverEntry[]);
+      await wait(200);
+      expect(renderer.resize).not.toHaveBeenCalled();
+
+      // Real size change - the step coming back into view after a hidden draw:
+      // debounced refit, not a rebuild.
+      measuredBox = { width: 800, height: 600 };
+      observerCallback!([{ contentRect: { width: 800, height: 600 } }] as unknown as ResizeObserverEntry[]);
+      await wait(200);
+      expect(renderer.resize).toHaveBeenCalledTimes(1);
+
+      // Unchanged size afterwards: ignored.
+      observerCallback!([{ contentRect: { width: 800, height: 600 } }] as unknown as ResizeObserverEntry[]);
+      await wait(200);
+      expect(renderer.resize).toHaveBeenCalledTimes(1);
+
+      expect(fixture.nativeElement.querySelector('svg.collapsible-tree-svg')).toBe(svg);
+    } finally {
+      restoreObserver();
+    }
+  });
+
   it('renders mixed nodes with child groups and direct variables', () => {
     const fixture = TestBed.createComponent(CollapsibleTreeBrowserComponent);
     fixture.componentRef.setInput('data', model);

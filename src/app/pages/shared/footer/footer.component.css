@@ -9,23 +9,9 @@
   overflow: hidden;
   margin: 0;
   color: #fff;
-  background:
-    radial-gradient(circle at 50% -10%, rgba(127, 156, 232, 0.18) 0%, rgba(127, 156, 232, 0.05) 28%, transparent 58%),
-    radial-gradient(circle at 0% 20%, rgba(43, 51, 233, 0.08) 0%, transparent 34%),
-    linear-gradient(180deg, #0d1628 0%, #09111f 56%, #070d18 100%);
-  border-top: 1px solid rgba(148, 163, 184, 0.18);
-  box-shadow: 0 -16px 44px rgba(0, 0, 0, 0.28);
-}
-
-.main-footer::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.04) 18%, transparent 36%),
-    linear-gradient(90deg, transparent 60%, rgba(255, 255, 255, 0.025) 82%, transparent 100%);
-  pointer-events: none;
-  opacity: 0.55;
+  background: color-mix(in srgb, var(--primary-dark) 40%, black);
+  border-top: 1px solid color-mix(in srgb, var(--primary-light) 18%, transparent);
+  box-shadow: none;
 }
 
 .footer-shell {
@@ -392,7 +378,7 @@
 
 .version-value {
   padding: 5px 10px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 0.7rem;
   font-weight: 500;
   color: #a3b8fa;

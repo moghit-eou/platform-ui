@@ -9,6 +9,5 @@ import { HistogramComponent } from '../../visualisations/histogram/histogram.com
 })
 export class HistogramGraphComponent {
   readonly data = input<{ bins: string[]; counts: number[]; variableName: string } | null>(null);
-
-  constructor() { }
+  readonly horizontal = input(false);
 }

@@ -13,6 +13,7 @@
           [attr.aria-expanded]="row.hasChildren ? row.expanded : null"
           [attr.tabindex]="activeTreeIndex() === i ? 0 : -1"
           [style.padding-left.px]="treePadding(row.depth)"
+          [title]="row.group.label"
           (click)="selectGroup(row.group)"
           (keydown)="onTreeKeydown($event, row, i)"
         >
@@ -32,8 +33,8 @@
 
     <section class="contents-pane" aria-label="Selected group contents">
       <div class="pane-title">
-        <span>{{ selectedGroup().label }}</span>
-        <small>{{ selectedGroup().directGroupCount }} groups · {{ selectedGroup().directVariableCount }} direct variables</small>
+        <span>{{ contentsPaneTitle() }}</span>
+        <small>{{ contentsPaneSubtitle() }}</small>
       </div>
 
       @if (!selectedChildGroups().length && !selectedVariables().length) {
@@ -46,7 +47,7 @@
       <button type="button" class="content-row group-row" (click)="selectGroup(group)">
         <span class="row-main">
           <span class="row-label">{{ group.label }}</span>
-          <span class="row-meta">{{ group.directGroupCount }} groups · {{ group.totalVariableCount }} variables</span>
+          <span class="row-meta">{{ pluralize(group.directGroupCount, 'group') }} · {{ pluralize(group.totalVariableCount, 'variable') }}</span>
         </span>
         <i class="fas fa-chevron-right" aria-hidden="true"></i>
       </button>
@@ -59,8 +60,10 @@
       <button
         type="button"
         class="content-row variable-row"
+        [title]="variable.label"
         [class.selected]="isVariableSelected(variable.id)"
-        (click)="selectVariable(variable)"
+        [class.in-pool]="isVariableInPool(variable)"
+        (click)="onVariableRowClick($event, variable)"
         (dblclick)="openVariable(variable)"
       >
         <span class="row-main">
@@ -70,6 +73,12 @@
           }
         </span>
         <span class="type-badge">{{ variable.type }}</span>
+        <span
+          [class.row-add]="!isVariableInPool(variable)"
+          [class.row-remove]="isVariableInPool(variable)"
+        >
+          {{ isVariableInPool(variable) ? 'Remove' : 'Add' }}
+        </span>
       </button>
       }
       }

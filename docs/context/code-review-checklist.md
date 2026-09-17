@@ -25,12 +25,13 @@
 - [ ] Redirect behavior remains same-origin and intentional.
 
 ## UI and Accessibility
-- [ ] Visible UI changes follow `DESIGN_SYSTEM.yaml`.
+- [ ] Visible UI changes follow `DESIGN.md`.
 - [ ] Text, controls, and layouts work at relevant desktop/mobile sizes.
 - [ ] Interactive controls have clear labels/states.
 - [ ] Existing keyboard and screen-reader affordances are not degraded.
 
 ## Maintainability
+- [ ] `npm run verify` passes (typecheck, dead-code scan, build).
 - [ ] The change is small enough to review.
 - [ ] Naming and structure match the repo.
 - [ ] No unrelated refactors or formatting churn were introduced.

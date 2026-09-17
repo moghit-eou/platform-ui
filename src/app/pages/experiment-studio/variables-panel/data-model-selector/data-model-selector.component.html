@@ -1,33 +1,17 @@
-<div class="data-model-selector" data-guide="data-model-selector">
-  <label class="control-label" for="dataModel">Pathology</label>
-  <div class="data-model-control">
-    <select
-      class="data-model-select"
-      id="dataModel"
-      [(ngModel)]="selectedDataModel"
-      (change)="onDataModelChange()"
-      aria-labelledby="dataModel"
-    >
-      @if (crossSectionalModels().length > 0) {
-      <optgroup label="Cross-Sectional">
-        @for (model of crossSectionalModels(); track model) {
-        <option [ngValue]="model">
-          {{ model.label }}
-        </option>
-        }
-      </optgroup>
-      }
-
-      @if (longitudinalModels().length > 0) {
-      <optgroup label="Longitudinal">
-        @for (model of longitudinalModels(); track model) {
-        <option [ngValue]="model">
-          {{ model.label }}
-        </option>
-        }
-      </optgroup>
-      }
-    </select>
-    <i class="fas fa-chevron-down data-model-chevron" aria-hidden="true"></i>
+<div class="studio-chip-group data-model-selector-group" data-guide="data-model-selector">
+  <span class="studio-chip-label" id="dataModel">Pathology</span>
+  <div class="studio-chip-row data-model-chip-row" role="group" aria-labelledby="dataModel">
+    @for (model of models(); track model) {
+    <label class="studio-chip data-model-chip" [class.is-selected]="isOptionSelected(model)">
+      <input
+        type="radio"
+        name="dataModel"
+        [checked]="isOptionSelected(model)"
+        (change)="selectModel(model)"
+      />
+      <span class="model-radio-indicator" aria-hidden="true"></span>
+      <span class="model-label">{{ model.label }}</span>
+    </label>
+    }
   </div>
 </div>

@@ -1,31 +1,52 @@
-.header {
-  position: fixed;
-  inset: 0 0 auto 0;
+/*
+ * The bar owns its own box. It is a sticky item of the app shell's column, so its
+ * var(--header-height) comes out of the flow and every route starts below it without
+ * computing an offset of its own. `position: fixed` here is what made each page root
+ * invent a top padding — and account/terms got it wrong (content under the bar).
+ * Sticky must sit on :host: on .header it could not travel, because its containing
+ * block would be this component's own 64px box.
+ */
+:host {
+  position: sticky;
+  top: 0;
   z-index: 10000;
-  display: flex;
+  display: block;
+  flex-shrink: 0;
+}
+
+/*
+ * Top chrome, row 1 — ONE three-slot grid on every route: branding | nav | account.
+ * A route may replace slot-2 content and may never add a slot, a second bar, its own
+ * height or its own logo. Height is always var(--header-height); the ≤768px rule in
+ * styles.css changes the token, this rule never overrides the height.
+ */
+.header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
   gap: 1.5rem;
-  padding: 0 32px;
+  /* One inset with the studio sub-header, so the two rows of the bar start on the same
+     line. Matches the dashboard gutter, which is where the logo edge meets the grid. */
+  padding: 0 var(--chrome-inline-padding);
   height: var(--header-height);
-  background: white;
-  border-bottom: 1px solid var(--border-color);
-  box-shadow: var(--shadow-sm);
+  background: var(--header-surface);
+  border-bottom: 1px solid var(--header-border);
+  /* Flat at rest — see .header--scrolled. Interpolates from an empty shadow list, so it
+     fades in rather than snapping in at the first pixel of scroll. */
+  box-shadow: none;
+  transition: box-shadow var(--motion-exit) var(--ease-standard);
   color: var(--text-main);
   box-sizing: border-box;
-  transition: background 0.3s ease, box-shadow 0.3s ease;
 }
 
-/* Transparency support removed for polished branding as per charter */
-.header.header--transparent {
-  background: white;
-  border-bottom: 1px solid var(--border-color);
-  box-shadow: var(--shadow-sm);
-  pointer-events: auto;
+/* The shadow separates the bar from content that scrolled under it. At scrollTop 0 there
+   is nothing under it, so the hairline is the whole story (same rule Ferryhopper ships). */
+.header--scrolled {
+  box-shadow: var(--header-shadow);
+  transition-duration: var(--motion-enter);
 }
 
-/* BRANDING (LEFT) */
-
+/* SLOT 1 — BRANDING (left) */
 .branding {
   display: flex;
   align-items: center;
@@ -36,74 +57,87 @@
   cursor: pointer;
 }
 
+/* 32px on a 480x162 source is 95px wide — above the charter's 50px primary minimum.
+   The img carries width/height, so the box is known before decode (no layout shift). */
 .logo {
-  height: 40px;
-  /* Increased slightly for clear identity */
+  height: 32px;
   width: auto;
-  object-fit: contain;
-  transition: transform 0.2s ease, filter 0.3s ease;
 }
 
-.branding:hover .logo {
-  transform: scale(1.02);
+/* SLOT 2 — the navigation, left-aligned against the hairline so brand and product read
+   as two groups at any width. min-width:0 so a long label shrinks the track instead of
+   pushing slot 3 out of the bar. */
+.header-nav-slot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 1rem;
+  min-width: 0;
+}
+
+/* Brand and navigation read as two groups because a hairline separates them — the same
+   move Ferryhopper's bar makes. :has() ties the line to real content: a bar with no
+   navigation draws no rule. If :has() ever goes away, the divider disappears and nothing
+   else moves. */
+.header-nav-slot:has(> .header-nav)::before {
+  content: '';
+  align-self: center;
+  height: 22px;
+  border-inline-start: 1px solid var(--header-border);
 }
 
 .header-nav {
   display: flex;
   align-items: center;
   gap: 1rem;
-}
-
-.header-nav--actions {
   margin: 0;
+  min-width: 0;
 }
 
-.header-guide-slot {
-  width: 40px;
-  height: 40px;
-  flex-shrink: 0;
-}
-
-.header-nav-link {
-  color: var(--text-main);
-  text-decoration: none;
-  font-weight: 500;
-  padding: 0.35rem 0.75rem;
-  border-radius: 999px;
-  transition: background-color 0.18s ease, color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
-}
-
-.header-nav-link:not(.header-nav-link--notebook):hover,
-.header-nav-link:not(.header-nav-link--notebook):focus-visible,
-.header-nav-link:not(.header-nav-link--notebook).header-nav-link--active {
-  background: rgba(224, 242, 254, 0.9);
-  outline: none;
-}
-
-.header-nav-link--notebook {
+/* ONE pill recipe for everything the bar offers — the nav items and the Guide. A control
+   carries no resting chrome: the fill *is* the hover — so the bar reads as labels, not as
+   a row of boxes. Hover moves the background only; the foreground never changes, so
+   contrast can only stay the same or improve.
+   Exit on the short curve, enter on the long one (see --motion-* in styles.css). */
+.header-nav-link,
+.header-guide {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  padding: 5px 10px 5px 14px;
-  background: #eef2fb;
-  border: 1px solid rgba(127, 156, 232, 0.24);
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+  gap: 8px;
+  box-sizing: border-box;
+  height: 36px;
+  padding: 0 16px;
+  background: transparent;
+  /* Transparent, not absent: --active and --discover paint this edge, and the box
+     stays the same size in every state. */
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: var(--primary-color);
+  /* A <button> defaults to the UA face; the Guide is one and must not stand out that way. */
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  /* A nav label is one line. Without it the tight mobile track shrinks a pill to its
+     longest word and "My experiments" stacks into two lines inside a 36px pill. */
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background-color var(--motion-exit) var(--ease-standard),
+    border-color var(--motion-exit) var(--ease-standard);
 }
 
-.header-nav-link--notebook:hover,
-.header-nav-link--notebook:focus-visible,
-.header-nav-link--notebook.header-nav-link--active {
-  background: #e8eefc;
-  border-color: rgba(43, 51, 233, 0.2);
-  box-shadow: 0 2px 6px rgba(43, 51, 233, 0.1);
-  outline: none;
+.header-nav-link:hover,
+.header-guide:hover {
+  background: var(--tint-nav-hover);
+  transition-duration: var(--motion-enter);
 }
 
-.header-nav-link__icon {
-  flex-shrink: 0;
-  display: block;
-  width: 28px;
-  height: 28px;
+/* First visit only: the border is the hint, the label is the same either way. The one
+   chrome value outside the named tint ladder — an edge over transparent, not a fill.
+   There is deliberately no current-page style; the bar marks nothing, see the spec. */
+.header-nav-link--discover {
+  border-color: color-mix(in srgb, var(--primary-color) 38%, transparent);
 }
 
 .header-nav-link__text {
@@ -115,73 +149,55 @@
 }
 
 .header-nav-link__title {
-  font-size: 0.82rem;
-  font-weight: 700;
-  color: #0f172a;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: inherit;
 }
 
-.header-nav-link__subtitle {
-  font-size: 0.68rem;
-  font-weight: 400;
-  color: #64748b;
+.header-nav-link__icon {
+  flex-shrink: 0;
+  display: block;
+  width: 20px;
+  height: 20px;
 }
 
-.header-nav-link--notebook.header-nav-link--discover:not(.header-nav-link--active) {
-  border-color: rgba(43, 51, 233, 0.38);
-  animation: notebook-pill-glow 2.5s ease-in-out infinite;
-}
-
-@keyframes notebook-pill-glow {
-  0%,
-  100% {
-    box-shadow:
-      0 1px 2px rgba(15, 23, 42, 0.06),
-      0 0 0 0 rgba(43, 51, 233, 0.12);
-  }
-
-  50% {
-    box-shadow:
-      0 2px 8px rgba(43, 51, 233, 0.14),
-      0 0 0 4px rgba(43, 51, 233, 0.1);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .header-nav-link--notebook.header-nav-link--discover:not(.header-nav-link--active) {
-    animation: none;
-    box-shadow:
-      0 1px 2px rgba(15, 23, 42, 0.06),
-      0 0 0 2px rgba(43, 51, 233, 0.14);
-  }
-}
-
-/* HEADER ACTIONS (right side) */
+/* SLOT 3 — the route's Guide and the account. The second hairline is what says "this
+   group is you, not the product". The nav is left-aligned now, so nothing to the left of
+   this group moves and no width floor is needed to keep it still.
+   It is a 22px pseudo-element, not a border on the box or on the first control: an `auto`
+   grid track absorbs leftover width, so a border on the box draws a stray rule mid-bar at
+   tablet widths, and on the pill a border-inline-start follows the 999px radius and comes
+   out as a curved sliver instead of a line. */
 .header-actions {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 12px;
-  margin-left: auto;
 }
 
-/* USER AREA */
-.user-icon {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  min-width: auto;
+.header-actions::before {
+  content: "";
+  align-self: center;
+  height: 22px;
+  margin-inline-end: 4px;
+  border-inline-start: 1px solid var(--header-border);
+}
+
+.header-guide__icon {
+  flex-shrink: 0;
 }
 
 .sign-in-btn {
   background: transparent;
   border: none;
-  padding: 0;
+  padding: 4px 8px 4px 4px;
   cursor: pointer;
   border-radius: 999px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: box-shadow 0.18s ease, transform 0.18s ease,
-    background-color 0.18s ease;
+  gap: 8px;
+  transition: box-shadow var(--motion-exit) var(--ease-standard);
 }
 
 .account-guide-target {
@@ -190,23 +206,111 @@
   justify-content: center;
 }
 
-.account-picture,
-.sign-in-btn img {
-  width: 40px;
-  height: 40px;
-  border-radius: 999px;
-  object-fit: cover;
-  border: 2px solid rgba(224, 242, 254, 0.9);
-  background-color: rgba(15, 23, 42, 0.3);
+/* The signed-in label is the fullname and it is shown in full: 32ch is wider than any real
+   Keycloak name, so nothing ordinary is cut. The bound is not cosmetic. The label sits in
+   slot 3, an `auto` track, and an `auto` track cannot shrink below its own min-content —
+   under `white-space: nowrap` that minimum is the whole string, so an unbounded name is not
+   absorbed by slot 2's `minmax(0, 1fr)`, it pushes the account group past the right edge of
+   the bar. `22vw` keeps the cap under the width the navigation needs at tablet sizes, and the
+   ellipsis is the overflow of an exceptional name, never the normal state. Below 768px the
+   label is hidden outright. Check 768 / 1024 / 1440 with a 40-character fullname. */
+.sign-in-btn__label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--primary-color);
+  white-space: nowrap;
+  max-width: min(32ch, 22vw);
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* hover / focus state */
-.sign-in-btn:hover,
-.sign-in-btn:focus-visible,
-.user-icon a:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 0 0 2px rgba(125, 211, 252, 0.6);
-  outline: none;
+/* 32px in the bar; 40px is the list/menu size. Ring and placeholder fill are tokens,
+   so the bar and the account menu cannot drift to two different rings. */
+.account-picture,
+.sign-in-btn img {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  object-fit: cover;
+  border: 2px solid var(--ring-avatar);
+  background-color: var(--avatar-bg);
+  box-sizing: border-box;
+}
+
+.sign-in-btn:hover {
+  box-shadow: 0 0 0 3px var(--ring-avatar);
+  transition-duration: var(--motion-enter);
+}
+
+/* Focus is its own ring, never a share of the hover rule. The global ring is the same
+   token; it is restated here so the hover shadow can never be the only cue. */
+.header-nav-link:focus-visible,
+.header-guide:focus-visible,
+.sign-in-btn:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+/* The menu hangs inside the bar's own box instead of a CDK overlay: the header is a
+   stacking context at z 10000 and the overlay container sits at 1000, so an overlay
+   would open *under* the bar it belongs to. CdkMenu still owns roles, the roving
+   tabindex and arrow/Home/End/typeahead — it does not need to be positioned to do that. */
+.account-control {
+  position: relative;
+  display: inline-flex;
+}
+
+.account-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  /* Right-aligned: near the bar's right edge the menu can never hang off-screen. */
+  right: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 240px;
+  padding: 8px 0;
+  background: var(--card-bg);
+  border: 1px solid var(--header-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  color: var(--text-main);
+}
+
+.account-menu__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: transparent;
+  border: none;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: inherit;
+  text-align: start;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color var(--motion-exit) var(--ease-standard);
+}
+
+.account-menu__item:hover {
+  background: var(--tint-nav-hover);
+  transition-duration: var(--motion-enter);
+}
+
+/* Ring inside the box so the panel's radius can never clip it. */
+.account-menu__item:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: -2px;
+}
+
+/* Fixed measure so the two rows' labels start on one line. */
+.account-menu__icon {
+  width: 16px;
+  flex-shrink: 0;
+  text-align: center;
+  color: var(--primary-color);
 }
 
 /* RESPONSIVE */
@@ -214,53 +318,54 @@
 /* Tablets */
 @media (max-width: 1024px) {
   .header {
-    padding: 0 1.25rem;
+    padding: 0 1rem;
     gap: 1rem;
-  }
-
-  .logo {
-    width: 46px;
-    height: 46px;
-  }
-
-  .account-picture,
-  .sign-in-btn img {
-    width: 34px;
-    height: 34px;
   }
 }
 
-/* Mobiles */
+/* Mobiles — height stays on the token (56px via :root). The bar is the same three slots;
+   what gives way is width: the logo, the Guide's word and the name go first, because the
+   navigation is the part a person still needs. */
 @media (max-width: 768px) {
   .header {
-    flex-direction: row;
-    align-items: center;
-    justify-content: center;
-    height: 56px;
     padding: 0 12px;
-    gap: 0;
+    gap: 8px;
+    /* The logo is hidden here, and a display:none grid item is not a grid item — the two
+       survivors auto-place one column left, which parks the account in the 1fr track and
+       squeezes the avatar to 0px. Two columns, two items. */
+    grid-template-columns: minmax(0, 1fr) auto;
   }
 
   .branding {
-    display: flex !important;
-    gap: 0;
-  }
-
-  .user-icon {
-    display: flex !important;
-  }
-
-  .header-nav-link__subtitle {
     display: none;
   }
 
-  .header-nav-link--notebook {
-    padding: 5px 8px 5px 12px;
+  /* Nothing on the brand side to divide from, so the hairline goes with the logo. */
+  .header-nav-slot::before {
+    display: none;
+  }
+
+  /* Three nav items + Guide + avatar need ~470px; a 390px bar does not have them. The nav
+     swipes, the bar and the account stay put. */
+  .header-nav-slot {
     gap: 8px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+  }
+
+  .header-nav-link,
+  .header-guide {
+    padding: 0 10px;
+    gap: 6px;
   }
 
   .header-nav-link__title {
     font-size: 0.78rem;
   }
 
+  .header-guide__label,
+  .sign-in-btn__label {
+    display: none;
+  }
 }

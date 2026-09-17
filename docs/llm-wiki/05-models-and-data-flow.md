@@ -17,7 +17,7 @@ or result rendering.
 
 ```text
 /services/data-models -> ExperimentStudioService -> data model/dataset/variable UI
-/services/algorithms -> algorithm mapper -> algorithm panel config
+/services/specifications/algorithms -> algorithm mapper -> algorithm panel config
 /services/experiments -> result model -> visualisations/tables/exports
 /services/experiments/:id -> dashboard service -> detail/compare/export UI
 backend result keys -> output schema -> renderer/registry

@@ -1,5 +1,4 @@
 import { Injectable, signal } from '@angular/core';
-import { toObservable } from '@angular/core/rxjs-interop';
 
 @Injectable({
   providedIn: 'root',
@@ -7,7 +6,6 @@ import { toObservable } from '@angular/core/rxjs-interop';
 export class ErrorService {
   private readonly errorSignal = signal<string | null>(null);
   readonly error = this.errorSignal.asReadonly();
-  readonly error$ = toObservable(this.error);
 
   setError(message: string): void {
     this.errorSignal.set(message);

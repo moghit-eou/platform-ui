@@ -25,6 +25,13 @@ function normalizeOption(entry: unknown): { code: string; label: string } | null
   return { code: primitive, label: primitive };
 }
 
+
+function selectOptions(field: ParameterField | null | undefined): Array<{ code: string; label: string }> {
+  return (field?.options ?? [])
+    .map(normalizeOption)
+    .filter((option): option is { code: string; label: string } => !!option);
+}
+
 function serializeSelectValue(value: unknown, options: Array<{ code: string; label: string }>): string {
   if (typeof value === 'object' && value !== null) {
     const record = value as Record<string, unknown>;
@@ -59,18 +66,14 @@ export function serializeAlgorithmParameterValue(
 
   if (field.type === 'multi-select') {
     const values = Array.isArray(value) ? value : [value];
-    const options = (field.options ?? [])
-      .map(normalizeOption)
-      .filter((option): option is { code: string; label: string } => !!option);
+    const options = selectOptions(field);
     return values.map((entry) =>
       options.length ? serializeSelectValue(entry, options) : String(entry)
     );
   }
 
   if (field.type === 'select') {
-    const options = (field.options ?? [])
-      .map(normalizeOption)
-      .filter((option): option is { code: string; label: string } => !!option);
+    const options = selectOptions(field);
     if (options.length) {
       return serializeSelectValue(value, options);
     }
@@ -94,7 +97,7 @@ export function optionBindingValue(option: unknown): string {
   return normalized?.code ?? String(option);
 }
 
-export function isEmptyParameterValue(value: unknown): boolean {
+function isEmptyParameterValue(value: unknown): boolean {
   if (value === null || value === undefined) return true;
   if (typeof value === 'string' && value.trim() === '') return true;
   return false;
@@ -124,4 +127,49 @@ export function omitEmptyOptionalParameters(
   }
 
   return next;
+}
+
+/**
+ * Human-readable value for a parameter as it was configured: option labels instead of codes,
+ * Yes/No instead of booleans, lists joined, and nested objects flattened to `key: value` pairs.
+ * Returns '' for an unset value so callers drop the row instead of showing an empty cell.
+ * Display only — `serializeAlgorithmParameterValue` stays the request-side counterpart.
+ */
+export function formatAlgorithmParameterValue(
+  value: unknown,
+  field?: ParameterField | null
+): string {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string') return value.trim() ? resolveOptionLabel(value, field) || value : '';
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+  if (typeof value === 'number') return String(value);
+
+  if (Array.isArray(value)) {
+    return value
+      .map((entry) => formatAlgorithmParameterValue(entry, field))
+      .filter(Boolean)
+      .join(', ');
+  }
+
+  // Enum-backed parameters can arrive as the option object rather than its code.
+  const record = value as Record<string, unknown>;
+  const embedded = record['code'] ?? record['value'];
+  if (embedded !== undefined && embedded !== null) {
+    return resolveOptionLabel(embedded, field) || String(embedded);
+  }
+
+  return Object.entries(record)
+    .filter(([, nested]) => nested !== null && nested !== undefined && nested !== '')
+    .map(([key, nested]) => `${key.replace(/_/g, ' ')}: ${formatAlgorithmParameterValue(nested)}`)
+    .join('; ');
+}
+
+/** Option label for a select / multi-select value, matched on its code. */
+function resolveOptionLabel(value: unknown, field?: ParameterField | null): string {
+  if (!field?.options?.length) return '';
+
+  const options = selectOptions(field);
+  if (!options.length) return '';
+
+  return options.find((option) => option.code === String(value))?.label ?? '';
 }

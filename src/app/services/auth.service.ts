@@ -6,9 +6,9 @@ import { Observable, of } from 'rxjs';
 import { catchError, tap, filter } from 'rxjs/operators';
 import { User } from '../models/user.interface';
 
-export type AuthStatus = 'checking' | 'authenticated' | 'unauthenticated';
+type AuthStatus = 'checking' | 'authenticated' | 'unauthenticated';
 
-export interface AuthState {
+interface AuthState {
   status: AuthStatus;
   user?: User | null;
 }
@@ -38,7 +38,7 @@ export class AuthService {
     this.refreshAuthState().subscribe();
   }
 
-  refreshAuthState(): Observable<User | null> {
+  private refreshAuthState(): Observable<User | null> {
     this.authStateSignal.set({ status: 'checking' });
     return this.refreshUser();
   }
@@ -155,7 +155,4 @@ export class AuthService {
     return trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
   }
 
-  getToken(): Observable<string> {
-    return this.http.get('/services/activeUser/token', { responseType: 'text' });
-  }
 }

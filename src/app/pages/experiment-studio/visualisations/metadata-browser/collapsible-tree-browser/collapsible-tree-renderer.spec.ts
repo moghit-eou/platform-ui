@@ -169,6 +169,45 @@ describe('collapsible tree renderer helpers', () => {
     expect(focal.y).not.toBe(group.y);
   });
 
+  it('resizes the svg in place without rebuilding the tree', () => {
+    const rect = { width: 900, height: 600 };
+    const container = document.createElement('div');
+    spyOn(container, 'getBoundingClientRect').and.callFake(() => ({
+      ...rect,
+      x: 0,
+      y: 0,
+      top: 0,
+      right: rect.width,
+      bottom: rect.height,
+      left: 0,
+      toJSON: () => undefined,
+    } as DOMRect));
+    document.body.appendChild(container);
+
+    const renderer = createCollapsibleTree(model, container, {
+      onNodeClick: () => undefined,
+      onNodeDoubleClick: () => undefined,
+    });
+
+    const svg = container.querySelector('svg.collapsible-tree-svg') as SVGElement;
+    const firstNodes = Array.from(container.querySelectorAll('g.collapsible-node'));
+    expect(svg.getAttribute('width')).toBe('900');
+    expect(firstNodes.length).toBeGreaterThan(0);
+
+    rect.width = 1200;
+    rect.height = 800;
+    renderer.resize();
+
+    expect(svg.getAttribute('width')).toBe('1200');
+    expect(svg.getAttribute('height')).toBe('800');
+    expect(svg.getAttribute('viewBox')).toBe('0 0 1200 800');
+    const resizedNodes = Array.from(container.querySelectorAll('g.collapsible-node'));
+    expect(resizedNodes.length).toBe(firstNodes.length);
+    expect(resizedNodes[0]).toBe(firstNodes[0]);
+    renderer.destroy();
+    container.remove();
+  });
+
   it('cancels pending auto-fit when destroyed before the next animation frame', () => {
     const container = createContainer();
     const onAutoFitCanceled = jasmine.createSpy('onAutoFitCanceled');

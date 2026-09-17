@@ -1,0 +1,30 @@
+name: Static checks
+
+# Typecheck, dead-code scan and a production build — the three checks that need no
+# backend, browser or secrets. `npm test` stays out of CI: Karma needs a browser and
+# the repo's test guardrails (see docs/context/testing.md).
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  static:
+    name: Typecheck, dead code, build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify (typecheck + dead code + build)
+        run: npm run verify

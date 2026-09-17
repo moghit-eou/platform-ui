@@ -34,6 +34,8 @@ describe('AlgorithmRulesService', () => {
     });
 
     expect(service.isAlgorithmAvailable(algo, { y: [], x: [] })).toBeFalse();
+    expect(service.evaluateAlgorithmAvailability(algo, { y: [], x: [] }).summary)
+      .toBe('Outcome needs at least 1 (none assigned).');
     expect(service.isAlgorithmAvailable(algo, {
       y: [{ code: 'v1', label: 'var1', type: 'real' } as any],
       x: [],
@@ -118,7 +120,7 @@ describe('AlgorithmRulesService', () => {
     });
 
     expect(result.available).toBeFalse();
-    expect(result.summary).toBe('Variable allows at most 1, selected 2.');
+    expect(result.summary).toBe('Outcome allows at most 1, selected 2.');
     expect(result.details.find((detail) => detail.role === 'y')).toEqual(jasmine.objectContaining({
       selectedCount: 2,
       maxCount: 1,
@@ -175,7 +177,7 @@ describe('AlgorithmRulesService', () => {
     });
 
     expect(unavailable.available).toBeFalse();
-    expect(unavailable.summary).toBe('Covariate needs at least 2, selected 1.');
+    expect(unavailable.summary).toBe('Predictor needs at least 2, selected 1.');
     expect(unavailable.details.find((detail) => detail.role === 'y')).toEqual(jasmine.objectContaining({
       minCount: 1,
       maxCount: 1,
@@ -217,7 +219,7 @@ describe('AlgorithmRulesService', () => {
     });
 
     expect(result.available).toBeFalse();
-    expect(result.summary).toBe('Variable type must be one of nominal.');
+    expect(result.summary).toBe('Outcome type must be one of nominal.');
   });
 
   it('displays text as nominal in availability type errors', () => {
@@ -231,7 +233,7 @@ describe('AlgorithmRulesService', () => {
     });
 
     expect(result.available).toBeFalse();
-    expect(result.summary).toBe('Covariate type must be one of real, int, nominal.');
+    expect(result.summary).toBe('Predictor type must be one of real, int, nominal.');
     expect(result.summary).not.toContain('text');
   });
 
@@ -250,9 +252,9 @@ describe('AlgorithmRulesService', () => {
     });
 
     expect(result.available).toBeFalse();
-    expect(result.summary).toBe('Covariate allows at most 1, selected 2.');
+    expect(result.summary).toBe('Predictor allows at most 1, selected 2.');
     expect(result.details.find((detail) => detail.role === 'x')).toEqual(jasmine.objectContaining({
-      label: 'Covariate',
+      label: 'Predictor',
       selectedCount: 2,
       maxCount: 1,
       satisfied: false,

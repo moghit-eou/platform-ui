@@ -1,63 +1,27 @@
 :host {
-  --guide-accent: #2b33e9;
-  --guide-accent-secondary: #7f9ce8;
+  --guide-accent: var(--primary-color);
+  --guide-accent-secondary: var(--primary-light);
   --guide-accent-soft: rgba(223, 239, 228, 0.78);
   --guide-card-bg: rgba(255, 255, 255, 0.86);
   --guide-card-surface: rgba(244, 247, 255, 0.74);
   --guide-highlight-glow: rgba(43, 51, 233, 0.24);
   --guide-overlay: rgba(2, 6, 23, 0.65);
-  --guide-ink: #0f172a;
-  --guide-muted: #475569;
+  --guide-ink: var(--text-main);
+  --guide-muted: var(--text-muted);
   --guide-border: rgba(127, 156, 232, 0.2);
+  /* Above app-header (10000) and studio sub-header (9990) so chrome is dimmed and
+     header targets (account, launcher, step bar) can receive the spotlight cutout. */
   position: relative;
-  z-index: 1500;
+  z-index: 11000;
 }
 
-.guide-launcher {
-  position: fixed;
-  top: calc((var(--header-height) - 40px) / 2);
-  right: 84px;
-  z-index: 10001;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  background: transparent;
-  color: rgba(43, 51, 233, 0.86);
-  font: inherit;
-  cursor: pointer;
-  transition: background-color 0.16s ease, color 0.16s ease;
-}
-
-.guide-launcher:hover,
-.guide-launcher:focus-visible {
-  background: rgba(43, 51, 233, 0.08);
-  color: var(--guide-accent);
-}
-
-.guide-launcher:focus-visible {
-  outline: 2px solid rgba(43, 51, 233, 0.24);
-  outline-offset: 2px;
-}
-
-.guide-launcher-icon {
-  width: 100%;
-  height: 100%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  font-size: 1.15rem;
-}
+/* The launcher control lives in the app header (see GuideLauncherService). It used to be
+   a fixed circle at z 10001; now the open guide itself outranks the chrome. */
 
 .guide-overlay {
   position: fixed;
   inset: 0;
-  z-index: 1502;
+  z-index: 11002;
   pointer-events: none;
 }
 
@@ -71,6 +35,8 @@
   inset: 0;
 }
 
+/* These four are used only by the dashboard tour, which @imports this sheet. They are
+   not dead just because the Studio tour itself now uses --blocker instead. */
 .guide-mask--top {
   top: 0;
   left: 0;
@@ -128,6 +94,7 @@
 
 .guide-banner {
   position: fixed;
+  z-index: 11010;
   left: 50%;
   bottom: max(16px, calc(env(safe-area-inset-bottom) + 8px));
   transform: translateX(-50%);
@@ -146,8 +113,8 @@
     0 24px 54px rgba(15, 23, 42, 0.18),
     0 0 0 1px rgba(255, 255, 255, 0.72) inset,
     0 8px 24px rgba(127, 156, 232, 0.16);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
   color: var(--guide-ink);
   pointer-events: auto;
 }
@@ -221,11 +188,15 @@
   margin-bottom: 16px;
 }
 
+/* The fill carries a scaleX: animating width re-laid out the whole banner on every
+   tour step. The ratio arrives as --guide-progress from the template. */
 .guide-progress-bar {
   height: 100%;
   border-radius: inherit;
   background: linear-gradient(90deg, var(--guide-accent) 0%, var(--guide-accent-secondary) 100%);
-  transition: width 0.35s ease;
+  transform-origin: left center;
+  transform: scaleX(var(--guide-progress, 0));
+  transition: transform 0.35s var(--ease-standard);
 }
 
 .guide-banner-copy {
@@ -516,7 +487,6 @@
 @media (prefers-reduced-motion: reduce) {
   .guide-highlight,
   .guide-progress-bar,
-  .guide-launcher,
   .guide-collapse,
   .guide-close,
   .guide-secondary,
@@ -527,10 +497,6 @@
 }
 
 @media (max-width: 960px) {
-  .guide-launcher {
-    right: 62px;
-  }
-
   .guide-banner {
     width: calc(100vw - 24px);
     padding: 22px 24px;
@@ -559,13 +525,6 @@
 }
 
 @media (max-width: 720px) {
-  .guide-launcher {
-    top: calc((56px - 30px) / 2);
-    right: 50px;
-    width: 30px;
-    height: 30px;
-  }
-
   .guide-banner {
     width: calc(100vw - 20px);
     bottom: max(10px, calc(env(safe-area-inset-bottom) + 6px));

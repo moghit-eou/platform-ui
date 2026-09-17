@@ -1,0 +1,39 @@
+<div class="station-action-bar" [class.is-flush]="flush()" [class.tone-pending]="tone() === 'pending'" [class.tone-applied]="tone() === 'applied'">
+  @if (pendingCount() > 0 || statusText()) {
+  <div class="station-action-status">
+    @if (pendingCount() > 0) {
+    <span class="station-action-count">{{ pendingCount() }}</span>
+    }
+    @if (statusText()) {
+    <span class="station-action-text">
+      {{ statusText() }}
+    </span>
+    }
+  </div>
+  }
+
+  <div class="station-action-buttons">
+    @if (resetLabel()) {
+    <button type="button" class="station-action-reset" [disabled]="resetDisabled()" (click)="reset.emit()">{{ resetLabel() }}</button>
+    }
+    @if (previewLabel()) {
+    <button
+      type="button"
+      class="station-action-preview"
+      (click)="preview.emit()"
+    >{{ previewLabel() }}</button>
+    }
+    <button
+      type="button"
+      class="station-action-apply"
+      [class.is-quiet]="applyVariant() === 'quiet'"
+      [disabled]="applyDisabled()"
+      (click)="apply.emit()"
+    >
+      @if (applyIcon()) {
+      <i [attr.class]="'icon-left ' + applyIcon()" aria-hidden="true"></i>
+      }
+      {{ applyLabel() }}
+    </button>
+  </div>
+</div>

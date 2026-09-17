@@ -1,6 +1,6 @@
 import { BackendFilter } from './filters.model';
 
-export interface RawIOField {
+interface RawIOField {
   label: string;
   desc: string;
   types: string[];
@@ -27,12 +27,12 @@ export interface RawParameter {
   dict_values_type?: 'real' | 'int' | 'text' | 'boolean';
 }
 
-export interface RawEnumsDefinition {
+interface RawEnumsDefinition {
   type: 'list' | 'input_var_names' | 'input_var_CDE_enums' | 'fixed_var_CDE_enums' | 'variables';
   source: string[] | string;
 }
 
-export interface RawDictParameter extends RawParameter {
+interface RawDictParameter extends RawParameter {
   dict_keys_enums?: RawEnumsDefinition;
   dict_values_enums?: RawEnumsDefinition;
 }
@@ -100,19 +100,6 @@ export interface RawPreprocessingStep {
   } | null;
 }
 
-/** @deprecated Use AlgorithmSpecification — kept for tests migrating incrementally */
-export interface RawAlgorithmDefinition {
-  name: string;
-  label: string;
-  desc: string;
-  documentation?: string;
-  type?: string;
-  flags?: string[];
-  enabled: boolean;
-  inputdata: RawInputData;
-  parameters: Record<string, RawParameter> | null;
-  preprocessing?: RawPreprocessingStep[];
-}
 
 export interface AnalysisInputData {
   data_model: string;
@@ -127,7 +114,7 @@ export interface AnalysisPreprocessingStep {
   parameters: Record<string, unknown>;
 }
 
-export interface AnalysisAlgorithm {
+interface AnalysisAlgorithm {
   name: string;
   x?: string[] | null;
   y?: string[] | null;

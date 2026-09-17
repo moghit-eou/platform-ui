@@ -1,95 +1,513 @@
 /* ROOT WRAPPER */
 .experiments-list-root {
+  min-height: 0;
   height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
+  /* The dashboard rail this pane lives in is a ~290–370px column at every desktop width — the
+     viewport says nothing about that, so the fit is asked of the pane itself. */
+  container-type: inline-size;
+  container-name: list-pane;
 }
 
-/* TOOLBAR (search + filters) */
-.list-toolbar app-experiment-search {
-  flex: 1;
-}
-
+/* TOOLBAR (search + date) */
 .list-toolbar {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-/* "My experiments" row */
-.filter-row {
-  margin-top: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 0.8rem;
-  color: #64748b;
+.list-toolbar app-experiment-search {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
-/* EXPERIMENTS TABS */
-.experiments-tabs-row {
-  margin-top: 6px;
+/* TABS + VIEW CONTROLS */
+.filter-row.experiments-tabs-row {
+  margin-top: 2px;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
+  /* One line at every width. The sort control collapsed to an icon precisely so this row stops
+     breaking in the rail; ≤640px is the deliberate two-row layout and asks for the wrap back. */
+  flex-wrap: nowrap;
 }
 
 .experiments-tabs {
-  display: flex;
+  display: inline-flex;
+  align-items: center;
   gap: 8px;
   background: var(--glass-bg);
   padding: 4px;
-  border-radius: 12px;
+  border-radius: var(--radius-lg, 12px);
   border: 1px solid var(--glass-border);
+  min-width: 0;
+  overflow: hidden;
 }
 
 .tab-btn {
-  background: transparent;
+  /* A tight rail shortens the label rather than pushing the second tab out of the row. */
+  min-width: 0;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-md, 8px);
   padding: 8px 16px;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
   font-size: 0.85rem;
   font-weight: 600;
-  color: #64748b;
+  line-height: 1.2;
   cursor: pointer;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 8px;
-  transition: all 0.2s ease;
+  white-space: nowrap;
+  transition: background-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
 }
 
 .tab-btn i {
   font-size: 0.95rem;
+  flex-shrink: 0;
+}
+
+.tab-btn__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .tab-btn:hover {
   background: rgba(148, 163, 184, 0.1);
-  color: #334155;
+  color: var(--text-main);
 }
 
 .tab-btn.active {
-  background: white;
+  background: #ffffff;
   color: var(--primary-color);
   box-shadow: var(--shadow-sm);
 }
 
-/* SCROLLABLE LIST */
-.experiments-list {
-  list-style: none;
-  margin: 4px 0 0;
-  padding: 10px 12px 20px 12px;
+.list-view-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  min-width: 0;
+  /* The tray to its left is the one that shrinks and scrolls; these two never squeeze. */
+  flex-shrink: 0;
+}
+
+/* The sort control is the row-overflow menu on an icon: same recipe the row actions already use,
+   only taller so it sits level with the Filters button beside it. */
+.list-view-controls .sort-overflow__trigger {
+  width: 34px;
+  height: 36px;
+  font-size: 0.85rem;
+}
+
+/* The check column of the menu — same recipe as the folder menu, so a pick reads the same here. */
+.sort-overflow__check {
+  width: 14px;
+  flex-shrink: 0;
+  font-size: 0.72rem;
+  color: var(--primary-color);
+}
+
+.sort-overflow__check--off {
+  color: transparent;
+}
+
+.filter-toggle-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 36px;
+  padding: 7px 12px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.filter-toggle-btn i {
+  font-size: 0.78rem;
+  color: var(--primary-color);
+}
+
+.filter-toggle-btn:hover,
+.filter-toggle-btn.active {
+  background: rgba(127, 156, 232, 0.14);
+  color: var(--primary-color);
+}
+
+.filter-toggle-label {
+  white-space: nowrap;
+}
+
+/* COUNT LINE */
+.list-summary {
+  margin: 0;
+  padding: 0 2px;
+  font-size: 0.7rem;
+  line-height: 1.3;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.list-summary strong {
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+/* The history-cap note trails the count it qualifies, on its own line. */
+.list-summary-note {
+  display: block;
+  text-wrap: pretty;
+}
+
+/* COMPARE SELECTION */
+.compare-selection-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg, 12px);
+  background: color-mix(in srgb, var(--primary-color) 4%, white);
+}
+
+.compare-selection-count {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--primary-color);
+  font-variant-numeric: tabular-nums;
+}
+
+.compare-selection-actions {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.compare-selection-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border: 1px solid rgba(127, 156, 232, 0.38);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.96);
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.74rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.compare-selection-btn:hover:not(:disabled) {
+  border-color: rgba(43, 51, 233, 0.45);
+  background: rgba(43, 51, 233, 0.06);
+  color: var(--primary-color);
+}
+
+.compare-selection-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ADVANCED FILTERS */
+.advanced-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg, 12px);
+  background: var(--card-bg);
+  box-shadow: var(--studio-card-shadow);
+}
+
+.filter-field {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  max-height: 100%;
+  gap: 3px;
+  min-width: 0;
+}
+
+.filter-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.filter-field input,
+.filter-field select {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  min-width: 0;
+  min-height: 36px;
+  box-sizing: border-box;
+  border: 1px solid rgba(43, 51, 233, 0.16);
+  border-radius: var(--radius-md, 8px);
+  background-color: rgba(255, 255, 255, 0.72);
+  color: var(--text-main);
+  padding: 8px 11px;
+  font: inherit;
+  font-size: 0.82rem;
+  line-height: 1.35;
+  outline: none;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  transition: background-color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.filter-field select {
+  padding-right: 32px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--primary-color) 50%),
+    linear-gradient(135deg, var(--primary-color) 50%, transparent 50%);
+  background-position:
+    calc(100% - 17px) 50%,
+    calc(100% - 12px) 50%;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+
+.filter-field input:hover,
+.filter-field select:hover {
+  border-color: rgba(43, 51, 233, 0.28);
+  background-color: rgba(255, 255, 255, 0.9);
+}
+
+.filter-field input:focus,
+.filter-field select:focus {
+  border-color: var(--primary-color);
+  background-color: #ffffff;
+  box-shadow:
+    0 0 0 3px rgba(127, 156, 232, 0.24),
+    0 6px 14px rgba(43, 51, 233, 0.06);
+}
+
+.filter-clear-btn {
+  align-self: end;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 14px;
+  border: 1px solid rgba(127, 156, 232, 0.38);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.96);
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.filter-clear-btn:hover {
+  border-color: rgba(43, 51, 233, 0.45);
+  background: rgba(43, 51, 233, 0.06);
+  color: var(--primary-color);
+}
+
+/* FOLDER STRIP */
+.folder-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 2px;
+}
+
+.folder-strip-label {
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+}
+
+.folder-chips {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  /* Long folder names scroll; "+ New" never falls onto a second line. */
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  background: var(--glass-bg);
+  padding: 4px;
+  border-radius: var(--radius-lg, 12px);
+  border: 1px solid var(--glass-border);
+}
+
+.folder-chip {
+  flex-shrink: 0;
+  border: none;
+  border-radius: var(--radius-md, 8px);
+  padding: 8px 16px;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  transition: background-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.folder-chip i {
+  font-size: 0.95rem;
+}
+
+.folder-chip:hover {
+  background: rgba(148, 163, 184, 0.1);
+  color: var(--text-main);
+}
+
+.folder-chip.selected {
+  background: #ffffff;
+  color: var(--primary-color);
+  box-shadow: var(--shadow-sm);
+}
+
+.folder-chip--receiving {
+  background: #ffffff;
+  color: var(--primary-color);
+  box-shadow: var(--shadow-sm), 0 0 0 2px var(--primary-color);
+}
+
+.folder-chip__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 140px;
+}
+
+.count-badge {
+  background: var(--primary-color);
+  color: #ffffff;
+  font-size: 0.58rem;
+  font-weight: 800;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 4px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.folder-chip-form {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+.folder-chip-input {
+  width: 132px;
+  min-height: 34px;
+  box-sizing: border-box;
+  padding: 7px 10px;
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid rgba(43, 51, 233, 0.16);
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--text-main);
+  font: inherit;
+  font-size: 0.8rem;
+  outline: none;
+}
+
+.folder-chip-input:focus {
+  border-color: var(--primary-color);
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(127, 156, 232, 0.24);
+}
+
+.folder-chip-form-action,
+.folder-menu__form-action {
+  padding: 6px 11px;
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid rgba(127, 156, 232, 0.38);
+  background: rgba(255, 255, 255, 0.96);
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.folder-chip-form-action:hover,
+.folder-menu__form-action:hover {
+  border-color: rgba(43, 51, 233, 0.45);
+  background: rgba(43, 51, 233, 0.06);
+  color: var(--primary-color);
+}
+
+.folder-chip-form-action.cancel:hover {
+  border-color: rgba(148, 163, 184, 0.8);
+  color: var(--text-muted);
+}
+
+/* A folder write is a server round-trip now: the button says it is spent while it is in flight. */
+.folder-chip-form-action:disabled,
+.folder-menu__form-action:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.folder-strip-error,
+.folder-menu__error {
+  margin: 0;
+  font-size: 0.7rem;
+  color: #991b1b;
+}
+
+.folder-strip-hint {
+  margin: 0;
+  font-size: 0.7rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+/* SCROLLABLE LIST */
+.experiments-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  list-style: none;
+  margin: 0;
+  padding: 2px 2px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
   overflow-y: auto;
   overflow-x: visible;
 }
 
-/* Discreet scrollbar */
-.experiments-list::-webkit-scrollbar {
-  width: 6px;
+.experiments-list::-webkit-scrollbar,
+.folder-chips::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
 }
 
 .experiments-list::-webkit-scrollbar-track {
@@ -101,75 +519,80 @@
   border-radius: 999px;
 }
 
-/* ROW (each experiment) */
+/* ROW */
 .experiment-row {
+  position: relative;
   width: 100%;
   box-sizing: border-box;
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-border);
-  border-radius: 16px;
-  padding: 16px 20px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg, 12px);
+  padding: 14px 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 8px;
   cursor: pointer;
   text-align: left;
-  box-shadow: var(--glass-shadow);
-  position: relative;
+  box-shadow: var(--studio-card-shadow);
   z-index: 1;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: visible;
+  transition: background-color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
 }
 
 .experiment-row:hover {
-  background: rgba(255, 255, 255, 0.95);
-  border-color: var(--primary-light);
-  transform: translateY(-4px) scale(1.015);
-  box-shadow:
-    0 20px 40px rgba(43, 51, 233, 0.15),
-    0 0 0 4px rgba(43, 51, 233, 0.05);
+  background: color-mix(in srgb, var(--primary-color) 3%, white);
+  border-color: rgba(43, 51, 233, 0.28);
+  box-shadow: var(--shadow-md);
   z-index: 10;
 }
 
-.experiment-row.selected {
-  background: #f1f5ff;
-  border-color: var(--primary-color);
-  box-shadow: var(--shadow-sm);
-  position: relative;
+.experiment-row:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 1px;
 }
 
-.experiment-row.selected::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 14px;
-  bottom: 14px;
-  width: 4px;
-  border-radius: 0 4px 4px 0;
-  background: var(--primary-color);
+.experiment-row.selected {
+  background: color-mix(in srgb, var(--primary-color) 5%, white);
+  border-color: var(--primary-color);
+  box-shadow: var(--shadow-sm);
 }
 
 .experiment-row.selected:hover {
-  background: #ecfeff;
-  border-color: rgba(14, 165, 233, 0.8);
+  background: color-mix(in srgb, var(--primary-color) 7%, white);
 }
 
-/* CONTENT (left side) */
+.experiment-row.experiment-row--dragging,
+.experiment-row.experiment-row--dragging:hover {
+  transform: none;
+  opacity: 0.55;
+  background: var(--card-bg);
+  border-color: var(--primary-color);
+  border-style: dashed;
+  box-shadow: var(--studio-card-shadow);
+  z-index: 1;
+}
+
+/* CONTENT */
 .row-main {
-  flex: 1;
+  flex: 1 1 auto;
   min-width: 0;
 }
 
+/* The title line keeps the run name and status together. The meta stack below restores the
+   taller card shape: date, algorithm and domain each get a readable line instead of competing
+   for one narrow row. Action buttons are unaffected. */
 .row-title-line {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  min-width: 0;
 }
 
 .exp-name {
+  flex: 1 1 auto;
+  min-width: 0;
   font-size: 0.95rem;
   font-weight: 600;
   color: #020617;
@@ -179,256 +602,248 @@
   white-space: nowrap;
 }
 
-/* STATUS PILL */
-.status-pill {
-  font-size: 0.68rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: #f1f5f9;
-  color: #475569;
-  flex-shrink: 0;
-  border: 1px solid transparent;
-}
-
-.status-pill.completed {
-  background: #ecfdf5;
-  color: #10b981;
-  /* Brand success green */
-  border-color: rgba(16, 185, 129, 0.15);
-}
-
-.status-pill.completed::before {
-  content: '\f058';
-  font-family: 'Font Awesome 5 Free';
-  font-weight: 900;
-  margin-right: 6px;
-}
-
-.status-pill.error {
-  background: #fff1f2;
-  color: #e11d48;
-  border-color: rgba(225, 29, 72, 0.2);
-}
-
-.status-pill.error::before {
-  content: '\f06a';
-  font-family: 'Font Awesome 5 Free';
-  font-weight: 900;
-  margin-right: 5px;
-}
-
-/* META LINE */
 .row-meta-line {
   margin-top: 4px;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 2px;
-  font-size: 0.78rem;
-  color: #64748b;
   width: 100%;
+  min-width: 0;
+  font-size: 0.76rem;
+  line-height: 1.35;
+  color: var(--text-muted);
 }
 
-.meta-item i {
-  margin-right: 4px;
-  font-size: 0.8rem;
+.meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  max-width: 100%;
+  flex: 0 1 auto;
 }
 
-.algo-item {
+.algo-item,
+.domain-item {
+  width: 100%;
   opacity: 0.85;
+}
+
+/* The label, not the item, is the box that truncates: a flex container clips, it never draws the
+   ellipsis. */
+.meta-item__text {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  display: block;
 }
 
-/* ACTION ICONS (right side) */
-.row-actions {
-  display: flex;
-  align-items: center;
-  gap: 4px;
+.meta-item i {
+  font-size: 0.72rem;
+  line-height: 1;
   flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+/* ROW ACTIONS */
+.row-actions {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+  overflow: visible;
 }
 
 .icon-btn {
   border: 1px solid transparent;
   background: transparent;
-  border-radius: 8px;
-  width: 32px;
-  height: 32px;
-  display: grid;
+  border-radius: var(--radius-md, 8px);
+  width: 30px;
+  height: 30px;
+  display: inline-grid;
   place-items: center;
   cursor: pointer;
-  font-size: 0.85rem;
-  color: var(--text-muted);
-  transition: all 0.2s ease;
-}
-
-.icon-btn:hover {
-  background: #f1f5f9;
-  color: var(--primary-color);
-  border-color: var(--primary-color);
-}
-
-.icon-btn.danger:hover {
-  background: #fee2e2;
-  color: #b91c1c;
-}
-
-/* EMPTY STATE */
-.empty-state {
-  flex: 1;
-  border-radius: var(--radius-lg);
-  padding: 32px;
-  background: var(--bg-neutral);
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  /* Center for more polished look */
-  text-align: center;
-  border: 1px solid var(--border-color);
-}
-
-.empty-state h3 {
-  margin: 0 0 6px;
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: #0f172a;
-}
-
-.empty-state p {
-  margin: 0;
   font-size: 0.8rem;
-  color: #475569;
+  line-height: 1;
+  color: var(--text-muted);
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 
-/* pagination bar */
-.list-pagination {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin: 4px 0;
-  font-size: 0.78rem;
-  color: #64748b;
-}
-
-.page-info {
-  flex: 1;
-  text-align: center;
-}
-
-.page-btn {
-  border-radius: 8px;
-  border: 1px solid rgba(148, 163, 184, 0.25);
-  background: rgba(255, 255, 255, 0.5);
-  backdrop-filter: blur(4px);
-  padding: 6px 14px;
-  font-size: 0.78rem;
-  font-weight: 600;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: #475569;
-  transition: all 0.2s ease;
-}
-
-.page-btn:hover:not(:disabled) {
-  background: white;
+.icon-btn:hover,
+.icon-btn.active {
+  background: rgba(127, 156, 232, 0.14);
   color: var(--primary-color);
-  border-color: var(--primary-color);
-  box-shadow: 0 4px 12px rgba(2, 128, 144, 0.1);
-  transform: translateY(-1px);
-}
-
-.page-btn:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-}
-
-/* Responsive */
-@media (max-width: 1100px) {
-  .experiment-row {
-    padding: 8px 10px;
-  }
-
-  .exp-name {
-    font-size: 0.9rem;
-  }
-
-  .row-meta-line {
-    font-size: 0.76rem;
-  }
-
-  .list-pagination {
-    font-size: 0.76rem;
-  }
-
-  .page-btn {
-    padding: 4px 8px;
-  }
-
-  .filter-row {
-    font-size: 0.78rem;
-  }
 }
 
 .icon-btn.shared {
-  background: #ecfdf3;
-  color: #15803d;
+  background: color-mix(in srgb, var(--success) 10%, white);
+  color: #065f46;
 }
 
-.icon-btn.shared:hover {
-  background: #bbf7d0;
-  color: #166534;
-}
-
-.experiment-row {
-  position: relative;
-}
-
-.row-actions {
-  position: relative;
-  overflow: visible;
+.icon-btn.danger:hover {
+  background: color-mix(in srgb, var(--danger) 10%, white);
+  color: #991b1b;
 }
 
 .copy-chip {
   position: absolute;
   top: calc(100% + 6px);
   right: 0;
-  padding: 4px 10px;
+  padding: 4px 9px;
   border-radius: 999px;
   background: var(--primary-color);
   color: #ecfeff;
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   box-shadow: 0 10px 20px rgba(15, 23, 42, 0.25);
   white-space: nowrap;
   z-index: 9999;
 }
 
+/* ROW OVERFLOW MENU */
+.row-overflow {
+  position: relative;
+  display: inline-flex;
+}
+
+.row-overflow > summary {
+  list-style: none;
+}
+
+.row-overflow > summary::-webkit-details-marker {
+  display: none;
+}
+
+.row-overflow[open] > summary {
+  background: rgba(127, 156, 232, 0.14);
+  color: var(--primary-color);
+}
+
+.row-overflow__menu {
+  position: absolute;
+  top: calc(100% + 5px);
+  right: 0;
+  z-index: 30;
+  min-width: 165px;
+  padding: 5px 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md, 8px);
+  box-shadow: var(--shadow-lg);
+}
+
+.row-overflow__item {
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--text-main);
+  padding: 8px 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+
+.row-overflow__item i {
+  width: 14px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.row-overflow__item:hover {
+  background: color-mix(in srgb, var(--primary-color) 7%, white);
+  color: var(--primary-color);
+}
+
+.row-overflow__item:hover i {
+  color: inherit;
+}
+
+.row-overflow__item--danger {
+  color: #b91c1c;
+}
+
+.row-overflow__item--danger i {
+  color: #b91c1c;
+}
+
+.row-overflow__item--danger:hover {
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+/* LOADING SKELETON */
+.list-skeleton {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 2px;
+}
+
+.skeleton-row {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg, 12px);
+  padding: 14px 12px;
+  background: var(--card-bg);
+  box-shadow: var(--studio-card-shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.skeleton-line {
+  display: block;
+  height: 10px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #eef2f7 0%, #f8fafc 45%, #eef2f7 100%);
+  background-size: 220% 100%;
+  animation: skeletonShimmer 1.4s ease-in-out infinite;
+}
+
+.skeleton-line--title {
+  width: 78%;
+  height: 12px;
+}
+
+.skeleton-line--meta {
+  width: 52%;
+}
+
+.skeleton-line--short {
+  width: 34%;
+}
+
+@keyframes skeletonShimmer {
+  from { background-position: 160% 0; }
+  to { background-position: -60% 0; }
+}
+
 /* EMPTY STATE */
 .empty-state {
-  flex: 1;
+  flex: 1 1 auto;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 48px 24px;
+  padding: 32px 20px;
   text-align: center;
-  background: rgba(255, 255, 255, 0.4);
-  border-radius: 20px;
+  background: var(--bg-neutral);
+  border-radius: var(--radius-lg, 12px);
   border: 1px dashed var(--border-color);
-  margin: 10px 12px;
-  animation: fadeIn 0.8s ease-out;
+  margin: 4px 2px;
 }
 
 .empty-icon-wrapper {
-  margin-bottom: 24px;
+  margin-bottom: 16px;
   position: relative;
   display: flex;
   justify-content: center;
@@ -438,40 +853,281 @@
 .empty-icon-wrapper::after {
   content: "";
   position: absolute;
-  width: 120px;
-  height: 120px;
+  width: 100px;
+  height: 100px;
   background: radial-gradient(circle, rgba(43, 51, 233, 0.08), transparent 70%);
   z-index: -1;
 }
 
 .empty-icon {
-  font-size: 56px;
+  font-size: 42px;
   color: var(--primary-color);
   opacity: 0.8;
-  filter: drop-shadow(0 10px 15px rgba(43, 51, 233, 0.15));
 }
 
 .empty-state h3 {
-  margin: 0 0 12px;
-  font-size: 1.15rem;
+  margin: 0 0 8px;
+  font-size: 1rem;
   font-weight: 800;
   color: var(--text-main);
-  letter-spacing: -0.01em;
 }
 
 .empty-state p {
-  margin: 0 0 32px;
-  font-size: 0.92rem;
-  line-height: 1.6;
+  margin: 0 0 20px;
+  font-size: 0.82rem;
+  line-height: 1.55;
   color: var(--text-muted);
-  max-width: 280px;
+  max-width: 260px;
 }
 
 .empty-action-btn {
-  box-shadow: 0 10px 25px rgba(43, 51, 233, 0.2) !important;
+  box-shadow: 0 8px 20px rgba(43, 51, 233, 0.18) !important;
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+/* PAGINATION */
+.list-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 2px 0;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.page-info {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.page-btn {
+  border-radius: 999px;
+  border: 1px solid rgba(127, 156, 232, 0.38);
+  background: rgba(255, 255, 255, 0.96);
+  padding: 6px 13px;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.page-btn:hover:not(:disabled) {
+  background: rgba(43, 51, 233, 0.06);
+  color: var(--primary-color);
+  border-color: rgba(43, 51, 233, 0.45);
+}
+
+.page-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* FOLDER MENU (anchored in the row) */
+.folder-menu-anchor {
+  display: inline-flex;
+}
+
+.folder-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 8px;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  min-width: min(220px, calc(100% - 16px));
+  max-width: calc(100% - 16px);
+  padding: 5px 0;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md, 8px);
+  box-shadow: var(--shadow-lg);
+  color: var(--text-main);
+}
+
+.folder-menu__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-main);
+  text-align: left;
+  cursor: pointer;
+}
+
+.folder-menu__item:hover {
+  background: color-mix(in srgb, var(--primary-color) 7%, white);
+}
+
+.folder-menu__check {
+  width: 14px;
+  flex-shrink: 0;
+  font-size: 0.72rem;
+  color: var(--primary-color);
+}
+
+.folder-menu__check--off {
+  color: transparent;
+}
+
+.folder-menu__name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.folder-menu__item--new {
+  border-top: 1px solid var(--border-color);
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.folder-menu__form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--border-color);
+}
+
+.folder-menu__input {
+  flex: 1;
+  min-width: 0;
+  min-height: 34px;
+  box-sizing: border-box;
+  padding: 7px 9px;
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid rgba(43, 51, 233, 0.16);
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--text-main);
+  font: inherit;
+  font-size: 0.8rem;
+  outline: none;
+}
+
+.folder-menu__input:focus {
+  border-color: var(--primary-color);
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(127, 156, 232, 0.24);
+}
+
+.folder-menu__error {
+  padding: 0 10px 4px;
+}
+
+.folder-menu__hint {
+  margin: 0;
+  padding: 8px 12px;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+/* The rail, not the viewport: below ~420px of pane the segmented recipe goes compact, the same
+   treatment on both trays, and the Filters control keeps its icon and count badge without its
+   word — the row has room for the tabs, the sort icon and the sliders, not for the word. */
+@container list-pane (max-width: 420px) {
+  .experiments-tabs,
+  .folder-chips {
+    gap: 6px;
+    padding: 3px;
+  }
+
+  .tab-btn,
+  .folder-chip {
+    gap: 6px;
+    padding: 8px 12px;
+    font-size: 0.8rem;
+  }
+
+  .tab-btn i,
+  .folder-chip i {
+    font-size: 0.85rem;
+  }
+
+  .filter-toggle-label {
+    display: none;
+  }
+}
+
+/* The tightest the rail ever gets (a short window at ~1100px): the tab labels keep their words
+   and the glyphs give up their 20px, rather than both tabs arriving as three letters. */
+@container list-pane (max-width: 330px) {
+  .experiments-tabs {
+    gap: 5px;
+    padding: 2px;
+  }
+
+  .tab-btn {
+    padding: 8px 10px;
+  }
+
+  .tab-btn i {
+    display: none;
+  }
+}
+
+/* RESPONSIVE */
+@media (max-width: 1100px) {
+  .folder-chip__name {
+    max-width: 110px;
+  }
+
+  .advanced-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  /* Not a wrap accident: below the phone breakpoint the tabs take the line and the controls
+     take the next one, both full width. The row is named at the same specificity it is styled
+     with above, or the base nowrap wins and this layout never happens. */
+  .filter-row.experiments-tabs-row {
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+
+  .experiments-tabs {
+    width: 100%;
+  }
+
+  .tab-btn {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .list-view-controls {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .filter-toggle-btn {
+    flex: 1;
+    max-width: none;
+    justify-content: center;
+  }
+
+  .filter-toggle-label {
+    display: inline;
+  }
+
+  .advanced-filters {
+    grid-template-columns: 1fr;
+  }
+
+  .filter-clear-btn {
+    width: 100%;
+  }
 }

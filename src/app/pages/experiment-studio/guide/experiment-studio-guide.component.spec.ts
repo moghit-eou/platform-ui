@@ -2,6 +2,7 @@ import { provideZonelessChangeDetection, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
 import { ExperimentStudioGuideComponent } from './experiment-studio-guide.component';
+import { EXPERIMENT_STUDIO_GUIDE_STEPS } from './experiment-studio-guide.content';
 import { ExperimentStudioService } from '../../../services/experiment-studio.service';
 import { GuideOnboardingService } from '../../../services/guide-onboarding.service';
 import { ExperimentStudioGuideStateService } from './experiment-studio-guide-state.service';
@@ -16,8 +17,10 @@ describe('ExperimentStudioGuideComponent', () => {
     hasPersistedStudioWork: jasmine.Spy;
     pathologyAccessWarning: ReturnType<typeof signal>;
     selectedVariables: ReturnType<typeof signal>;
-    selectedCovariates: ReturnType<typeof signal>;
+    algorithmY: ReturnType<typeof signal>;
+    algorithmX: ReturnType<typeof signal>;
     selectedAlgorithm: ReturnType<typeof signal>;
+    runResult: ReturnType<typeof signal>;
     currentExperimentUUID: ReturnType<typeof signal>;
   };
 
@@ -38,8 +41,10 @@ describe('ExperimentStudioGuideComponent', () => {
       hasPersistedStudioWork: jasmine.createSpy('hasPersistedStudioWork').and.returnValue(false),
       pathologyAccessWarning: signal(null),
       selectedVariables: signal([]),
-      selectedCovariates: signal([]),
+      algorithmY: signal([]),
+      algorithmX: signal([]),
       selectedAlgorithm: signal(null),
+      runResult: signal<unknown | null>(null),
       currentExperimentUUID: signal<string | null>(null),
     };
 
@@ -58,8 +63,17 @@ describe('ExperimentStudioGuideComponent', () => {
   });
 
   afterEach(() => {
-    document.querySelectorAll('.studio-sidenav').forEach((element) => element.remove());
+    document.querySelectorAll('.studio-stepper').forEach((element) => element.remove());
     document.querySelectorAll('[data-guide]').forEach((element) => element.remove());
+  });
+
+  it('does not auto-open the guide on first visit', () => {
+    expect(component.isOpen()).toBeFalse();
+
+    component.startGuide();
+
+    expect(component.isOpen()).toBeTrue();
+    component.closeGuide();
   });
 
   it('does not reset studio state on the first guide visit', () => {
@@ -339,13 +353,15 @@ describe('ExperimentStudioGuideComponent', () => {
     const steps = (component as any).resolveSteps();
 
     expect(replaced).toBe('Use Biological Sex as Covariate and Age Years as Variable.');
-    expect(steps.find((step: any) => step.id === 'add-sex-covariate')?.title).toBe('Add Biological Sex as Covariate');
+    expect(steps.find((step: any) => step.id === 'add-sex-covariate')?.title).toBe('Add Biological Sex as Variable');
     expect(steps.find((step: any) => step.id === 'add-age-variable')?.title).toBe('Add Age Years as Variable');
   });
 
-  it('treats the Age guide step as complete only when Age is added to Variables', () => {
-    experimentStudioService.selectedCovariates.set([{ code: 'sex', label: 'Sex' }]);
-    experimentStudioService.selectedVariables.set([{ code: 'age', label: 'Age' }]);
+  it('treats the Age guide step as complete only when both targets are added to the variables pool', () => {
+    experimentStudioService.selectedVariables.set([
+      { code: 'sex', label: 'Sex' },
+      { code: 'age', label: 'Age' },
+    ]);
 
     expect((component as any).isStepRequirementSatisfied({ requirement: 'variable-age' })).toBeTrue();
   });
@@ -357,9 +373,9 @@ describe('ExperimentStudioGuideComponent', () => {
     expect((component as any).isStepRequirementSatisfied({ requirement: 'algorithm-selected' })).toBeTrue();
   });
 
-  it('marks the add-sex and add-age guide steps as requiring action until the assignment is completed', () => {
+  it('marks the add-sex and add-age guide steps as requiring action until the variables are added', () => {
     component.activeSteps.set([
-      { id: 'add-sex-covariate', section: 'Explore', title: 'Add Sex', body: '', requirement: 'covariate-sex' },
+      { id: 'add-sex-covariate', section: 'Explore', title: 'Add Sex', body: '', requirement: 'variable-sex' },
       { id: 'add-age-variable', section: 'Explore', title: 'Add Age', body: '', requirement: 'variable-age' },
     ] as any);
 
@@ -367,15 +383,47 @@ describe('ExperimentStudioGuideComponent', () => {
     expect(component.stepNeedsAction()).toBeTrue();
     expect(component.nextButtonLabel()).toBe('Action required');
 
-    experimentStudioService.selectedCovariates.set([{ code: 'sex', label: 'Sex' }]);
+    experimentStudioService.selectedVariables.set([{ code: 'sex', label: 'Sex' }]);
     expect(component.stepNeedsAction()).toBeFalse();
 
     component.currentIndex.set(1);
     expect(component.stepNeedsAction()).toBeTrue();
     expect(component.nextButtonLabel()).toBe('Action required');
 
-    experimentStudioService.selectedVariables.set([{ code: 'age', label: 'Age' }]);
+    experimentStudioService.selectedVariables.set([
+      { code: 'sex', label: 'Sex' },
+      { code: 'age', label: 'Age' },
+    ]);
     expect(component.stepNeedsAction()).toBeFalse();
+  });
+
+  it('requires the guide variable (Age) in y and the guide covariate (Sex) in x', () => {
+    expect((component as any).isStepRequirementSatisfied({ requirement: 'roles-assigned' })).toBeFalse();
+
+    // Guide covariate (Sex) in x only; Age not yet assigned.
+    experimentStudioService.algorithmX.set([{ code: 'sex', label: 'Sex' }]);
+    expect((component as any).isStepRequirementSatisfied({ requirement: 'roles-assigned' })).toBeFalse();
+
+    // Both targets in y (wrong mix) does not satisfy the requirement.
+    experimentStudioService.algorithmY.set([
+      { code: 'age', label: 'Age' },
+      { code: 'sex', label: 'Sex' },
+    ]);
+    experimentStudioService.algorithmX.set([]);
+    expect((component as any).isStepRequirementSatisfied({ requirement: 'roles-assigned' })).toBeFalse();
+
+    // Guide variable (Age) in x (wrong mix) does not satisfy the requirement.
+    experimentStudioService.algorithmY.set([]);
+    experimentStudioService.algorithmX.set([
+      { code: 'sex', label: 'Sex' },
+      { code: 'age', label: 'Age' },
+    ]);
+    expect((component as any).isStepRequirementSatisfied({ requirement: 'roles-assigned' })).toBeFalse();
+
+    // Guide variable (Age) in y and guide covariate (Sex) in x satisfies it.
+    experimentStudioService.algorithmY.set([{ code: 'age', label: 'Age' }]);
+    experimentStudioService.algorithmX.set([{ code: 'sex', label: 'Sex' }]);
+    expect((component as any).isStepRequirementSatisfied({ requirement: 'roles-assigned' })).toBeTrue();
   });
 
   it('keeps future experiment steps in the guide flow even before the save flow is opened', () => {
@@ -386,20 +434,20 @@ describe('ExperimentStudioGuideComponent', () => {
     expect(steps.some((step: any) => step.id === 'experiment-finish')).toBeTrue();
   });
 
-  it('lets the algorithm selection step interact with the full experiment section', () => {
+  it('lets the algorithm selection step interact with the algorithm catalog', () => {
     const steps = (component as any).resolveSteps();
     const algorithmStep = steps.find((step: any) => step.id === 'experiment-select-algorithm');
 
-    expect(algorithmStep?.selector).toBe('[data-guide="experiment-workspace"]');
+    expect(algorithmStep?.selector).toBe('[data-guide="algorithm-selection"]');
     expect(algorithmStep?.allowTargetInteraction).toBeTrue();
   });
 
-  it('marks the Save As step as requiring action until the save form is opened', () => {
+  it('marks the Save as step as requiring action until the save form is opened', () => {
     component.activeSteps.set([
       {
         id: 'experiment-save-as-action',
         section: 'Experiment',
-        title: 'Save As',
+        title: 'Save as',
         body: '',
         selector: '[data-guide="save-as-action"]',
         allowTargetInteraction: true,
@@ -430,7 +478,7 @@ describe('ExperimentStudioGuideComponent', () => {
     expect((component as any).isStepRequirementSatisfied({ requirement: 'save-as-opened' })).toBeTrue();
   });
 
-  it('moves to the next step after clicking the Save As target', (done) => {
+  it('moves to the next step after clicking the Save as target', (done) => {
     const saveButton = document.createElement('button');
     saveButton.setAttribute('data-guide', 'save-as-action');
     spyOn(saveButton, 'getBoundingClientRect').and.returnValue({
@@ -467,7 +515,7 @@ describe('ExperimentStudioGuideComponent', () => {
       {
         id: 'experiment-save-as-action',
         section: 'Experiment',
-        title: 'Save As',
+        title: 'Save as',
         body: '',
         selector: '[data-guide="save-as-action"]',
         allowTargetInteraction: true,
@@ -498,7 +546,7 @@ describe('ExperimentStudioGuideComponent', () => {
     const runIndex = steps.findIndex((step: any) => step.id === 'experiment-run');
     const exploreIndex = steps.findIndex((step: any) => step.id === 'experiment-explore-result');
     const editIndex = steps.findIndex((step: any) => step.id === 'experiment-edit-parameters');
-    const summaryActionIndex = steps.findIndex((step: any) => step.id === 'experiment-summary-action');
+    const summaryActionIndex = steps.findIndex((step: any) => step.id === 'experiment-result-actions');
     const saveActionIndex = steps.findIndex((step: any) => step.id === 'experiment-save-as-action');
     const saveWaitIndex = steps.findIndex((step: any) => step.id === 'experiment-wait-for-save');
 
@@ -510,27 +558,29 @@ describe('ExperimentStudioGuideComponent', () => {
     expect(saveWaitIndex).toBe(saveActionIndex + 1);
   });
 
-  it('keeps the Edit Parameters familiarization step non-interactive', () => {
+  it('keeps the Edit parameters familiarization step non-interactive', () => {
     const steps = (component as any).resolveSteps();
     const editStep = steps.find((step: any) => step.id === 'experiment-edit-parameters');
 
     expect(editStep?.allowTargetInteraction).toBeFalse();
   });
 
-  it('keeps the Analysis filtering step as a preview-only walkthrough', () => {
+  it('keeps the Analysis filtering step interactive and optional', () => {
     const steps = (component as any).resolveSteps();
     const filteringStep = steps.find((step: any) => step.id === 'analysis-filtering');
 
-    expect(filteringStep?.allowTargetInteraction).toBeFalse();
-    expect(filteringStep?.body).toContain('Preview the inline filter builder');
+    expect(filteringStep?.allowTargetInteraction).toBeTrue();
+    expect(filteringStep?.body).toContain('Optional');
+    expect(filteringStep?.body).toContain('Add Filtering');
   });
 
-  it('keeps the Analysis preprocessing step as a preview-only walkthrough', () => {
+  it('keeps the Analysis preprocessing step interactive and optional', () => {
     const steps = (component as any).resolveSteps();
     const preprocessingStep = steps.find((step: any) => step.id === 'analysis-preprocessing');
 
-    expect(preprocessingStep?.allowTargetInteraction).toBeFalse();
-    expect(preprocessingStep?.body).toContain('Preview missing-value handling');
+    expect(preprocessingStep?.allowTargetInteraction).toBeTrue();
+    expect(preprocessingStep?.body).toContain('Optional');
+    expect(preprocessingStep?.body).toContain('missing values are already dropped');
   });
 
   it('keeps the raw and processed summary guide steps interactive across the full section', () => {
@@ -547,9 +597,9 @@ describe('ExperimentStudioGuideComponent', () => {
 
   it('points the experiment summary step at the visible summary panel', () => {
     const steps = (component as any).resolveSteps();
-    const summaryStep = steps.find((step: any) => step.id === 'experiment-summary-action');
+    const summaryStep = steps.find((step: any) => step.id === 'experiment-result-actions');
 
-    expect(summaryStep?.selector).toBe('[data-guide="experiment-summary-panel"]');
+    expect(summaryStep?.selector).toBe('[data-guide="save-as-flow"]');
     expect(summaryStep?.allowTargetInteraction).toBeTrue();
   });
 
@@ -583,25 +633,14 @@ describe('ExperimentStudioGuideComponent', () => {
   it('keeps the run step locked until an experiment result is rendered', () => {
     expect((component as any).isStepRequirementSatisfied({ requirement: 'experiment-result-ready' })).toBeFalse();
 
-    const resultSection = document.createElement('section');
-    resultSection.setAttribute('data-guide', 'experiment-result');
-    spyOn(resultSection, 'getBoundingClientRect').and.returnValue({
-      top: 240,
-      right: 1080,
-      bottom: 760,
-      left: 360,
-      width: 720,
-      height: 520,
-      x: 360,
-      y: 240,
-      toJSON: () => ({}),
-    } as DOMRect);
-    document.body.appendChild(resultSection);
+    // Service state, not DOM: the Execution view can be display:none while the Run step
+    // still owns Algorithm Selection, so a target-size check would miss a finished run.
+    experimentStudioService.runResult.set({ algorithm: 'chi-square' });
 
     expect((component as any).isStepRequirementSatisfied({ requirement: 'experiment-result-ready' })).toBeTrue();
   });
 
-  it('keeps the save-wait step locked until Save As creates a new experiment and returns to parameters', () => {
+  it('keeps the save-wait step locked until Save as creates a new experiment and returns to parameters', () => {
     component.isOpen.set(true);
     component.activeSteps.set([
       {
@@ -648,11 +687,11 @@ describe('ExperimentStudioGuideComponent', () => {
     expect((component as any).shouldAutoAdvance({ requirement: 'experiment-result-ready' })).toBeTrue();
   });
 
-  it('auto-advances after Save As opens the save form', () => {
+  it('auto-advances after Save as opens the save form', () => {
     expect((component as any).shouldAutoAdvance({ requirement: 'save-as-opened' })).toBeTrue();
   });
 
-  it('auto-advances after Save As creates a new experiment', () => {
+  it('auto-advances after Save as creates a new experiment', () => {
     expect((component as any).shouldAutoAdvance({ requirement: 'experiment-saved-as' })).toBeTrue();
   });
 
@@ -707,14 +746,17 @@ describe('ExperimentStudioGuideComponent', () => {
     expect(component.blockingMaskRects().length).toBeGreaterThan(0);
   });
 
-  it('keeps the Explore Variable Views step as a preview-only walkthrough', () => {
+  it('keeps the Explore Variable Views step interactive and optional', () => {
     const steps = (component as any).resolveSteps();
     const exploreStep = steps.find((step: any) => step.id === 'variable-selection');
 
     expect(exploreStep?.title).toBe('Explore Variable Views');
     expect(exploreStep?.selector).toBe('[data-guide="variable-selection"]');
-    expect(exploreStep?.allowTargetInteraction).toBeFalse();
-    expect(exploreStep?.body).toContain('Preview the metadata browser');
+    expect(exploreStep?.allowTargetInteraction).toBeTrue();
+    expect(exploreStep?.body).toContain('Map');
+    expect(exploreStep?.body).toContain('List');
+    expect(exploreStep?.body).toContain('Graph');
+    expect(exploreStep?.body).toContain('Next');
     expect(exploreStep?.interactionSelectors).toBeUndefined();
     expect(steps.some((step: any) => step.id === 'explore-variable-visualizations')).toBeFalse();
   });
@@ -777,4 +819,56 @@ describe('ExperimentStudioGuideComponent', () => {
     expect(steps[previewSexIndex].selector).toBe('[data-guide="variable-details"]');
     expect(steps[previewAgeIndex].allowTargetInteraction).toBeTrue();
   });
+
+  it('points every content step with a selector at its data-guide target', () => {
+    const stepsWithSelectors = EXPERIMENT_STUDIO_GUIDE_STEPS.filter((step) => !!step.selector);
+    expect(stepsWithSelectors.length).toBeGreaterThan(0);
+
+    for (const step of stepsWithSelectors) {
+      document.querySelectorAll('[data-guide]').forEach((element) => element.remove());
+
+      const target = document.createElement('div');
+      const guideValue = step.selector!.match(/data-guide="([^"]+)"/)?.[1];
+      expect(guideValue).withContext(step.id).toBeTruthy();
+      target.setAttribute('data-guide', guideValue!);
+      Object.defineProperty(target, 'getBoundingClientRect', {
+        configurable: true,
+        value: () => ({
+          top: 120,
+          right: 420,
+          bottom: 200,
+          left: 40,
+          width: 380,
+          height: 80,
+          x: 40,
+          y: 120,
+          toJSON: () => ({}),
+        }),
+      });
+      document.body.appendChild(target);
+
+      component.activeSteps.set([...EXPERIMENT_STUDIO_GUIDE_STEPS] as any);
+      component.currentIndex.set(EXPERIMENT_STUDIO_GUIDE_STEPS.findIndex((entry) => entry.id === step.id));
+      (component as any).updateLayout();
+
+      const highlight = component.highlightRect();
+      expect(highlight).withContext(step.id).not.toBeNull();
+      expect(highlight!.width).withContext(step.id).toBeGreaterThan(0);
+      expect(highlight!.height).withContext(step.id).toBeGreaterThan(0);
+      // Pathology & Datasets contract: target center sits inside the spotlight.
+      const centerX = 230;
+      const centerY = 160;
+      expect(highlight!.left <= centerX && centerX <= highlight!.right).withContext(step.id).toBeTrue();
+      expect(highlight!.top <= centerY && centerY <= highlight!.bottom).withContext(step.id).toBeTrue();
+    }
+  });
+
+  it('documents that the guide host stacks above the app header', () => {
+    // app-header uses z-index 10000; guide :host must stay above that (see component CSS).
+    // This keeps the Account menu / launcher spotlight visible on chrome targets.
+    const guideHostZIndex = 11000;
+    const appHeaderZIndex = 10000;
+    expect(guideHostZIndex).toBeGreaterThan(appHeaderZIndex);
+  });
+
 });

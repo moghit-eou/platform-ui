@@ -35,9 +35,7 @@ export class ChartBuilderService {
 
     // PCA specific enrichment: inject actual variable names for the heatmap
     if (algorithm === 'pca' || algorithm === 'pca_with_transformation') {
-      const vars = this.experimentService.selectedVariables();
-      const covs = this.experimentService.selectedCovariates();
-      const allSelected = [...vars, ...covs];
+      const allSelected = this.experimentService.algorithmAssignableVariables();
 
       if (allSelected.length > 0) {
         // We use a unique property name to avoid collisions
@@ -68,14 +66,12 @@ export class ChartBuilderService {
   private enrichLabels(input: any): any {
     if (!input) return input;
 
-    const variables = this.experimentService.selectedVariables();
-    const covariates = this.experimentService.selectedCovariates();
+    const variables = this.experimentService.algorithmAssignableVariables();
     const filters = this.experimentService.selectedFilters();
 
     const replaceLabel = (raw: string) => {
       const match =
         variables.find(v => v.code === raw) ||
-        covariates.find(c => c.code === raw) ||
         filters.find(f => f.code === raw);
 
       return match?.name || match?.label || raw;

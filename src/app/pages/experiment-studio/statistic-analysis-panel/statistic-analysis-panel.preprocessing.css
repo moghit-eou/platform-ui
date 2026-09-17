@@ -1,0 +1,924 @@
+/* Preprocessing stations of the Data review step: station shell, preview bar,
+   glass feedback cards, the documentation panel, the missing/outlier/longitudinal
+   controls and the preprocessing variable browser.
+   Split from statistic-analysis-panel.component.css to keep every component
+   stylesheet inside the anyComponentStyle budget. Angular concatenates the
+   component's styleUrl array IN ORDER, and this file is the second of three —
+   the order below is the cascade, so do not reorder or move rules across files:
+     1. statistic-analysis-panel.component.css      panel shell + node-pipeline canvas
+     2. statistic-analysis-panel.preprocessing.css  (this file)
+     3. statistic-analysis-panel.results.css        shared controls + result surfaces
+   Shared/one-off overrides that must win over styles.css live in the file that
+   owns the rule's section, never duplicated. */
+
+.workflow-section-body.open {
+  display: block;
+}
+
+.station-preview-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 10px;
+}
+
+/* Stations sit in a gapped shell: the preview bar needs no extra bottom margin. */
+.preprocessing-shell .station-preview-bar {
+  margin-bottom: 0;
+}
+
+.station-preview-toggle {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 0 auto;
+  padding: 7px 14px;
+  border: 1px solid color-mix(in srgb, var(--primary-color) 35%, transparent);
+  border-radius: var(--radius-md, 8px);
+  background: var(--card-bg);
+  color: var(--primary-color);
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+}
+
+.station-preview-toggle.station-preview-close {
+  margin-left: auto;
+}
+
+.station-preview-toggle i {
+  font-size: 0.85em;
+  line-height: 1;
+}
+
+.station-preview-toggle:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--primary-color) 8%, white);
+}
+
+.station-preview-toggle:disabled {
+  color: var(--primary-color);
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.station-preview-toggle:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+/* Cohort-retention strip above Close and the processed summary workspace. */
+.cohort-retention-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+  padding: 8px 14px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-main);
+  background: color-mix(in srgb, var(--primary-color) 5%, white);
+  border: 1px solid var(--studio-card-border, rgba(43, 51, 233, 0.1));
+  border-radius: var(--radius-md, 8px);
+}
+
+.cohort-retention-strip i {
+  color: var(--primary-color);
+  font-size: 0.9rem;
+}
+
+/* Batch-action menu in the preprocessing variable-browser header. */
+.batch-menu {
+  position: relative;
+  margin-left: auto;
+}
+
+/* The Batch trigger is the app's studio pill (styles.css) with a rounder frame; the open
+   state comes from [aria-expanded], which .studio-export-btn already paints. */
+.batch-menu-trigger {
+  border-radius: 999px;
+}
+
+.batch-menu-list {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 30;
+  min-width: 240px;
+  padding: 6px;
+  background: var(--card-bg, #ffffff);
+  border: 1px solid var(--studio-card-border, rgba(43, 51, 233, 0.1));
+  border-radius: var(--radius-md, 8px);
+  box-shadow: 0 8px 24px rgba(43, 51, 233, 0.15);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  pointer-events: none;
+}
+
+.batch-menu-list button {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-main);
+  text-align: left;
+  cursor: pointer;
+  pointer-events: auto;
+  white-space: normal;
+}
+
+.batch-menu-list button:hover {
+  background: color-mix(in srgb, var(--primary-color) 6%, white);
+}
+
+.batch-menu-list button:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: -2px;
+}
+
+/* The overlay switch changes only the results pane, so it lives inside that pane
+   instead of above the card, where it read as a toolbar for the variable rail.
+   The column keeps it outside the pane's scroller, so it holds in place while a
+   long metrics table scrolls under it, and it owns the switch's spacing: padding
+   on .summary-tabs would override the .modal-tabs padding and stretch the pill's
+   own background and border past the labels. */
+.summary-detail-column {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  padding-top: 14px;
+}
+
+.summary-detail-column .statistics-panel {
+  flex: 1 1 auto;
+}
+
+/* Centered because it is the pane's own view control: the pane is much wider than
+   the pill, and hugging one gutter left it stranded above the heading. Centering
+   the pill itself, not a row, keeps its capsule sized to the labels. */
+.summary-tabs {
+  flex: 0 0 auto;
+  align-self: center;
+}
+
+@media (max-width: 768px) {
+  .summary-detail-column {
+    padding-top: 12px;
+  }
+}
+
+.empty-state,
+.empty-state-block {
+  margin: 12px 0;
+  text-align: center;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  padding: 24px;
+  background: var(--studio-card-header-bg);
+  border: 1px solid var(--studio-card-border, rgba(43, 51, 233, 0.1));
+  box-shadow: none;
+  border-radius: var(--radius-lg, 12px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  min-height: 160px;
+  justify-content: center;
+}
+
+/* The icon is the only cue that a station is idle, so it must stay above 3:1. */
+.empty-state-block i {
+  font-size: 2.25rem;
+  color: var(--primary-color);
+  background: color-mix(in srgb, var(--primary-light) 18%, white 82%);
+  padding: 18px;
+  border-radius: 50%;
+  border: 1px solid var(--studio-card-border, rgba(43, 51, 233, 0.1));
+  box-shadow: none;
+}
+
+/* One notch below .station-card-title so the panel heading still leads. */
+.empty-state-block p { margin: 0; font-weight: 600; color: var(--text-main); }
+
+.empty-state-block span { font-size: 0.85rem; color: var(--text-muted); }
+
+/* Glassmorphic feedback cards */
+.glass-feedback {
+  margin: 0 0 12px;
+  padding: 14px 18px;
+  font-size: 0.82rem;
+  background: var(--card-bg);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: var(--radius-lg, 12px);
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.04);
+  color: var(--text-main);
+  animation: feedbackSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.glass-feedback-warning {
+  background: rgba(255, 186, 8, 0.12);
+  border-color: rgba(255, 186, 8, 0.35);
+  color: #92400e;
+}
+
+@keyframes feedbackSlideIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.success-message.glass-feedback {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(223, 239, 228, 0.55);
+  border-color: rgba(22, 101, 52, 0.12);
+  color: var(--panel-success-text);
+  animation: feedbackSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1), successSoftPulse 2.4s ease-in-out 2;
+}
+
+.success-message.glass-feedback i {
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+@keyframes successSoftPulse {
+  0%, 100% {
+    box-shadow: 0 6px 20px rgba(15, 23, 42, 0.04);
+  }
+
+  50% {
+    box-shadow: 0 8px 24px rgba(22, 101, 52, 0.12);
+  }
+}
+
+/* The preview card reads as the informational feedback variant the same way its
+   siblings do - through its own fill and edge, not a side stripe. */
+.preview-panel.glass-feedback {
+  background: color-mix(in srgb, var(--primary-color) 4%, var(--card-bg));
+  border-color: color-mix(in srgb, var(--primary-color) 24%, transparent);
+}
+
+.feedback-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.feedback-header i {
+  color: var(--primary-color);
+  font-size: 1rem;
+}
+
+.feedback-header h4 {
+  margin: 0;
+  color: var(--primary-color);
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.preview-panel ul {
+  margin: 0;
+  padding-left: 18px;
+  line-height: 1.7;
+}
+
+.preview-panel li {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.search-inline {
+  position: relative;
+  max-width: 280px;
+  width: 100%;
+}
+
+.preprocessing-search,
+.table-input,
+.table-select {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 34px;
+  border: 1px solid rgba(43, 51, 233, 0.15);
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--text-main);
+  border-radius: 8px;
+  padding: 6px 9px;
+  font-size: 0.8rem;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    background 0.2s ease;
+}
+
+.preprocessing-search:focus-visible,
+.table-input:focus-visible,
+.table-select:focus-visible {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 18%, transparent);
+  background: var(--card-bg);
+}
+
+/* Documentation: the algorithm configuration panel's disclosure, copied. A plain
+   label with a CSS chevron that turns, and the text carried by a left rule instead of
+   a card. The prefix stays because these styles are component-scoped, so this file
+   cannot reach the algorithm panel's classes. */
+.preprocessing-documentation-panel {
+  /* The workspace card body is flush, so this row keeps an 8px inset — which the
+     summary's own negative margin cancels back to a full-bleed hover area. */
+  margin: 0 0 14px;
+  padding: 0 8px;
+}
+
+.preprocessing-documentation-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  list-style: none;
+  padding: 6px 8px;
+  margin: -6px -8px;
+  border-radius: var(--radius-sm, 4px);
+  font-size: 0.78rem;
+  font-weight: 600;
+  user-select: none;
+}
+
+.preprocessing-documentation-summary:hover {
+  background: color-mix(in srgb, var(--primary-color) 6%, white);
+}
+
+.preprocessing-documentation-summary::-webkit-details-marker {
+  display: none;
+}
+
+.preprocessing-documentation-panel[open] > .preprocessing-documentation-summary {
+  border-bottom: 1px solid var(--studio-card-border, rgba(43, 51, 233, 0.14));
+  border-radius: var(--radius-sm, 4px) var(--radius-sm, 4px) 0 0;
+}
+
+.preprocessing-documentation-panel[open] > .preprocessing-documentation-summary .preprocessing-documentation-label {
+  color: var(--primary-dark);
+}
+
+/* Same chevron geometry as the catalog groups: right when collapsed, down when open. */
+.preprocessing-documentation-chevron {
+  flex: 0 0 auto;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  color: #64748b;
+  transform: rotate(-45deg);
+  transition: transform 0.2s ease;
+}
+
+.preprocessing-documentation-panel[open] > .preprocessing-documentation-summary .preprocessing-documentation-chevron {
+  transform: rotate(45deg);
+}
+
+.preprocessing-documentation-label {
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #334155;
+  white-space: nowrap;
+}
+
+.preprocessing-documentation-content {
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 0.5rem;
+  padding-left: 10px;
+  border-left: 2px solid color-mix(in srgb, var(--primary-color) 26%, white);
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: rgba(20, 22, 31, 0.72);
+  overflow-wrap: anywhere;
+}
+
+.preprocessing-documentation-content .preprocessing-doc-intro,
+.preprocessing-documentation-content .preprocessing-doc-paragraph {
+  margin: 0 0 10px;
+  font-size: inherit;
+  line-height: inherit;
+  color: inherit;
+}
+
+.preprocessing-documentation-content .preprocessing-doc-paragraph:last-child,
+.preprocessing-documentation-content .preprocessing-doc-intro:last-child {
+  margin-bottom: 0;
+}
+
+.preprocessing-documentation-content .preprocessing-doc-section-title {
+  margin: 12px 0 6px;
+  font-size: inherit;
+  font-weight: 600;
+  line-height: inherit;
+  color: var(--text-main);
+}
+
+.preprocessing-documentation-content .preprocessing-doc-section-title:first-child {
+  margin-top: 0;
+}
+
+.preprocessing-documentation-content .preprocessing-doc-list {
+  display: grid;
+  gap: 3px;
+  margin: 0 0 10px;
+  padding-left: 1.15em;
+  list-style: disc;
+}
+
+.preprocessing-documentation-content .preprocessing-doc-list:last-child {
+  margin-bottom: 0;
+}
+
+.preprocessing-documentation-content .preprocessing-doc-list li {
+  display: list-item;
+  font-size: inherit;
+  line-height: inherit;
+  color: inherit;
+}
+
+.preprocessing-documentation-content .preprocessing-doc-term {
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.preprocessing-documentation-content .preprocessing-doc-desc {
+  font-size: inherit;
+  line-height: inherit;
+  color: inherit;
+}
+
+.longitudinal-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 18px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.visit-controls,
+.visit-controls label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.visit-controls {
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.visit-controls label {
+  color: var(--text-muted);
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.visit-controls label span {
+  min-width: 48px;
+}
+
+.longitudinal-error {
+  margin: -4px 0 10px;
+}
+
+.outlier-preview-skeleton {
+  margin: 0;
+}
+
+.outlier-preview-panel {
+  margin: 0;
+  padding: 14px 16px 16px;
+  background: var(--card-bg);
+  border: 1px solid rgba(127, 156, 232, 0.14);
+  border-radius: var(--radius-lg, 12px);
+  box-shadow: 0 4px 14px rgba(127, 156, 232, 0.05);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  animation: feedbackSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.outlier-preview-panel .table-wrapper {
+  margin-top: 4px;
+  overflow-x: auto;
+}
+
+/* Preprocessing stations are ONE card, not two. styles.css owns the card, the
+   rail/panel split and the scroll contract; both summary panels use
+   .statistics-browser as a left rail, so the pill toolbar that used to live here
+   made this the only surface in the step that rendered the shared class
+   differently — the adjacent-panel test in DESIGN.md. This file owns the row
+   internals only. */
+
+.preprocessing-browser .chart-search {
+  margin-top: 2px;
+}
+
+.preprocessing-browser .preprocessing-search {
+  width: 100%;
+  min-width: 0;
+}
+
+/* A 240px rail has no room for a count justified to the far edge. */
+.preprocessing-browser .statistics-browser-header {
+  justify-content: flex-start;
+  gap: 6px;
+}
+
+.preprocessing-browser .preprocessing-variable-group {
+  gap: 2px;
+  margin-top: 12px;
+}
+
+/* The group heading already names the state, so repeating it on every row said
+   the same thing up to 9 times per station; the state dot carries it instead. */
+.preprocessing-browser .preprocessing-state-mini {
+  display: none;
+}
+
+.preprocessing-browser .empty-state-block {
+  margin-top: 8px;
+}
+
+/* The shared .statistics-browser row owns layout, padding and selection.
+   Only the narrower rail's type size is a local concern. */
+.preprocessing-browser .statistics-variable-btn > span:first-of-type {
+  font-size: 0.8rem;
+}
+
+/* The global narrow rule re-shows the state chip inside a column-direction
+   header, where it stretched into a full-width pill. */
+.preprocessing-detail-panel .preprocessing-state-chip {
+  width: fit-content;
+}
+
+/* Two-pane card: the editor owns a column sized to its controls and the
+   evidence rail takes the rest of the card, bleeding to the edges so it reads
+   as one designed surface rather than a box floating inside a box. No border or
+   shadow here — the workspace is the card, and re-declaring them at this
+   specificity is what drew a second frame inside the first. */
+.preprocessing-detail-panel {
+  display: grid;
+  grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  align-items: stretch;
+  gap: 14px 26px;
+  padding: 16px;
+}
+
+/* The winsorizer carries four controls, so it needs the wider editor column. */
+.outlier-preprocessing-workspace .preprocessing-detail-panel {
+  grid-template-columns: minmax(260px, 560px) minmax(0, 1fr);
+}
+
+/* The header names the variable, so it owns the full card width; the editor and
+   the evidence rail sit side by side beneath it. */
+.preprocessing-detail-panel .statistics-panel-header {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+.preprocessing-detail-panel .preprocessing-detail-section {
+  grid-column: 1;
+  min-width: 0;
+}
+
+.preprocessing-detail-panel > .empty-state-block {
+  grid-column: 1 / -1;
+}
+
+.preprocessing-detail-panel h4 {
+  margin: 2px 0 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+  text-wrap: balance;
+}
+
+/* The rail is a horizontal band of real figures, not a stacked sidebar: two
+   groups across the width it actually has. It stays in the editor's row so it
+   cannot stretch the header (a full-height span inflated it to 169px), and
+   pulls up through the row gap so its tonal fill sits flush under the header. */
+.preprocessing-evidence {
+  grid-column: 2;
+  grid-row: 2;
+  display: grid;
+  /* auto-fit, not a fixed 2 columns: with only coverage present the group owns
+     the whole pane instead of wrapping its text at half width. */
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  /* Top-aligned, not centred: with the pane stretched by the rail this is what
+     puts DATASET COVERAGE on the same line as MISSING VALUE HANDLING across the
+     divider. Centring reads as a floating block. */
+  align-content: start;
+  gap: 12px 32px;
+  /* Negative margins match the panel's 16px padding exactly so the tonal pane
+     reaches the card edge; 2px short and it reads as a card inside a card. */
+  margin: -16px -16px -16px 0;
+  padding: 16px;
+  border-left: 1px solid var(--studio-card-header-border);
+  background: var(--bg-neutral);
+}
+
+.preprocessing-evidence-title {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: var(--letter-spacing-config);
+  text-transform: uppercase;
+}
+
+.preprocessing-stat-grid,
+.preprocessing-stat-strip {
+  display: grid;
+  gap: 8px 14px;
+  margin: 0;
+}
+
+.preprocessing-stat-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+/* Flex-wrap, not a fixed column count: these are real measured values and a
+   MAX of 47334358.00 is far wider than a MEDIAN of 155.00. A fixed 5-column
+   grid clipped the widest number against the card edge; wrapping moves the
+   whole stat to the next line so a figure is never partially shown. */
+.preprocessing-stat-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 22px;
+}
+
+.preprocessing-stat-strip .preprocessing-stat {
+  flex: 0 0 auto;
+}
+
+.preprocessing-stat {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.preprocessing-stat dt {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: var(--letter-spacing-config);
+  text-transform: uppercase;
+}
+
+.preprocessing-stat dd {
+  margin: 0;
+  color: var(--text-main);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  /* A number must never break mid-digit; the strip wraps instead. */
+  white-space: nowrap;
+}
+
+/* Filled coverage meter — an outline-only gauge would not encode the value.
+   --success is only 2.07:1 against this track, so a 0%-missing row renders an
+   empty track (which is the correct reading) rather than a pale green nub. */
+.preprocessing-meter {
+  display: block;
+  height: 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text-muted) 14%, white);
+  overflow: hidden;
+}
+
+.preprocessing-meter-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+}
+
+/* Keep a non-zero share visible even when it is tiny. */
+.preprocessing-evidence[data-severity='warning'] .preprocessing-meter-fill,
+.preprocessing-evidence[data-severity='high'] .preprocessing-meter-fill {
+  min-width: 6px;
+}
+
+.preprocessing-evidence[data-severity='warning'] .preprocessing-meter-fill {
+  /* --accent-color alone is 1.9:1 on the track; deepened with the brand's own
+     filter brown so the fill clears 3:1 without inventing a new hex. */
+  background: color-mix(in srgb, var(--accent-color) 42%, var(--filter-color));
+}
+
+.preprocessing-evidence[data-severity='high'] .preprocessing-meter-fill {
+  background: var(--danger);
+}
+
+.preprocessing-consequence {
+  margin: 0;
+  color: var(--text-main);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+.preprocessing-evidence-group {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  gap: 8px;
+  min-width: 0;
+}
+
+.preprocessing-evidence-wide {
+  grid-column: 1 / -1;
+}
+
+.preprocessing-frequency-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.preprocessing-frequency {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(48px, 2fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.preprocessing-frequency-label {
+  color: var(--text-main);
+  font-size: 0.8125rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.preprocessing-frequency-track {
+  height: 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text-muted) 14%, white);
+  overflow: hidden;
+}
+
+.preprocessing-frequency-bar {
+  display: block;
+  height: 100%;
+  min-width: 4px;
+  border-radius: 999px;
+  background: var(--primary-color);
+}
+
+.preprocessing-frequency-value {
+  color: var(--text-main);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Below the two columns the rail can no longer sit beside the editor; it becomes
+   a banded footer of the same card instead of a detached box. */
+@media (max-width: 900px) {
+  .preprocessing-detail-panel,
+  .outlier-preprocessing-workspace .preprocessing-detail-panel {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .preprocessing-detail-panel .statistics-panel-header,
+  .preprocessing-detail-panel .preprocessing-detail-section,
+  .preprocessing-detail-panel .preprocessing-evidence {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  .preprocessing-evidence {
+    grid-template-columns: minmax(0, 1fr);
+    margin: 0 -16px -14px;
+    border-top: 1px solid var(--studio-card-header-border);
+    border-left: 0;
+  }
+
+  .preprocessing-stat-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+
+/* The boxed row and its hover/active border are gone: the shared rail row is
+   flat with a leading accent edge, so a per-surface border here was the only
+   thing still making this rail look different from the summary rails. */
+
+/* The per-pill state chip was removed because it repeated its own group heading
+   up to 9 times. The state still has to scan at a glance, so it moves to a dot
+   that inherits from the group. Colours are deepened toward --text-main because
+   --success (2.5:1) and --accent-color (1.9:1) both fail the 3:1 graphic floor. */
+.preprocessing-variable-btn::before {
+  content: '';
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: transparent;
+  /* 55% hit 2.59:1 against the pill; 75% is 4.2:1 and matches the toggle track border. */
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--text-muted) 75%, transparent);
+}
+
+.preprocessing-variable-group[data-state='applied'] .preprocessing-variable-btn::before {
+  background: color-mix(in srgb, var(--success) 55%, var(--text-main));
+  box-shadow: none;
+}
+
+.preprocessing-variable-group[data-state='pending'] .preprocessing-variable-btn::before {
+  background: color-mix(in srgb, var(--accent-color) 42%, var(--filter-color));
+  box-shadow: none;
+}
+
+.preprocessing-variable-group[data-state='default'] .preprocessing-variable-btn::before {
+  background: var(--primary-color);
+  box-shadow: none;
+}
+
+.preprocessing-variable-btn .statistics-variable-meta {
+  align-items: flex-start;
+  gap: 6px;
+}
+.preprocessing-detail-section {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.preprocessing-detail-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.preprocessing-detail-heading i {
+  font-size: 0.82rem;
+  opacity: 0.68;
+}
+
+.preprocessing-control-grid {
+  display: grid;
+  gap: 12px 18px;
+  /* auto-fit + 1fr gave a 200px select two 602px tracks. Tracks stop at 300px
+     and the row stops at its content instead of spanning the panel. */
+  grid-template-columns: repeat(auto-fit, minmax(200px, 300px));
+  justify-content: start;
+}
+
+.inline-toggle-container {
+  display: flex;
+  align-items: center;
+  min-height: 34px;
+}
+
+.outlier-control-grid {
+  grid-template-columns: max-content repeat(3, minmax(120px, 180px));
+  justify-content: start;
+}
+
+/* Four tracks need ~420px; below that the Fold control was clipped out of the
+   panel entirely (no page overflow, so it failed silently). Declared after the
+   base rule so it actually wins. */
+@media (max-width: 720px) {
+  .outlier-control-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.preprocessing-control {
+  display: grid;
+  gap: 6px;
+  color: #1e293b;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: normal;
+  text-transform: none;
+}

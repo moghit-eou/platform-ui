@@ -11,7 +11,7 @@
   min-height: 0;
   background:
     linear-gradient(180deg, rgba(248, 250, 252, 0.92), rgba(255, 255, 255, 0.96));
-  color: #0f172a;
+  color: var(--text-main);
 }
 
 .chart-shell {
@@ -68,11 +68,10 @@
   fill: #ffffff;
   stroke: #dbe3ef;
   stroke-width: 1px;
-  filter: url(#collapsible-node-glow);
 }
 
 :host ::ng-deep .collapsible-node.group-node .node-card {
-  fill: #f8fafc;
+  fill: var(--bg-neutral);
 }
 
 :host ::ng-deep .collapsible-node.variable-node .node-card {
@@ -81,24 +80,19 @@
 
 :host ::ng-deep .collapsible-node:hover .node-card,
 :host ::ng-deep .collapsible-node:focus-visible .node-card {
-  stroke: #2b33e9;
+  stroke: var(--primary-color);
   stroke-width: 1.8px;
 }
 
 :host ::ng-deep .collapsible-node.highlighted .node-card {
   fill: #eef2ff;
-  stroke: #2b33e9;
+  stroke: var(--primary-color);
   stroke-width: 2px;
 }
 
 :host ::ng-deep .collapsible-node.selected-variable .node-card {
   fill: #fff7ed;
-  stroke: #ffba08;
-}
-
-:host ::ng-deep .collapsible-node.selected-covariate .node-card {
-  fill: #eff6ff;
-  stroke: #7f9ce8;
+  stroke: var(--accent-color);
 }
 
 :host ::ng-deep .node-anchor {
@@ -106,7 +100,7 @@
 }
 
 :host ::ng-deep .group-node .node-anchor {
-  fill: #2b33e9;
+  fill: var(--primary-color);
 }
 
 :host ::ng-deep .variable-node .node-anchor {
@@ -114,7 +108,7 @@
 }
 
 :host ::ng-deep .node-label {
-  fill: #0f172a;
+  fill: var(--text-main);
   font-size: 11px;
   font-weight: 760;
   pointer-events: none;
@@ -135,7 +129,7 @@
 }
 
 :host ::ng-deep .collapsible-node.collapsed .node-chevron {
-  fill: #2b33e9;
+  fill: var(--primary-color);
 }
 
 :host ::ng-deep .collapsible-node.expanded .node-chevron {
@@ -153,7 +147,7 @@
   border: 1px solid rgba(148, 163, 184, 0.4);
   border-radius: 7px;
   background: rgba(255, 255, 255, 0.96);
-  color: #0f172a;
+  color: var(--text-main);
   font-size: 0.76rem;
   line-height: 1.35;
   box-shadow: 0 14px 28px rgba(15, 23, 42, 0.18);

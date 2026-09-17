@@ -5,7 +5,7 @@ export interface AnovaResult {
     ci_info: CIInfo;
 }
 
-export interface AnovaTable {
+interface AnovaTable {
     n_obs: number;
     y_label: string;
     x_label: string;
@@ -19,7 +19,7 @@ export interface AnovaTable {
     f_stat: number;
 }
 
-export interface TuckeyTestItem {
+interface TuckeyTestItem {
     groupA: string;
     groupB: string;
     meanA: number;
@@ -30,13 +30,13 @@ export interface TuckeyTestItem {
     p_tuckey: number;
 }
 
-export interface MinMaxPerGroup {
+interface MinMaxPerGroup {
     categories: string[];
     min: number[];
     max: number[];
 }
 
-export interface CIInfo {
+interface CIInfo {
     means: Record<string, number>;
     sample_stds: Record<string, number>;
     'm-s': Record<string, number>;
@@ -82,7 +82,7 @@ export interface NumericalDescriptiveStats {
     max: number | null;
 }
 
-export interface QuartileResult {
+interface QuartileResult {
     q: number;
     value: number | null;
     actual_q: number | null;
@@ -104,7 +104,7 @@ export interface HistogramResult {
     histogram: HistogramResultItem[];
 }
 
-export interface HistogramResultItem {
+interface HistogramResultItem {
     var: string;
     grouping_var: string | null;
     grouping_enum: string | null;
@@ -144,7 +144,7 @@ export interface LinearRegressionResult {
     upper_ci: number[];
 }
 
-export interface CoxRegressionSummaryBase {
+interface CoxRegressionSummaryBase {
     n_obs: number;
     n_events: number;
     coefficients: number[];
@@ -227,17 +227,11 @@ export interface LMMResult {
     n_iter: number;
 }
 
-export type BasicStats = {
+type BasicStats = {
     mean: number;
     std: number;
 } | number[];
 
-export interface SVMResult {
-    title: string;
-    n_obs: number;
-    weights: number[];
-    intercept: number;
-}
 
 export interface LogisticRegressionResult {
     dependent_var: string;
@@ -245,7 +239,7 @@ export interface LogisticRegressionResult {
     summary: LogisticRegressionSummary;
 }
 
-export interface LogisticRegressionSummary {
+interface LogisticRegressionSummary {
     n_obs: number;
     coefficients: number[];
     stderr: number[];
@@ -271,7 +265,7 @@ export interface CVLogisticRegressionResult {
     roc_curves: ROCCurve[];
 }
 
-export interface CVClassificationSummary {
+interface CVClassificationSummary {
     row_names: string[];
     n_obs: (number | null)[];
     accuracy: number[];
@@ -280,14 +274,14 @@ export interface CVClassificationSummary {
     fscore: number[];
 }
 
-export interface ConfusionMatrix {
+interface ConfusionMatrix {
     tp: number;
     fp: number;
     tn: number;
     fn: number;
 }
 
-export interface ROCCurve {
+interface ROCCurve {
     name: string;
     tpr: number[];
     fpr: number[];
@@ -309,12 +303,12 @@ export interface NaiveBayesCVResult {
     classification_summary: MulticlassClassificationSummary;
 }
 
-export interface SimpleConfusionMatrix {
+interface SimpleConfusionMatrix {
     data: number[][];
     labels: string[];
 }
 
-export interface MulticlassClassificationSummary {
+interface MulticlassClassificationSummary {
     accuracy: Record<string, Record<string, number>>;
     precision: Record<string, Record<string, number>>;
     recall: Record<string, Record<string, number>>;
@@ -347,7 +341,7 @@ export interface PearsonResult {
     ci_lo: MatrixDict;
 }
 
-export interface MatrixDict {
+interface MatrixDict {
     variables: string[];
     [key: string]: string[] | number[]; // dynamic keys for variables
 }

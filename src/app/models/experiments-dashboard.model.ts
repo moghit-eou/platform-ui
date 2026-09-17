@@ -21,15 +21,3 @@ export interface Experiment {
   mipVersion?: string;
 }
 
-export interface AlgorithmDetails {
-  name: string;
-  datasets: string[];
-  parameters: Record<string, unknown>;
-  dataModel: string;
-}
-
-export interface UserDetails {
-  username: string;
-  fullname: string;
-  email: string;
-}

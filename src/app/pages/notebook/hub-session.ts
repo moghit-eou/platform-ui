@@ -20,7 +20,7 @@ export async function hasHubSession(basePath: string): Promise<boolean> {
     }
 }
 
-export interface WaitForHubSessionOptions {
+interface WaitForHubSessionOptions {
     retries?: number;
     delayMs?: number;
 }
@@ -55,7 +55,7 @@ export function buildHubLoginUrl(basePath: string, returnPath?: string): string 
     return `${basePath}/hub/login?next=${next}`;
 }
 
-export function hasHubLoginPending(): boolean {
+function hasHubLoginPending(): boolean {
     try {
         return sessionStorage.getItem(HUB_LOGIN_PENDING_KEY) === '1';
     } catch {
@@ -71,20 +71,12 @@ export function markHubLoginPending(): void {
     }
 }
 
-export function clearHubLoginPending(): void {
+function clearHubLoginPending(): void {
     try {
         sessionStorage.removeItem(HUB_LOGIN_PENDING_KEY);
     } catch {
         // ignore storage errors
     }
-}
-
-export function consumeHubLoginPending(): boolean {
-    const pending = hasHubLoginPending();
-    if (pending) {
-        clearHubLoginPending();
-    }
-    return pending;
 }
 
 export function shouldRedirectToHubLogin(): boolean {
@@ -105,7 +97,7 @@ export function markHubLoginRedirect(): void {
     }
 }
 
-export function clearHubLoginRedirect(): void {
+function clearHubLoginRedirect(): void {
     try {
         sessionStorage.removeItem(HUB_LOGIN_REDIRECT_KEY);
     } catch {

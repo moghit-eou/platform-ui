@@ -1,4 +1,4 @@
-import { Injectable, computed, effect, inject, signal } from '@angular/core';
+import { Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, Subject, catchError, defaultIfEmpty, filter, finalize, forkJoin, map, of, shareReplay, switchMap, take, takeUntil, tap, timer } from 'rxjs';
 import { SessionStorageService } from './session-storage.service';
@@ -11,7 +11,8 @@ import {
   AnalysisRequest,
   ExperimentCreateRequest,
 } from '../models/backend-algorithms.model';
-import { BackendFilter } from '../models/filters.model';
+import { BackendFilter, BackendRule } from '../models/filters.model';
+import { ExperimentRunSetup, RunSetupSummaryRow } from '../models/experiment-run-setup.model';
 import { AlgorithmAvailability, AlgorithmConfig } from '../models/algorithm-definition.model';
 import { BackendExperiment } from '../models/backend-experiment.model';
 import { ErrorService } from './error.service';
@@ -22,21 +23,17 @@ import {
   serializeAlgorithmParameterValue,
 } from '../core/algorithm-parameter.utils';
 import { outlierStrategyLabel, outlierTailLabel } from '../core/outlier-rules';
+import { buildEnumMapForVariables, findDataModelByCodeVersion } from '../core/data-model.utils';
 
-export type PathologyAccessWarningKind = 'no-pathologies' | 'no-access';
+type PathologyAccessWarningKind = 'no-pathologies' | 'no-access';
 
-export interface PathologyAccessWarning {
+interface PathologyAccessWarning {
   kind: PathologyAccessWarningKind;
   title: string;
   message: string;
 }
 
 export type PreprocessingConfig = Record<string, unknown>;
-
-export interface PreprocessingSummaryEntry {
-  label: string;
-  value: string;
-}
 
 const MISSING_VALUES_HANDLER = 'missing_values_handler';
 const OUTLIER_WINSORIZER = 'outlier_winsorizer';
@@ -45,11 +42,9 @@ const APPLIED_DESCRIPTIVE_PREPROCESSING = '__applied_descriptive_preprocessing__
 /** Quick-preview / diagnostic algorithms hidden from the experiment algorithm picker. */
 const ALGORITHM_PANEL_EXCLUDED = new Set<string>([
   AlgorithmNames.HISTOGRAM,
-  'histogram_sql',
   AlgorithmNames.DESCRIBE,
   AlgorithmNames.OUTLIER_REPORT,
   AlgorithmNames.LINEAR_SVM,
-  AlgorithmNames.LOGISTIC_REGRESSION_FEDAVERAGE_FLOWER,
   'cox_regression_stacked',
 ]);
 
@@ -67,45 +62,59 @@ export class ExperimentStudioService {
   private dataModelsRequest$: Observable<any[]> | null = null;
 
   private selectedVariablesSignal = signal<any[]>(this.sessionStorage.getItem('selectedVariables') || []);
-  private selectedCovariatesSignal = signal<any[]>(this.sessionStorage.getItem('selectedCovariates') || []);
   private selectedFiltersSignal = signal<any[]>(this.sessionStorage.getItem('selectedFilters') || []);
   private _filterLogic = signal<BackendFilter | null>(this.sessionStorage.getItem('filterLogic'));
+  private algorithmYSignal = signal<any[]>(this.sessionStorage.getItem('algorithmY') || []);
+  private algorithmXSignal = signal<any[]>(this.sessionStorage.getItem('algorithmX') || []);
 
   readonly selectedVariables = computed(() => this.selectedVariablesSignal());
-  readonly selectedCovariates = computed(() => this.selectedCovariatesSignal());
   readonly selectedFilters = computed(() => this.selectedFiltersSignal());
+  /** Variables assigned to the y role on the Algorithm panel. */
+  readonly algorithmY = computed(() => this.algorithmYSignal());
+  /** Covariates assigned to the x role on the Algorithm panel. */
+  readonly algorithmX = computed(() => this.algorithmXSignal());
+
+  /**
+   * Assignable pool for the Algorithm role UI: the data-model variable pool, the
+   * synthetic node for the applied transformation column, plus any synthetic
+   * derived role nodes hydrated from a saved experiment. Synthetic nodes never
+   * belong in the variables-panel pool (real CDE nodes only).
+   */
+  readonly algorithmAssignableVariables = computed(() => {
+    const nodes = [...this.selectedVariables()];
+    const created = this.transformationColumnNodes();
+    if (created.length) {
+      const knownCodes = new Set(nodes.map((v) => v?.code));
+      for (const node of created) {
+        if (node?.code && !knownCodes.has(node.code)) {
+          nodes.push(node);
+          knownCodes.add(node.code);
+        }
+      }
+    } else {
+      // No live transformation creator: re-include synthetic derived nodes that
+      // were hydrated into the y/x roles (e.g. editing a saved experiment that
+      // has a created column but no active transformation step). Synthetic nodes
+      // never belong in the variables-panel pool (real CDE nodes only).
+      const knownCodes = new Set(nodes.map((v) => v?.code));
+      for (const role of [this.algorithmY(), this.algorithmX()]) {
+        for (const node of role) {
+          if (node?.isCreatedColumn && !knownCodes.has(node.code)) {
+            nodes.push(node);
+            knownCodes.add(node.code);
+          }
+        }
+      }
+    }
+    return nodes;
+  });
 
   getCategoricalEnumMaps(): EnumMaps {
     const items = [
-      ...this.selectedVariables(),
-      ...this.selectedCovariates(),
+      ...this.algorithmAssignableVariables(),
       ...this.selectedFilters(),
     ];
-
-    const maps: EnumMaps = {};
-
-    items.forEach((item) => {
-      const enums = Array.isArray(item?.enumerations) ? item.enumerations : [];
-      if (!enums.length) return;
-
-      const code = String(item?.code ?? '');
-      if (!code) return;
-
-      const enumMap: Record<string, string> = {};
-      enums.forEach((e: any) => {
-        const raw = e?.code ?? e?.label ?? e?.name;
-        if (raw === null || raw === undefined) return;
-        const key = String(raw);
-        const label = e?.label ?? e?.name ?? String(raw);
-        enumMap[key] = label;
-      });
-
-      if (Object.keys(enumMap).length > 0) {
-        maps[code] = enumMap;
-      }
-    });
-
-    return maps;
+    return buildEnumMapForVariables(items);
   }
 
   private selectedDatasetsSignal = signal<string[]>(this.sessionStorage.getItem('selectedDatasets') || []);
@@ -131,11 +140,67 @@ export class ExperimentStudioService {
 
   private readonly _isRunning = signal(false);
   readonly isRunning = this._isRunning.asReadonly();
-  readonly isFilterConfigOpen = signal<boolean>(false);
+
+  /**
+   * Run outcome for the Experiment Execution step. Lives here (not on the algorithm panel)
+   * because the result outlives the parameters view and is read from another step.
+   */
+  readonly runResult = signal<any | null>(null);
+  readonly runError = signal<string | null>(null);
+  readonly lastRunSchema = signal<any[]>([]);
+  /** Execution unlocks the first time a run is dispatched in this studio session. */
+  readonly hasRunStarted = signal(false);
+  readonly runStatusText = signal('Processing experiment...');
+  /**
+   * Frozen inputs of the run that produced `runResult`; null until a run is dispatched.
+   * Read this instead of live state: editing a parameter does not clear a result that is
+   * already on screen, so live state can describe a run that never happened. Not persisted,
+   * exactly like `runResult`.
+   */
+  readonly runSetup = signal<ExperimentRunSetup | null>(null);
+  /** Save As toast host: rendered by the Execution step, triggered from anywhere. */
+  readonly saveSucceeded = signal(false);
+
+  notifySaveSucceeded(): void {
+    this.saveSucceeded.set(true);
+    setTimeout(() => this.saveSucceeded.set(false), 8000);
+  }
+
+  /** code → human label for every variable the algorithm can see, shared by result views. */
+  readonly variableLabelMap = computed(() => {
+    const map: Record<string, string> = {};
+    [...this.algorithmAssignableVariables(), ...this.selectedFilters()].forEach((item) => {
+      if (item?.code && item?.label) map[item.code] = item.label;
+    });
+    return map;
+  });
   private dataExclusionWarningsSignal = signal<string[]>([]);
   readonly dataExclusionWarnings = this.dataExclusionWarningsSignal.asReadonly();
   private excludedDatasetsSignal = signal<string[]>([]);
   readonly excludedDatasets = this.excludedDatasetsSignal.asReadonly();
+
+  /**
+   * Freezes what the next run will send. The algorithm panel calls this once the final
+   * parameter values are stored, so datasets, filters, roles, preprocessing and parameters
+   * are all read from the same instant the request is built from.
+   */
+  captureRunSetup(algorithmName: string): void {
+    const configuredParameters = this.algorithmConfigurations()[algorithmName] ?? {};
+    this.runSetup.set({
+      algorithmKey: algorithmName,
+      dataModel: this.selectedDataModel()?.label ?? this.selectedDataModel()?.code ?? null,
+      datasets: [...this.selectedDatasets()],
+      outcome: this.roleCodes(this.algorithmY()),
+      covariates: this.roleCodes(this.algorithmX()),
+      filterLogic: this.filterLogic(),
+      preprocessing: this.getEffectivePreprocessingEntries(algorithmName, this.variableLabelMap()),
+      parameters: { ...configuredParameters },
+    });
+  }
+
+  private roleCodes(nodes: any[]): string[] {
+    return (nodes ?? []).map((node) => String(node?.code ?? '').trim()).filter(Boolean);
+  }
 
   // teardown for transient requests
   private destroy$ = new Subject<void>();
@@ -169,6 +234,9 @@ export class ExperimentStudioService {
   constructor() {
     this.loadBackendAlgorithms().subscribe();
 
+
+
+
     // Reset filters when no filter variables OR no rules
     effect(() => {
       const vars = this.selectedFiltersSignal();
@@ -188,58 +256,128 @@ export class ExperimentStudioService {
       const selected = this.selectedDatasetsSignal();
       if (!selected) return;
 
+      // untracked: setVariables/prune used to write new y/x arrays and retrigger this effect.
       if (selected.length === 0) {
-        console.warn('No datasets selected — resetting state');
-        this.setVariables([]);
-        this.setCovariates([]);
-        this.setFilters([]);
+        untracked(() => {
+          if (!this.selectedVariablesSignal().length && !this.selectedFiltersSignal().length) {
+            return;
+          }
+          console.warn('No datasets selected — resetting state');
+          this.setVariables([]);
+          this.setFilters([]);
+        });
       } else {
-        this.refreshDataModel();
+        untracked(() => this.refreshDataModel());
       }
     });
 
     // --- State Persistence ---
-    effect(() => {
-      this.sessionStorage.setItem('selectedVariables', this.selectedVariablesSignal());
-    });
-
-    effect(() => {
-      this.sessionStorage.setItem('selectedCovariates', this.selectedCovariatesSignal());
-    });
-
-    effect(() => {
-      this.sessionStorage.setItem('selectedFilters', this.selectedFiltersSignal());
-    });
-
-    effect(() => {
-      this.sessionStorage.setItem('selectedDatasets', this.selectedDatasetsSignal());
-    });
-
-    effect(() => {
-      this.sessionStorage.setItem('selectedDataModel', this.selectedDataModel());
-    });
-
-    effect(() => {
-      this.sessionStorage.setItem('filterLogic', this._filterLogic());
-    });
-
-    effect(() => {
-      this.sessionStorage.setItem('algorithmConfigurations', this.algorithmConfigurations());
-    });
-
-    effect(() => {
-      this.sessionStorage.setItem('algorithmPreprocessingConfigurations', this.algorithmPreprocessingConfigurations());
-    });
-
-    effect(() => {
-      this.sessionStorage.setItem('lastUsedAlgorithm', this.lastUsedAlgorithm());
-    });
+    const persistencePairs: Array<[string, () => unknown]> = [
+      ['selectedVariables', () => this.selectedVariablesSignal()],
+      ['selectedFilters', () => this.selectedFiltersSignal()],
+      ['selectedDatasets', () => this.selectedDatasetsSignal()],
+      ['selectedDataModel', () => this.selectedDataModel()],
+      ['filterLogic', () => this._filterLogic()],
+      ['algorithmY', () => this.algorithmYSignal()],
+      ['algorithmX', () => this.algorithmXSignal()],
+      ['algorithmConfigurations', () => this.algorithmConfigurations()],
+      ['algorithmPreprocessingConfigurations', () => this.algorithmPreprocessingConfigurations()],
+      ['lastUsedAlgorithm', () => this.lastUsedAlgorithm()],
+    ];
+    for (const [key, read] of persistencePairs) {
+      effect(() => {
+        this.sessionStorage.setItem(key, read());
+      });
+    }
+  }
+  setAlgorithmY(nodes: any[]): void {
+    this.setRole('y', nodes);
   }
 
-  setSelectedDataModel(model: DataModel | null): void {
-    this.selectedDataModel.set(model);
-    this.clearDataExclusionWarnings();
+  setAlgorithmX(nodes: any[]): void {
+    this.setRole('x', nodes);
   }
+
+  private setRole(role: 'y' | 'x', nodes: any[]): void {
+    const unique = this.uniqueByCode(nodes);
+    const thisSignal = role === 'y' ? this.algorithmYSignal : this.algorithmXSignal;
+    const otherSignal = role === 'y' ? this.algorithmXSignal : this.algorithmYSignal;
+    thisSignal.set(unique);
+    const codes = new Set(unique.map((v) => v.code));
+    otherSignal.set(otherSignal().filter((v) => !codes.has(v.code)));
+  }
+
+  private uniqueByCode(nodes: any[]): any[] {
+    const seen = new Set<string>();
+    const out: any[] = [];
+    for (const node of nodes ?? []) {
+      const code = node?.code;
+      if (code === null || code === undefined || code === '') continue;
+      const key = String(code);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(node);
+    }
+    return out;
+  }
+
+  /** Codes of derived columns (e.g. transformation output) that must not be sent as source CDEs. */
+  private derivedVariableCodes(): Set<string> {
+    const codes = new Set<string>();
+    for (const node of this.transformationColumnNodes()) {
+      if (node?.code) codes.add(String(node.code));
+    }
+    return codes;
+  }
+
+  /** Minimal synthetic node for a derived column code found in a saved experiment. */
+  private syntheticDerivedNode(code: string): any {
+    return {
+      code,
+      label: code,
+      name: code,
+      type: 'text',
+      enumerations: [],
+      isCreatedColumn: true,
+    };
+  }
+
+  /**
+   * Synthetic node for one categorical_column_creator config (derived column),
+   * exposed in the assignable pool. Returns null when the config has no usable code.
+   */
+  private derivedColumnNode(creator: { code?: unknown; rules?: Record<string, unknown>; default_enumeration?: unknown }): any | null {
+    const code = String(creator?.code ?? '').trim();
+    if (!code) return null;
+    const enumerations: Array<{ code: string; label: string }> = [];
+    Object.keys(creator?.rules ?? {}).forEach((value) => {
+      if (value) enumerations.push({ code: value, label: value });
+    });
+    const def = String(creator?.default_enumeration ?? '').trim();
+    if (def && !enumerations.some((e) => e.code === def)) {
+      enumerations.push({ code: def, label: def });
+    }
+    return { ...this.syntheticDerivedNode(code), enumerations };
+  }
+
+  /** Synthetic node for every applied transformation column, exposed in the assignable pool. */
+  private transformationColumnNodes(): any[] {
+    return this.appliedCategoricalCreators()
+      .map((creator) =>
+        this.derivedColumnNode(
+          creator as { code?: unknown; rules?: Record<string, unknown>; default_enumeration?: unknown }
+        )
+      )
+      .filter((node): node is any => !!node);
+  }
+
+  /** Every applied categorical_column_creator config, in store order. */
+  appliedCategoricalCreators(): Record<string, unknown>[] {
+    return (this.appliedPreprocessingConfig()?.['categorical_column_creator'] as
+      | Record<string, unknown>[]
+      | undefined) ?? [];
+  }
+
 
   getActiveDataModelCode(): string {
     const model = this.selectedDataModel();
@@ -259,11 +397,9 @@ export class ExperimentStudioService {
       .subscribe(models => {
         const active = models.filter(m => selected.includes(m.code));
         if (!active.length) return;
-
         const model = active[0];
         this.selectedDataModel.set(model);
 
-        this.selectedDataModel.set(model);
       });
   }
 
@@ -341,22 +477,44 @@ export class ExperimentStudioService {
 
     // update signal
     this.selectedVariablesSignal.set([...currentVars, enrichedNode]);
+    this.pruneRolesToAssignable();
   }
 
   setVariables(vars: D3HierarchyNode[]) {
     this.selectedVariablesSignal.set(vars);
+    this.pruneRolesToAssignable();
     this.clearDataExclusionWarnings();
   }
 
-
-  setCovariates(covs: D3HierarchyNode[]): void {
-    this.selectedCovariatesSignal.set(covs);
-    this.clearDataExclusionWarnings();
-  }
 
   setFilters(filters: D3HierarchyNode[]): void {
     this.selectedFiltersSignal.set(filters);
     this.clearDataExclusionWarnings();
+  }
+
+  /** Pathology/data-model change invalidates variables, datasets, and review state. */
+  clearSelectionsForDataModelChange(): void {
+    this.setVariables([]);
+    this.setFilters([]);
+    this.setSelectedDatasets([]);
+    this.setFilterLogic(null);
+  }
+
+  /** Keep y/x roles limited to currently-assignable items (pool + created column). */
+  private pruneRolesToAssignable(): void {
+    untracked(() => {
+      const assignable = new Set(this.algorithmAssignableVariables().map((v) => v.code));
+      const y = this.algorithmYSignal();
+      const nextY = y.filter((v) => assignable.has(v.code));
+      if (nextY.length !== y.length) {
+        this.algorithmYSignal.set(nextY);
+      }
+      const x = this.algorithmXSignal();
+      const nextX = x.filter((v) => assignable.has(v.code));
+      if (nextX.length !== x.length) {
+        this.algorithmXSignal.set(nextX);
+      }
+    });
   }
 
   setDataExclusionWarnings(warnings: string[], excludedDatasets: string[] = []): void {
@@ -393,6 +551,7 @@ export class ExperimentStudioService {
       ...this.algorithmPreprocessingConfigurations(),
       [APPLIED_DESCRIPTIVE_PREPROCESSING]: this.normalizePreprocessingConfig(preprocessing),
     });
+    this.pruneRolesToAssignable();
   }
 
   getAppliedDescriptivePreprocessing(): PreprocessingConfig | null {
@@ -404,6 +563,38 @@ export class ExperimentStudioService {
     return !!applied && Object.keys(applied).length > 0;
   }
 
+  /**
+   * Whether the next run for this algorithm carries a missing-value strategy.
+   * Same truth source as the run payload: a stored config, otherwise the
+   * request-time per-variable drop default (describe/outlier-report send none).
+   */
+  hasRequestPreprocessingForRun(algorithmName: string): boolean {
+    if (algorithmName === AlgorithmNames.DESCRIBE || algorithmName === AlgorithmNames.OUTLIER_REPORT) return true;
+    return this.getEffectivePreprocessingSummary(algorithmName) !== 'none';
+  }
+
+  /**
+   * Merge the Transformation step (exaflow `categorical_column_creator`) into the shared
+   * APPLIED_DESCRIPTIVE_PREPROCESSING config so it reaches every experiment run via
+   * getStoredPreprocessingConfig -> resolveRequestPreprocessing -> preprocessingConfigToSteps.
+   * Statistics for the derived column can also call describe with this config present,
+   * using source CDEs in inputdata.variables and the new column code in algorithm.y.
+   */
+  setTransformationPreprocessing(config: Record<string, unknown>[] | null): void {
+    const current = this.algorithmPreprocessingConfigurations()[APPLIED_DESCRIPTIVE_PREPROCESSING] ?? {};
+    const next: PreprocessingConfig = { ...current };
+    if (config?.length) {
+      next['categorical_column_creator'] = config;
+    } else {
+      delete next['categorical_column_creator'];
+    }
+    this.algorithmPreprocessingConfigurations.set({
+      ...this.algorithmPreprocessingConfigurations(),
+      [APPLIED_DESCRIPTIVE_PREPROCESSING]: Object.keys(next).length ? next : null,
+    });
+    this.pruneRolesToAssignable();
+  }
+
   async setAlgorithm(algorithm: AlgorithmConfig) {
     const algo = this.backendAlgorithms()[algorithm.name];
     if (!algo) {
@@ -411,15 +602,15 @@ export class ExperimentStudioService {
       return;
     }
 
-    const selectedVariables = this.selectedVariables();
-    if (selectedVariables.length !== 1) {
-      console.warn("Enrichment skipped: need exactly 1 selected variable for enums.");
+    const algorithmY = this.algorithmY();
+    if (algorithmY.length !== 1) {
+      console.warn("Enrichment skipped: need exactly 1 algorithm variable for enums.");
       this.selectedAlgorithm.set(algo);
       this.sessionStorage.setItem('selectedAlgorithm', algo);
       return;
     }
 
-    const selectedY = selectedVariables[0];
+    const selectedY = algorithmY[0];
     let enums = selectedY.enumerations ?? [];
 
     const enrichedConfig = algo.configSchema.map((field) => {
@@ -478,9 +669,6 @@ export class ExperimentStudioService {
 
   getCrossValidationBase(name: string): string | null {
     if (this.crossValidationBases[name]) return this.crossValidationBases[name];
-    if (name.endsWith('_cv_fedaverage')) {
-      return name.replace('_cv_fedaverage', '');
-    }
     if (name.endsWith('_cv')) {
       return name.slice(0, -3);
     }
@@ -490,8 +678,7 @@ export class ExperimentStudioService {
   isCrossValidationAlgorithm(name: string): boolean {
     return (
       name in this.crossValidationBases ||
-      name.endsWith('_cv') ||
-      name.endsWith('_cv_fedaverage')
+      name.endsWith('_cv')
     );
   }
 
@@ -521,11 +708,9 @@ export class ExperimentStudioService {
   }
 
   availableGroupedAlgorithms = computed(() => {
-    // Explicitly read selection signals to establish reactive dependencies.
-    // Without this, the computed only re-runs when backendAlgorithms() changes,
-    // not when variable/covariate selections change.
-    this.selectedVariables();
-    this.selectedCovariates();
+    // Explicitly read role signals to establish reactive dependencies.
+    this.algorithmY();
+    this.algorithmX();
 
     return Object.values(this.backendAlgorithms())
       .filter(algo => !ALGORITHM_PANEL_EXCLUDED.has(algo.name))
@@ -558,8 +743,8 @@ export class ExperimentStudioService {
     if (!algo?.inputdata) return emptyAvailability;
 
     return this.algorithmRulesService.evaluateAlgorithmAvailability(algo, {
-      y: this.selectedVariables(),
-      x: this.selectedCovariates(),
+      y: this.algorithmY(),
+      x: this.algorithmX(),
     });
   }
 
@@ -569,16 +754,15 @@ export class ExperimentStudioService {
 
   private buildSharedInputDataPayload(
     algo: AlgorithmConfig,
-    yPayload: string[] | null,
-    xPayload: string[] | null,
     filtersPayload: BackendFilter | null,
     datasetsOverride?: string[] | null,
+    extraVariableCodes?: string[] | null,
   ): AnalysisInputData {
     const inputdata = algo.inputdata ?? {};
     const datasets = datasetsOverride ?? this.selectedDatasetsSignal().filter(
       (ds) => !this.excludedDatasetsSignal().includes(ds),
     );
-    const variables = this.collectSourceVariables(yPayload, xPayload, filtersPayload);
+    const variables = this.collectSourceVariables(filtersPayload, extraVariableCodes);
 
     return {
       data_model: this.getActiveDataModelCode(),
@@ -593,19 +777,24 @@ export class ExperimentStudioService {
   }
 
   private collectSourceVariables(
-    yPayload: string[] | null,
-    xPayload: string[] | null,
     filtersPayload: BackendFilter | null,
+    extraCodes: string[] | null = null,
   ): string[] {
+    const derived = this.derivedVariableCodes();
     return Array.from(
       new Set(
         [
-          ...this.toArray(yPayload),
-          ...this.toArray(xPayload),
+          // Pool CDEs (including unassigned members used as transformation sources).
+          ...this.selectedVariables().map((v) => v.code),
+          // Experiment filter fields.
           ...this.collectFilterVariableCodes(filtersPayload),
+          // Transformation-rule filter fields (source CDEs referenced by the rules).
+          ...this.collectTransformationFilterCodes(),
+          // Previewed CDEs (histogram inspect happens before add-to-pool).
+          ...this.toArray(extraCodes),
         ]
           .map((code) => String(code).trim())
-          .filter((code) => code && code !== 'dataset'),
+          .filter((code) => code && code !== 'dataset' && !derived.has(code)),
       ),
     );
   }
@@ -614,12 +803,22 @@ export class ExperimentStudioService {
     config: PreprocessingConfig | null | undefined,
   ): AnalysisPreprocessingStep[] | null {
     if (!config) return null;
-    const steps = Object.entries(config)
-      .filter(([, parameters]) => parameters && typeof parameters === 'object' && !Array.isArray(parameters))
-      .map(([name, parameters]) => ({
-        name,
-        parameters: parameters as Record<string, unknown>,
-      }));
+    // An array value (e.g. several categorical_column_creator configs) expands to
+    // one ordered step per entry; the engine accepts repeated steps with the same name.
+    const steps: AnalysisPreprocessingStep[] = [];
+    for (const [name, parameters] of Object.entries(config)) {
+      if (Array.isArray(parameters)) {
+        for (const item of parameters) {
+          if (item && typeof item === 'object') {
+            steps.push({ name, parameters: item as Record<string, unknown> });
+          }
+        }
+        continue;
+      }
+      if (parameters && typeof parameters === 'object') {
+        steps.push({ name, parameters: parameters as Record<string, unknown> });
+      }
+    }
     return steps.length ? steps : null;
   }
 
@@ -627,7 +826,26 @@ export class ExperimentStudioService {
     steps: AnalysisPreprocessingStep[] | null | undefined,
   ): PreprocessingConfig | null {
     if (!steps?.length) return null;
-    return Object.fromEntries(steps.map((step) => [step.name, step.parameters]));
+    // Preserve every step: repeated names (e.g. several categorical_column_creator
+    // entries) hydrate into an array so edit-hydration does not last-win them.
+    const config: PreprocessingConfig = {};
+    for (const step of steps) {
+      const existing = config[step.name];
+      if (existing === undefined) {
+        config[step.name] = step.parameters;
+      } else if (Array.isArray(existing)) {
+        existing.push(step.parameters);
+      } else {
+        config[step.name] = [existing, step.parameters];
+      }
+    }
+    // The store keeps the repeatable transformation config as a list, whatever the
+    // engine's step shape was; one read shape for every consumer.
+    const creators = config['categorical_column_creator'];
+    if (creators !== undefined && !Array.isArray(creators)) {
+      config['categorical_column_creator'] = [creators];
+    }
+    return config;
   }
 
   private buildExperimentRequest(
@@ -656,12 +874,20 @@ export class ExperimentStudioService {
     const direct = algorithms[algorithmName];
     if (direct) return direct;
 
-    // Exaflow renamed histogram_sql -> histogram; keep lookup tolerant during rollout.
-    if (algorithmName === AlgorithmNames.HISTOGRAM || algorithmName === 'histogram_sql') {
-      return algorithms[AlgorithmNames.HISTOGRAM] ?? algorithms['histogram_sql'];
+    if (algorithmName === AlgorithmNames.HISTOGRAM) {
+      return algorithms[AlgorithmNames.HISTOGRAM];
     }
 
     return undefined;
+  }
+
+  /**
+   * Cohort filters for one request. `undefined` keeps the stored rules, `null`
+   * means "run with no rules" (the step-0 source snapshot), and a filter object
+   * replaces the store without touching it — the Cohort Filtering preview.
+   */
+  private resolveFilterPayload(filterOverride?: BackendFilter | null): BackendFilter | null {
+    return filterOverride === undefined ? this._filterLogic() : filterOverride;
   }
 
   buildRequestBody(
@@ -671,7 +897,8 @@ export class ExperimentStudioService {
     effectiveAlgorithmName: string | null = null,
     customName: string | null = null,
     bins: number | null = null,
-    preprocessingOverride?: PreprocessingConfig | null
+    preprocessingOverride?: PreprocessingConfig | null,
+    filterOverride?: BackendFilter | null
   ): any {
     let algoConfig: AlgorithmConfig | undefined;
 
@@ -691,10 +918,10 @@ export class ExperimentStudioService {
     // unified signals
     const variables = yVariables?.length
       ? yVariables
-      : this.selectedVariables().map((v) => v.code);
+      : this.algorithmY().map((v) => v.code);
 
     const covariates =
-      xVariables ?? this.selectedCovariates().map((c) => c.code);
+      xVariables ?? this.algorithmX().map((c) => c.code);
 
     const allConfigs = this.algorithmConfigurations();
     let config = { ...(allConfigs[algoConfig.name ?? ''] || {}) };
@@ -708,8 +935,9 @@ export class ExperimentStudioService {
     config = this.normalizeParameterConfig(algoConfig, config);
 
 
-    // filters logic
-    const filterLogic = this._filterLogic();
+    // filters logic - a `null` filterOverride is the step-0 source snapshot,
+    // which previews the selection with no cohort filter attached.
+    const filterLogic = this.resolveFilterPayload(filterOverride);
     const hasFilters =
       !!(
         filterLogic &&
@@ -731,10 +959,9 @@ export class ExperimentStudioService {
       );
       const inputdata = this.buildSharedInputDataPayload(
         algoConfig,
-        histogramY,
-        null,
         filtersPayload,
         this.selectedDatasetsSignal(),
+        histogramY,
       );
       return this.buildExperimentRequest(
         expName,
@@ -762,7 +989,7 @@ export class ExperimentStudioService {
     return this.buildExperimentRequest(
       expName,
       {
-        inputdata: this.buildSharedInputDataPayload(algoConfig, yPayload, xPayload, filtersPayload),
+        inputdata: this.buildSharedInputDataPayload(algoConfig, filtersPayload),
         preprocessing: this.preprocessingConfigToSteps(preprocessing),
         algorithm: {
           name: requestAlgorithmName,
@@ -982,19 +1209,35 @@ export class ExperimentStudioService {
     return hasContent ? next : null;
   }
 
-  getEffectivePreprocessingSummary(algorithmName: string | null | undefined): string {
-    if (!algorithmName) return 'none';
+  /**
+   * Effective preprocessing of a run for `algorithmName` as labelled rows — the same truth
+   * source as the request payload, including the defaults Exaflow applies anyway.
+   */
+  getEffectivePreprocessingEntries(
+    algorithmName: string | null | undefined,
+    labelMap: Record<string, string> = {}
+  ): RunSetupSummaryRow[] {
+    if (!algorithmName) return [];
+    const poolCodes = this.selectedVariables().map((variable) => variable.code);
     const preprocessing = this.resolveRequestPreprocessing(
       algorithmName,
-      this.selectedVariables().map((variable) => variable.code),
-      this.selectedCovariates().map((variable) => variable.code),
+      poolCodes,
+      [],
       this.getStoredPreprocessingConfig(algorithmName)
     );
-    return this.formatPreprocessingConfig(preprocessing);
+    return this.formatPreprocessingEntries(preprocessing, labelMap);
+  }
+
+  getEffectivePreprocessingSummary(algorithmName: string | null | undefined): string {
+    return this.summarizePreprocessingEntries(this.getEffectivePreprocessingEntries(algorithmName));
   }
 
   formatPreprocessingConfig(preprocessing: unknown, labelMap: Record<string, string> = {}): string {
-    const entries = this.formatPreprocessingEntries(preprocessing, labelMap);
+    return this.summarizePreprocessingEntries(this.formatPreprocessingEntries(preprocessing, labelMap));
+  }
+
+  /** `Label: value` rows as the multi-line summary text, or 'none' when nothing was set. */
+  private summarizePreprocessingEntries(entries: RunSetupSummaryRow[]): string {
     return entries.length
       ? entries.map((entry) => `${entry.label}: ${entry.value}`).join('\n')
       : 'none';
@@ -1003,17 +1246,17 @@ export class ExperimentStudioService {
   formatPreprocessingEntries(
     preprocessing: unknown,
     labelMap: Record<string, string> = {}
-  ): PreprocessingSummaryEntry[] {
+  ): RunSetupSummaryRow[] {
     return this.summarizePreprocessingConfig(this.normalizePreprocessingConfig(preprocessing), labelMap);
   }
 
   private summarizePreprocessingConfig(
     preprocessing: PreprocessingConfig | null,
     labelMap: Record<string, string> = {}
-  ): PreprocessingSummaryEntry[] {
+  ): RunSetupSummaryRow[] {
     if (!preprocessing) return [];
 
-    const entries: PreprocessingSummaryEntry[] = [];
+    const entries: RunSetupSummaryRow[] = [];
     const missingValues = preprocessing[MISSING_VALUES_HANDLER] as { strategies?: Record<string, unknown> } | undefined;
     const strategies = missingValues?.strategies ?? {};
     const strategyEntries = Object.entries(strategies);
@@ -1142,7 +1385,8 @@ export class ExperimentStudioService {
     this.selectedDataModel.set(null);
     this.selectedDatasetsSignal.set([]);
     this.selectedVariablesSignal.set([]);
-    this.selectedCovariatesSignal.set([]);
+    this.algorithmYSignal.set([]);
+    this.algorithmXSignal.set([]);
     this.selectedFiltersSignal.set([]);
     this.selectedAlgorithm.set(null);
   }
@@ -1305,7 +1549,8 @@ export class ExperimentStudioService {
     algorithmName: string,
     nodeCodes: string[] | null = null,
     bins: number | null = null,
-    preprocessingOverride?: PreprocessingConfig | null
+    preprocessingOverride?: PreprocessingConfig | null,
+    filterOverride?: BackendFilter | null
   ): Observable<any> {
     if (algorithmName === AlgorithmNames.HISTOGRAM) {
       const requestBody = this.buildRequestBody(
@@ -1315,7 +1560,8 @@ export class ExperimentStudioService {
         null,
         null,
         bins,
-        preprocessingOverride
+        preprocessingOverride,
+        filterOverride
       );
       return this.submitTransientRequest(requestBody).pipe(
         map(resp => this.normalizeResponse(algorithmName, resp))
@@ -1329,11 +1575,25 @@ export class ExperimentStudioService {
 
   private buildDescriptiveRequestBody(
     variableCodes: string[],
-    preprocessing: PreprocessingConfig | null = null
+    preprocessing: PreprocessingConfig | null = null,
+    sourceVariableCodes: string[] | null = null,
+    filterOverride?: BackendFilter | null
   ): ExperimentCreateRequest {
-    const filters = this.filterLogic();
+    // A `null` filterOverride is the step-0 source snapshot: the same describe
+    // run with no cohort filter attached, i.e. the data exactly as selected.
+    const filters = this.resolveFilterPayload(filterOverride);
     const hasFilters = !!(filters && Array.isArray(filters.rules) && filters.rules.length > 0);
     const yPayload = variableCodes.length ? variableCodes : null;
+    // Derived columns (e.g. categorical_column_creator output) belong in algorithm.y
+    // only. Source inputdata.variables must be real data-model CDEs.
+    const sourceCodes = sourceVariableCodes?.length
+      ? Array.from(
+          new Set([
+            ...sourceVariableCodes.map((code) => String(code).trim()).filter(Boolean),
+            ...this.collectFilterVariableCodes(hasFilters ? filters : null),
+          ])
+        )
+      : this.collectSourceVariables(hasFilters ? filters : null);
 
     return this.buildExperimentRequest(
       `experiment_describe_${variableCodes.join('_')}`,
@@ -1343,7 +1603,7 @@ export class ExperimentStudioService {
           datasets: this.selectedDatasetsSignal(),
           validation_datasets: null,
           filters: hasFilters ? filters : null,
-          variables: this.collectSourceVariables(yPayload, null, hasFilters ? filters : null),
+          variables: sourceCodes,
         },
         preprocessing: this.preprocessingConfigToSteps(this.normalizePreprocessingConfig(preprocessing)),
         algorithm: {
@@ -1363,13 +1623,11 @@ export class ExperimentStudioService {
   ): ExperimentCreateRequest {
     const filters = this.filterLogic();
     const hasFilters = !!(filters && Array.isArray(filters.rules) && filters.rules.length > 0);
-    const selectedVariableCodes = new Set(this.selectedVariables()
-      .map((variable) => String(variable?.code ?? ''))
-      .filter((code) => !!code));
-    const selectedCovariateCodes = new Set(this.selectedCovariates().map((variable) => String(variable?.code ?? '')));
-    const y = variableCodes.filter((code) => selectedVariableCodes.has(code));
-    const covariateOnly = variableCodes.filter((code) => selectedCovariateCodes.has(code) && !selectedVariableCodes.has(code));
-    const unassigned = variableCodes.filter((code) => !selectedVariableCodes.has(code) && !selectedCovariateCodes.has(code));
+    const selectedYCodes = new Set(this.algorithmY().map((variable) => String(variable?.code ?? '')));
+    const selectedXCodes = new Set(this.algorithmX().map((variable) => String(variable?.code ?? '')));
+    const y = variableCodes.filter((code) => selectedYCodes.has(code));
+    const covariateOnly = variableCodes.filter((code) => selectedXCodes.has(code) && !selectedYCodes.has(code));
+    const unassigned = variableCodes.filter((code) => !selectedYCodes.has(code) && !selectedXCodes.has(code));
     const yPayload = y.length ? y : [...covariateOnly, ...unassigned];
     const xPayload = y.length ? covariateOnly : [];
 
@@ -1381,7 +1639,7 @@ export class ExperimentStudioService {
           datasets: this.selectedDatasetsSignal().filter(ds => !this.excludedDatasetsSignal().includes(ds)),
           validation_datasets: null,
           filters: hasFilters ? filters : null,
-          variables: this.collectSourceVariables(yPayload, xPayload, hasFilters ? filters : null),
+          variables: this.collectSourceVariables(hasFilters ? filters : null),
         },
         preprocessing: this.preprocessingConfigToSteps(this.normalizePreprocessingConfig(preprocessing)),
         algorithm: {
@@ -1396,9 +1654,16 @@ export class ExperimentStudioService {
 
   loadDescriptiveOverview(
     variableCodes: string[],
-    preprocessing: PreprocessingConfig | null = null
+    preprocessing: PreprocessingConfig | null = null,
+    sourceVariableCodes: string[] | null = null,
+    filterOverride?: BackendFilter | null
   ): Observable<any> {
-    const requestBody = this.buildDescriptiveRequestBody(variableCodes, preprocessing);
+    const requestBody = this.buildDescriptiveRequestBody(
+      variableCodes,
+      preprocessing,
+      sourceVariableCodes,
+      filterOverride
+    );
 
     return this.submitTransientRequest(requestBody).pipe(
       map(resp => this.normalizeResponse("describe", resp)),
@@ -1408,6 +1673,12 @@ export class ExperimentStudioService {
         return of(null);
       })
     );
+  }
+
+  /** Public helper for Transformation stats: collect CDE codes referenced by a filter tree. */
+  /** Accepts a rule tree or the bare condition a category rule can hold. */
+  filterVariableCodes(logic: BackendFilter | BackendRule | null): string[] {
+    return this.collectFilterVariableCodes(logic);
   }
 
   loadOutlierReportPreview(
@@ -1491,9 +1762,6 @@ export class ExperimentStudioService {
     );
   }
 
-  getCurrentExperimentUUID() {
-    return this.currentExperimentUUID();
-  }
 
   pollForResults(url: string): Observable<any> {
     const pollingInterval = 5000;
@@ -1631,7 +1899,6 @@ export class ExperimentStudioService {
     // Selected datasets
     this.setSelectedDatasets(this.toArray(input.datasets));
 
-    // Filters
     this.setFilterLogic(filters);
 
     this.loadAllDataModels()
@@ -1642,7 +1909,7 @@ export class ExperimentStudioService {
           return;
         }
 
-        const model = this.findDataModelByCodeVersion(input.data_model, models);
+        const model = findDataModelByCodeVersion(input.data_model, models);
         if (!model) {
           console.warn(
             'No matching data model found for',
@@ -1662,11 +1929,11 @@ export class ExperimentStudioService {
         const xCodes = this.toArray(analysis.algorithm.x);
         const filterCodes = this.collectFilterVariableCodes(filters);
 
-        const yNodes = allVariables
+        const yRealNodes = allVariables
           .filter((v: any) => yCodes.includes(v.code))
           .map((n) => this.enrichVariableNode(n));
 
-        const xNodes = allVariables
+        const xRealNodes = allVariables
           .filter((v: any) => xCodes.includes(v.code))
           .map((n) => this.enrichVariableNode(n));
 
@@ -1674,8 +1941,31 @@ export class ExperimentStudioService {
           filterCodes.includes(v.code)
         );
 
-        this.setVariables(yNodes);
-        this.setCovariates(xNodes);
+        // Saved y/x codes not present in the data model are derived columns
+        // (e.g. the transformation output). Represent them as synthetic nodes.
+        // They belong only in the role signals and the assignable computed, never
+        // in the variables-panel pool (which holds real CDE nodes only).
+        const knownCodes = new Set(allVariables.map((v: any) => v.code));
+        const yNodes = [...yRealNodes];
+        const xNodes = [...xRealNodes];
+        yCodes
+          .filter((code: string) => !knownCodes.has(code))
+          .forEach((code: string) => yNodes.push(this.syntheticDerivedNode(code)));
+        xCodes
+          .filter((code: string) => !knownCodes.has(code))
+          .forEach((code: string) => xNodes.push(this.syntheticDerivedNode(code)));
+
+        // Pool = unique real CDE nodes from saved inputdata.variables plus saved y + x.
+        // input.variables may contain derived codes that are absent from the data
+        // model (synthetics), so filtering against allVariables excludes them.
+        const inputVariables = this.toArray(input.variables || analysis.inputdata?.variables || []);
+        const inputRealNodes = allVariables
+          .filter((v: any) => inputVariables.includes(v.code))
+          .map((n) => this.enrichVariableNode(n));
+
+        this.setVariables(this.uniqueByCode([...inputRealNodes, ...yRealNodes, ...xRealNodes]));
+        this.setAlgorithmY(yNodes);
+        this.setAlgorithmX(xNodes);
         this.setFilters(filterNodes);
 
         const algoConfig = this.backendAlgorithms()[algoName];
@@ -1717,26 +2007,13 @@ export class ExperimentStudioService {
       });
   }
 
-  // helpers for edit experiment
-  private findDataModelByCodeVersion(
-    codeVersion: string,
-    models: DataModel[]
-  ): DataModel | null {
-    if (!codeVersion) return null;
-    const [code, version] = codeVersion.split(':');
-    return (
-      models.find(
-        (m) => m.code === code && String(m.version) === String(version)
-      ) ?? null
-    );
-  }
 
   private enrichVariableNode(node: D3HierarchyNode): any {
     const supported = this.algorithmEnabled(node.type ?? 'unknown');
     return { ...node, supportedAlgos: supported };
   }
 
-  private collectFilterVariableCodes(logic: BackendFilter | null): string[] {
+  private collectFilterVariableCodes(logic: BackendFilter | BackendRule | null): string[] {
     if (!logic) return [];
     const codes = new Set<string>();
 
@@ -1754,14 +2031,31 @@ export class ExperimentStudioService {
     return [...codes];
   }
 
+  /** Codes of source CDEs referenced by the transformation rule filters. */
+  private collectTransformationFilterCodes(): string[] {
+    const codes = new Set<string>();
+    for (const creator of this.appliedCategoricalCreators()) {
+      const rules = (creator['rules'] ?? {}) as Record<string, BackendFilter>;
+      Object.values(rules).forEach((filter) => {
+        this.collectFilterVariableCodes(filter).forEach((code) => codes.add(code));
+      });
+    }
+    return [...codes];
+  }
+
   setEditingExistingExperiment(isEditing: boolean) {
     this.editingExistingExperimentSignal.set(isEditing);
+  }
+
+  clearCurrentExperimentUUID(): void {
+    this.currentExperimentUUIDSignal.set(null);
   }
 
   hasPersistedStudioWork(): boolean {
     return (
       this.selectedVariables().length > 0
-      || this.selectedCovariates().length > 0
+      || this.algorithmY().length > 0
+      || this.algorithmX().length > 0
       || this.selectedFilters().length > 0
       || !!this.selectedAlgorithm()
       || !!this.currentExperimentUUID()
@@ -1810,7 +2104,8 @@ export class ExperimentStudioService {
     this.selectedDataModel.set(null);
 
     this.setVariables([]);
-    this.setCovariates([]);
+    this.setAlgorithmY([]);
+    this.setAlgorithmX([]);
     this.setFilters([]);
 
     this._filterLogic.set(null);
@@ -1823,16 +2118,24 @@ export class ExperimentStudioService {
     this.algorithmPreprocessingConfigurations.set({});
     this.lastUsedAlgorithm.set(null);
 
+    // execution step state (results are session-scoped, see hasRunStarted)
+    this.runResult.set(null);
+    this.runError.set(null);
+    this.runSetup.set(null);
+    this.lastRunSchema.set([]);
+    this.hasRunStarted.set(false);
+    this.runStatusText.set('Processing experiment...');
+    this.saveSucceeded.set(false);
+
     // meta info
     this.currentExperimentUUIDSignal.set(null);
     this.setEditingExistingExperiment(false);
 
     // share flag for safety
     this.isShared.set(false);
-
-    // Clear session storage
     this.sessionStorage.removeItem('selectedVariables');
-    this.sessionStorage.removeItem('selectedCovariates');
+    this.sessionStorage.removeItem('algorithmY');
+    this.sessionStorage.removeItem('algorithmX');
     this.sessionStorage.removeItem('selectedFilters');
     this.sessionStorage.removeItem('selectedDatasets');
     this.sessionStorage.removeItem('selectedDataModel');
@@ -1850,14 +2153,6 @@ export class ExperimentStudioService {
     this._isRunning.set(isRunning);
   }
 
-  clearSelectedAlgorithm(): void {
-    this.selectedAlgorithm.set(null);
-    this.sessionStorage.removeItem('selectedAlgorithm');
-  }
-
-  toggleFilterConfigModal(open: boolean): void {
-    this.isFilterConfigOpen.set(open);
-  }
 
   ngOnDestroy(): void {
     this.destroy$.next();

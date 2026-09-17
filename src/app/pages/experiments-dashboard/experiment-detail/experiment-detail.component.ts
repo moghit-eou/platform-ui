@@ -6,19 +6,23 @@ import { ExperimentStudioService } from '../../../services/experiment-studio.ser
 import { Experiment } from '../../../models/experiments-dashboard.model';
 import { BackendExperimentWithResult } from '../../../models/backend-experiment.model';
 import { AlgorithmResultComponent } from '../../experiment-studio/algorithm-panel/algorithm-result/algorithm-result.component';
-import { getOutputSchema } from '../../../core/algorithm-mappers';
+import { getOutputSchema, prettifyLabel } from '../../../core/algorithm-mappers';
+import { enrichPcaResult, withLabels } from '../../../core/result-label.utils';
 import { SpinnerComponent } from '../../shared/spinner/spinner.component';
+import { ExperimentStatusComponent } from '../shared/experiment-status/experiment-status.component';
 import { ResultsPdfExportService } from '../../../services/export-results-pdf.service';
 import { Router } from '@angular/router';
+import { buildExperimentShareUrl, copyShareUrl, isExperimentOwner, SHARE_TOAST, shareToggleToast } from '../../../core/share.utils';
 import { ExperimentLabelService } from '../../../services/experiment-label.service';
 import { EnumMaps } from '../../../core/algorithm-result-enum-mapper';
+import { formatFilterExpression } from '../../../core/filter-display.utils';
 import { preprocessingStepsToRecord } from '../experiments-dashboard.mapper';
 
 @Component({
   selector: 'app-experiment-details',
   templateUrl: './experiment-detail.component.html',
   styleUrl: './experiment-detail.component.css',
-  imports: [CommonModule, AlgorithmResultComponent, SpinnerComponent],
+  imports: [CommonModule, AlgorithmResultComponent, SpinnerComponent, ExperimentStatusComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ExperimentDetailsComponent {
@@ -39,6 +43,7 @@ export class ExperimentDetailsComponent {
 
   @ViewChild('resultsCard') resultsCardRef?: ElementRef<HTMLElement>;
 
+  private resultRequestId = 0;
   private resultSignal = signal<any | null>(null);
   private fullExperimentSignal = signal<BackendExperimentWithResult | null>(null);
   private loading = signal(false);
@@ -51,12 +56,7 @@ export class ExperimentDetailsComponent {
   // Use input instead of direct injection to keep it consistent with list component
   currentUserEmail = input<string | null>(null);
 
-  isOwner = computed(() => {
-    const exp = this.selectedExperiment();
-    const email = this.currentUserEmail();
-    if (!exp?.authorEmail || !email) return false;
-    return exp.authorEmail === email;
-  });
+  isOwner = computed(() => isExperimentOwner(this.currentUserEmail(), this.selectedExperiment()?.authorEmail));
 
   readonly isShared = signal<boolean>(false);
 
@@ -96,7 +96,7 @@ export class ExperimentDetailsComponent {
   });
 
   readonly datasetsWithLabels = computed(() =>
-    this.withLabels(this.selectedExperiment()?.datasets)
+    withLabels(this.selectedExperiment()?.datasets, this.codeToLabelSignal())
   );
 
   algorithmLabel = computed(() => {
@@ -181,7 +181,7 @@ export class ExperimentDetailsComponent {
     this.loadedEnumDomain.set(domain);
   }
 
-  private showCopyToast(message = 'Link copied to clipboard') {
+  private showCopyToast(message: string) {
     this.copyToastMessage.set(message);
     this.copyToastVisible.set(true);
 
@@ -194,14 +194,17 @@ export class ExperimentDetailsComponent {
     this.loading.set(true);
     this.error.set(null);
 
+    const requestId = ++this.resultRequestId;
     this.dashboardService.getExperimentResult(uuid).subscribe({
       next: (res) => {
+        if (requestId !== this.resultRequestId) return;
         this.fullExperimentSignal.set(res ?? null);
         const normalized = res?.result ?? res;
         this.resultSignal.set(normalized);
         this.loading.set(false);
       },
       error: (err) => {
+        if (requestId !== this.resultRequestId) return;
         console.error('Error loading experiment result', err);
         this.error.set('Failed to load results for this experiment.');
         this.loading.set(false);
@@ -209,30 +212,25 @@ export class ExperimentDetailsComponent {
     });
   }
 
-  private withLabels(codes: string[] | undefined | null) {
-    const map = this.codeToLabelSignal();
-    return (codes ?? []).map((code) => ({ code, label: map[code] ?? code }));
-  }
 
   readonly variablesWithLabels = computed(() =>
-    this.withLabels(this.selectedExperiment()?.variables)
+    withLabels(this.selectedExperiment()?.variables, this.codeToLabelSignal())
   );
 
   readonly covariatesWithLabels = computed(() =>
-    this.withLabels(this.selectedExperiment()?.covariates)
+    withLabels(this.selectedExperiment()?.covariates, this.codeToLabelSignal())
   );
 
   readonly filtersWithLabels = computed(() =>
-    this.withLabels(this.selectedExperiment()?.filters)
+    withLabels(this.selectedExperiment()?.filters, this.codeToLabelSignal())
   );
 
-  readonly filterPreview = computed(() => {
-    const logic =
-      this.fullExperimentSignal()?.analysis?.inputdata?.filters ??
-      this.selectedExperiment()?.filterLogic;
-    if (!logic || !Array.isArray((logic as any).rules) || !(logic as any).rules.length) return '';
-    return this.formatFilterNode(logic);
-  });
+  readonly filterPreview = computed(() =>
+    formatFilterExpression(
+      this.fullExperimentSignal()?.analysis?.inputdata?.filters ?? this.selectedExperiment()?.filterLogic,
+      { labelMap: this.labelMap(), enumMaps: this.enumMaps() }
+    )
+  );
   readonly preprocessingPreview = computed(() => {
     const preprocessing =
       preprocessingStepsToRecord(this.fullExperimentSignal()?.analysis?.preprocessing) ??
@@ -263,7 +261,7 @@ export class ExperimentDetailsComponent {
       .filter(([, value]) => !this.isEmptyParameterValue(value))
       .map(([key, value]) => ({
         key,
-        label: labelByKey.get(key) ?? this.humanizeParameterKey(key),
+        label: labelByKey.get(key) ?? prettifyLabel(key),
         value: this.formatParameterValue(value, key),
       }));
   });
@@ -272,17 +270,12 @@ export class ExperimentDetailsComponent {
   readonly enrichedResult = computed(() => {
     const result = this.experimentResult();
     if (!result) return result;
-
-    const algo = this.experimentalAlgorithmName();
-    if (algo !== 'pca' && algo !== 'pca_with_transformation') return result;
-
-    const allNames = [
-      ...this.variablesWithLabels(),
-      ...this.covariatesWithLabels(),
-    ].map(v => v.label);
-
-    if (allNames.length > 0) return { ...result, variable_names: allNames };
-    return result;
+    return enrichPcaResult(
+      result,
+      this.experimentalAlgorithmName(),
+      this.variablesWithLabels().map((v) => v.label),
+      this.covariatesWithLabels().map((v) => v.label)
+    );
   });
 
   onExportPdf(): void {
@@ -398,20 +391,7 @@ export class ExperimentDetailsComponent {
     const exp = this.selectedExperiment();
     if (!exp) return;
 
-    const url = this.buildShareUrl(exp.id);
-
-    if (navigator.clipboard?.writeText) {
-      navigator.clipboard.writeText(url).then(
-        () => this.showCopyToast('Link copied to clipboard'),
-        (err) => {
-          console.warn('Failed to copy share URL:', err);
-          this.showCopyToast('Could not copy link — check console.');
-        }
-      );
-    } else {
-      console.warn('Clipboard API not available, share URL:', url);
-      this.showCopyToast('Clipboard not available — check console log.');
-    }
+    copyShareUrl(buildExperimentShareUrl(this.router, exp.id)).then((message) => this.showCopyToast(message));
   }
 
   onToggleShare(): void {
@@ -429,29 +409,17 @@ export class ExperimentDetailsComponent {
     this.dashboardService.toggleExperimentShare(exp.id, newShared).subscribe({
       next: () => {
         this.isShared.set(newShared);
-        // Toast message update
-        const msg = newShared ? 'Experiment is now shared' : 'Experiment is no longer shared';
-        this.showCopyToast(msg);
+        this.showCopyToast(shareToggleToast(newShared));
       },
       error: (err) => {
         console.error('Failed to toggle share:', err);
-        this.showCopyToast('Failed to update share state');
+        this.showCopyToast(SHARE_TOAST.toggleFailed);
       },
     });
   }
 
-  private buildShareUrl(expId: string): string {
-    const tree = this.router.createUrlTree(['/experiments-dashboard'], {
-      queryParams: { experiment: expId },
-    });
-
-    const relative = this.router.serializeUrl(tree);
-    const origin = window.location.origin;
-    return origin + relative;
-  }
 
   onDelete() {
-    // TODO: The 'emit' function requires a mandatory void argument
     this.deleteExperiment.emit();
   }
 
@@ -470,7 +438,7 @@ export class ExperimentDetailsComponent {
     if (value && typeof value === 'object') {
       return Object.entries(value as Record<string, unknown>)
         .filter(([, nestedValue]) => !this.isEmptyParameterValue(nestedValue))
-        .map(([key, nestedValue]) => `${this.humanizeParameterKey(key)}: ${this.formatParameterValue(nestedValue, key)}`)
+        .map(([key, nestedValue]) => `${prettifyLabel(key)}: ${this.formatParameterValue(nestedValue, key)}`)
         .join('; ');
     }
 
@@ -522,69 +490,4 @@ export class ExperimentDetailsComponent {
     return schema.find((field: any) => String(field.key) === parameterKey) ?? null;
   }
 
-  private humanizeParameterKey(key: string): string {
-    return key
-      .replace(/_/g, ' ')
-      .replace(/\b\w/g, (letter) => letter.toUpperCase());
-  }
-
-  private formatFilterNode(node: any): string {
-    if (!node) return '';
-
-    if (Array.isArray(node.rules)) {
-      const parts = node.rules
-        .map((rule: any) => this.formatFilterNode(rule))
-        .filter(Boolean);
-      if (!parts.length) return '';
-
-      const condition = String(node.condition || 'AND').toUpperCase() === 'OR' ? 'OR' : 'AND';
-      const expression = parts.join(` ${condition} `);
-      return parts.length > 1 ? `(${expression})` : expression;
-    }
-
-    const field = String(node.field ?? node.id ?? '');
-    const label = this.labelMap()[field] ?? (field || 'Variable');
-    const operator = this.filterOperatorLabel(String(node.operator ?? 'equal'));
-
-    if (node.operator === 'is_null' || node.operator === 'is_not_null') {
-      return `${label} ${operator}`;
-    }
-
-    return `${label} ${operator} ${this.formatFilterValue(field, node.value)}`;
-  }
-
-  private filterOperatorLabel(operator: string): string {
-    switch (operator) {
-      case 'equal':
-      case '=':
-        return '=';
-      case 'not_equal':
-      case '!=':
-        return '!=';
-      case 'greater':
-      case '>':
-        return '>';
-      case 'greater_or_equal':
-      case '>=':
-        return '>=';
-      case 'less':
-      case '<':
-        return '<';
-      case 'less_or_equal':
-      case '<=':
-        return '<=';
-      case 'is_null':
-        return 'IS NULL';
-      case 'is_not_null':
-        return 'IS NOT NULL';
-      default:
-        return operator;
-    }
-  }
-
-  private formatFilterValue(field: string, value: any): string {
-    if (value === null || value === undefined || value === '') return 'value';
-    const valueKey = String(value);
-    return this.enumMaps()[field]?.[valueKey] ?? valueKey;
-  }
 }

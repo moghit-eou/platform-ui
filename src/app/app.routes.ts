@@ -1,7 +1,6 @@
 import { inject } from '@angular/core';
 import { CanMatchFn, Routes } from '@angular/router';
 import { AuthGuard } from './guards/auth.guard';
-import { studioGuideOnboardingGuard } from './guards/studio-guide-onboarding.guard';
 import { TermsGuard } from './guards/terms.guard';
 import { RuntimeEnvService } from './services/runtime-env.service';
 
@@ -13,7 +12,7 @@ export const appRoutes: Routes = [
   {
     path: 'experiments-dashboard',
     loadComponent: () => import('./pages/experiments-dashboard/experiments-dashboard.component').then(m => m.ExperimentsDashboardComponent),
-    canActivate: [AuthGuard, TermsGuard, studioGuideOnboardingGuard],
+    canActivate: [AuthGuard, TermsGuard],
   },
   {
     path: '',

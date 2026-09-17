@@ -66,3 +66,16 @@ yarn-error.log*
 # Temporary files
 *.tmp
 *.swp
+
+# Local agent scratch (review reports, taste notes)
+.commandcode/
+
+# Local browser-automation scratch (screenshots, page dumps, review captures)
+.playwright-cli/
+output/
+experiment-studio-review/
+
+# Local agent tooling (Impeccable skill, hook manifest, detector scratch)
+.agents/
+.codex/
+.impeccable/

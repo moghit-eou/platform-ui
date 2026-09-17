@@ -21,9 +21,16 @@ npm test
 
 This is the available unit test command, but agents should not start it autonomously unless the user requested tests or confirmed the token/runtime cost. Angular/Karma normally launches a browser and may watch; prefer a verified non-watch or focused command when available.
 
+## Static Checks (no browser, no backend)
+```bash
+npm run typecheck       # tsc over the app and spec projects, no emit
+npm run check:dead-code # unused exports, orphan CSS/keyframes, unused :root tokens
+npm run verify          # typecheck + dead-code + build, in that order
+```
+
 ## Full Local Validation
 ```bash
-npm run build
+npm run verify
 npm test
 ```
 
@@ -32,7 +39,7 @@ Run the full validation sequence only when warranted by the change and after app
 For authenticated flows, also run manual browser QA against a working backend and Keycloak-compatible auth setup.
 
 ## Frontend Manual QA
-Use `docs/frontend-browser-qa-checklist.md` for result rendering and dashboard/studio checks, especially when changing:
+There is no separate QA checklist file; the list below is it. Walk the affected surface in a browser against a working backend, especially when changing:
 - Algorithm result mapping.
 - Visualization registries/renderers.
 - Histogram and descriptive statistics rendering.
@@ -62,7 +69,7 @@ Unknown / TODO: verify. No e2e runner is configured in this repository.
 | Change type | Required validation |
 |---|---|
 | UI-only component change | Relevant component spec if available, `npm run build`, and manual browser check for affected route. |
-| Styling-only change | `npm run build`, responsive browser check, and `DESIGN_SYSTEM.yaml` review. |
+| Styling-only change | `npm run build`, responsive browser check, and `DESIGN.md` review. |
 | Service/API integration change | Focused service/component specs, `npm run build`, and backend-backed manual check. |
 | Auth/permission/NDA change | Guard/service specs, `npm run build`, manual login/logout/redirect/NDA check, human review. |
 | Algorithm availability change | `algorithm-rules.service.spec.ts`, relevant component specs, `npm run build`, manual Studio check. |

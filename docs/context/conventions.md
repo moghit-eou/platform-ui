@@ -3,7 +3,7 @@
 ## Confirmed Conventions
 
 ### Angular and TypeScript
-- The app uses Angular 21 standalone components.
+- The app uses Angular 22 standalone components.
 - `app.config.ts` provides router, HTTP client, XSRF, zoneless change detection, and ECharts.
 - TypeScript is strict. `tsconfig.json` enables strict templates, no unused locals/parameters, no implicit returns, and related checks.
 - Component style language is CSS.
@@ -30,7 +30,8 @@
 ### UI and Styling
 - Use component CSS for feature-specific styles.
 - Use `src/styles.css` for app-wide styles and QueryBuilder theming.
-- Consult `DESIGN_SYSTEM.yaml` before visual changes.
+- A component may list several stylesheets in `styleUrls`; Angular concatenates them **in array order**, so that order is the cascade. Splitting a file must preserve the original order and must not move a rule across another rule that shares its selector — `statistic-analysis-panel` is split this way (`.component.css` shell + pipeline canvas, then `.preprocessing.css`, then `.results.css`).
+- Consult `DESIGN.md` before visual changes.
 - Existing branding assets live under `src/assets`.
 
 ### Visualization and Algorithm Results

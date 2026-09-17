@@ -7,7 +7,7 @@ export interface GuideMaskRect {
   bottom: number;
 }
 
-export function expandGuideMaskRect(rect: Pick<GuideMaskRect, 'top' | 'left' | 'right' | 'bottom'>, padding = 10): GuideMaskRect {
+function expandGuideMaskRect(rect: Pick<GuideMaskRect, 'top' | 'left' | 'right' | 'bottom'>, padding = 10): GuideMaskRect {
   const left = rect.left - padding;
   const top = rect.top - padding;
   const right = rect.right + padding;
@@ -23,7 +23,7 @@ export function expandGuideMaskRect(rect: Pick<GuideMaskRect, 'top' | 'left' | '
   };
 }
 
-export function unionDomRects(rects: Array<Pick<DOMRect, 'top' | 'left' | 'right' | 'bottom'>>): DOMRect {
+function unionDomRects(rects: Array<Pick<DOMRect, 'top' | 'left' | 'right' | 'bottom'>>): DOMRect {
   const left = Math.min(...rects.map((rect) => rect.left));
   const top = Math.min(...rects.map((rect) => rect.top));
   const right = Math.max(...rects.map((rect) => rect.right));

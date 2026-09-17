@@ -38,6 +38,7 @@ opening source files.
 - Routes: `src/app/app.routes.ts`.
 - Main areas: Experiment Studio, Experiments Dashboard, Account, Terms,
   optional Notebook.
+- UI decisions: `DESIGN.md`, then the live tokens in `src/styles.css` `:root`.
 
 ## Expensive Context
 
@@ -51,8 +52,9 @@ Open only after a targeted lookup:
 
 ## Validation Defaults
 
-- Compile: `npm run build`
-- Unit tests: `npm test`
+- Static gate: `npm run verify` (typecheck + dead-code scan + build)
+- Narrowest static check: `npm run typecheck`, or `npm run check:dead-code`
+- Unit tests: `npm test` (Karma, needs a browser)
 - Dev server: `npm start`
 
 Run the narrowest check that proves the change.

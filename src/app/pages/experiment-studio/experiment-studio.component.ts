@@ -1,19 +1,22 @@
-import { AfterViewInit, ChangeDetectionStrategy, Component, inject, OnDestroy, OnInit, signal, ViewChild, computed } from '@angular/core';
-import { CommonModule, ViewportScroller } from '@angular/common';
+import { ChangeDetectionStrategy, Component, effect, inject, OnDestroy, OnInit, signal, viewChild, computed } from '@angular/core';
 import { VariablesPanelComponent } from './variables-panel/variables-panel.component';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { ExperimentStudioService } from '../../services/experiment-studio.service';
 import { AlgorithmPanelComponent } from './algorithm-panel/algorithm-panel.component';
+import { ExecutionPanelComponent } from './execution-panel/execution-panel.component';
 import { AuthService } from '../../services/auth.service';
 import { ExperimentsDashboardService } from '../../services/experiments-dashboard.service';
 import { ErrorService } from '../../services/error.service';
+import { StudioStepperComponent } from './stepper/studio-stepper.component';
 import {
   DescriptiveProgressState,
   StatisticAnalysisPanelComponent,
 } from './statistic-analysis-panel/statistic-analysis-panel.component';
+import { countFilterRules } from '../../core/filter-display.utils';
 import { Subject, takeUntil } from 'rxjs';
 import { ExperimentStudioGuideComponent } from './guide/experiment-studio-guide.component';
-import { getExperimentStudioScrollOffset } from './experiment-studio-scroll.util';
+import { GuideSection } from './guide/experiment-studio-guide.content';
+import { getAnalysisGuideLayout } from './guide/experiment-studio-analysis-guide.util';
 import {
   DescriptiveStep,
   ExperimentStudioNavigationHost,
@@ -21,31 +24,33 @@ import {
   ExperimentStudioSection,
 } from '../../services/experiment-studio-navigation.service';
 
+type StudioSectionId =
+  | 'variables-top'
+  | 'statistics-section'
+  | 'algorithm-section'
+  | 'execution-section';
+type AlgorithmSubstepKey = 'setup' | 'parameters';
+
 @Component({
   selector: 'app-experiment-studio',
   imports: [
-    CommonModule,
     VariablesPanelComponent,
     AlgorithmPanelComponent,
+    ExecutionPanelComponent,
     StatisticAnalysisPanelComponent,
-    RouterLink,
-    ExperimentStudioGuideComponent
+    ExperimentStudioGuideComponent,
+    StudioStepperComponent,
   ],
   templateUrl: './experiment-studio.component.html',
   styleUrl: './experiment-studio.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: {
-    '(window:resize)': 'onResize()',
-    '(window:scroll)': 'onScroll()',
-  }
 })
-export class ExperimentStudioComponent implements OnInit, OnDestroy, AfterViewInit {
+export class ExperimentStudioComponent implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private dashboardService = inject(ExperimentsDashboardService);
   public auth = inject(AuthService);
   private errorService = inject(ErrorService);
-  private viewportScroller = inject(ViewportScroller);
   private studioNavigation = inject(ExperimentStudioNavigationService);
 
   // Public service for telemetry/ribbon signals
@@ -61,133 +66,202 @@ export class ExperimentStudioComponent implements OnInit, OnDestroy, AfterViewIn
     const warning = this.pathologyAccessWarning();
     return warning && !this.dismissedPathologyWarning() ? warning : null;
   });
-  @ViewChild(AlgorithmPanelComponent) algorithmPanel?: AlgorithmPanelComponent;
-  @ViewChild(StatisticAnalysisPanelComponent) statisticPanel?: StatisticAnalysisPanelComponent;
+  readonly algorithmPanel = viewChild(AlgorithmPanelComponent);
+  readonly runResult = this.expStudioService.runResult;
+  readonly statisticPanel = viewChild(StatisticAnalysisPanelComponent);
 
-  onRunClick() {
-    this.algorithmPanel?.onClickRunExp();
+  // --- Step views -------------------------------------------------
+  activeSection = signal<StudioSectionId>('variables-top');
+  readonly hasDatasetContext = computed(() => (
+    !!this.selectedDataModel() && this.selectedDatasets().length > 0
+  ));
+  readonly hasAnalysisSelection = computed(() => (
+    this.expStudioService.selectedVariables().length > 0
+  ));
+  readonly isDataReviewReady = computed(() => this.hasDatasetContext() && this.hasAnalysisSelection());
+  readonly isAlgorithmReady = computed(() => this.isDataReviewReady());
+
+  readonly isAlgorithmActive = computed(() => this.activeSection() === 'algorithm-section');
+
+  readonly previousSection = computed<StudioSectionId | null>(() => {
+    const idx = this.sectionIds.indexOf(this.activeSection());
+    return idx > 0 ? this.sectionIds[idx - 1] : null;
+  });
+
+  /** Stepper labels are the source for the back affordance, so the two never drift. */
+  readonly backLabel = computed(() => {
+    const prev = this.previousSection();
+    if (!prev) return '';
+    const labels: Record<StudioSectionId, string> = {
+      'variables-top': 'Data Exploration',
+      'statistics-section': 'Data Handling',
+      'algorithm-section': 'Algorithm Selection',
+      'execution-section': 'Experiment Execution',
+    };
+    return `Back to ${labels[prev]}`;
+  });
+
+  readonly ctaLabel = computed(() => {
+    if (this.isAlgorithmActive()) {
+      return this.isRunning() ? 'Running…' : 'Run experiment';
+    }
+    if (this.activeSection() === 'variables-top') {
+      const count = this.expStudioService.selectedVariables().length;
+      return count > 0 ? `Continue with ${count} variable${count > 1 ? 's' : ''}` : 'Continue';
+    }
+    if (this.activeSection() === 'statistics-section') {
+      return 'Continue to Algorithm Selection';
+    }
+    return 'Continue';
+  });
+
+  readonly canContinue = computed(() => {
+    const active = this.activeSection();
+    const status = this.railStatus();
+    if (this.isRunning()) return false;
+    if (active === 'variables-top') {
+      return status['statistics-section'] !== 'locked';
+    }
+    if (active === 'statistics-section') {
+      return status['algorithm-section'] !== 'locked';
+    }
+    if (active === 'algorithm-section') {
+      return this.algorithmPanel()?.canRun() ?? false;
+    }
+    return false;
+  });
+
+  readonly ctaDisabledReason = computed(() => {
+    if (this.canContinue()) return '';
+    if (this.isRunning()) return 'Experiment is running';
+    if (this.isAlgorithmActive()) {
+      return this.algorithmPanel()?.runDisabledReason() ?? 'Select an algorithm to run';
+    }
+    return this.lockedStepReason;
+  });
+
+  private get unlockWait(): string {
+    return this.hasDatasetContext() ? 'a variable' : 'a dataset';
   }
 
-  isRunDisabled() {
-    return this.algorithmPanel?.isRunButtonDisabled() ?? true;
+  get lockedStepReason(): string {
+    return `Add ${this.unlockWait} to unlock`;
   }
 
-  goToDescriptiveStep(section: DescriptiveStep): void {
-    void this.router.navigate([], {
-      fragment: 'statistics-section',
-      queryParamsHandling: 'preserve',
-    }).then(
-      () => this.scrollToDescriptiveStep(section),
-      () => this.scrollToDescriptiveStep(section),
+  descriptiveProgress = signal<DescriptiveProgressState>({
+    pendingChangeCount: 0,
+    preprocessingStatus: 'none',
+    transformationStatusLabel: 'Not defined',
+  });
+  readonly sectionIds: StudioSectionId[] = [
+    'variables-top',
+    'statistics-section',
+    'algorithm-section',
+    'execution-section',
+  ] as const;
+
+  readonly algorithmSubstep = signal<AlgorithmSubstepKey>('setup');
+
+  readonly filterRuleCount = computed(() =>
+    countFilterRules(this.expStudioService.filterLogic())
+  );
+
+  readonly dataReviewWorked = computed(() => {
+    const progress = this.descriptiveProgress();
+    return (
+      progress.preprocessingStatus === 'applied' ||
+      this.filterRuleCount() > 0
     );
+  });
+
+  readonly railStatus = computed<Record<StudioSectionId, 'active' | 'available' | 'complete' | 'locked'>>(() => {
+    const active = this.activeSection();
+    const variables: 'active' | 'available' | 'complete' =
+      active === 'variables-top'
+        ? 'active'
+        : this.isDataReviewReady()
+          ? 'complete'
+          : 'available';
+
+    const statistics: 'active' | 'available' | 'complete' | 'locked' =
+      !this.isDataReviewReady()
+        ? 'locked'
+        : active === 'statistics-section'
+          ? 'active'
+          : this.dataReviewWorked()
+            ? 'complete'
+            : 'available';
+
+    const algorithm: 'active' | 'available' | 'complete' | 'locked' =
+      !this.isAlgorithmReady()
+        ? 'locked'
+        : active === 'algorithm-section'
+          ? 'active'
+          : !!this.expStudioService.selectedAlgorithm() && this.dataReviewWorked()
+            ? 'complete'
+            : 'available';
+
+    // Execution is session-scoped: it unlocks the first time a run is dispatched here.
+    const execution: 'active' | 'available' | 'complete' | 'locked' =
+      !this.expStudioService.hasRunStarted()
+        ? 'locked'
+        : active === 'execution-section'
+          ? 'active'
+          : !!this.expStudioService.runResult()
+            ? 'complete'
+            : 'available';
+
+    return {
+      'variables-top': variables,
+      'statistics-section': statistics,
+      'algorithm-section': algorithm,
+      'execution-section': execution,
+    };
+  });
+
+  readonly lockedStepReasons: Partial<Record<StudioSectionId, string>> = {
+    'execution-section': 'Run the experiment to unlock',
+  };
+
+  readonly unlockAnnouncement = signal<string | null>(null);
+  private prevLocked = this.railStatus()['statistics-section'] === 'locked';
+  private unlockTimer: ReturnType<typeof setTimeout> | undefined;
+
+  constructor() {
+    // Sync state into the bridge service so the header stepper stays reactive
+    effect(() => {
+      this.studioNavigation.publishState({
+        activeSection: this.activeSection(),
+        railStatus: this.railStatus(),
+        lockedStepReason: this.lockedStepReason,
+        lockedStepReasons: this.lockedStepReasons,
+        isRunning: this.isRunning(),
+      });
+    });
+
+    effect(() => {
+      const locked = this.railStatus()['statistics-section'] === 'locked';
+      const wasLocked = this.prevLocked;
+      this.prevLocked = locked;
+      if (wasLocked && !locked) {
+        this.unlockAnnouncement.set('Data Handling and Algorithm Selection are now available.');
+        if (this.unlockTimer) clearTimeout(this.unlockTimer);
+        this.unlockTimer = setTimeout(() => this.unlockAnnouncement.set(null), 1500);
+      }
+    });
   }
 
   private readonly navigationHost: ExperimentStudioNavigationHost = {
     navigateToSection: (sectionId, anchorId) => this.navigateToStudioSection(sectionId, anchorId),
     navigateToDescriptiveStep: (step) => this.goToDescriptiveStep(step),
+    runExperiment: () => this.runCurrentExperiment(),
+    backToDashboard: () => this.onBackToDashboard(),
   };
 
   private destroy$ = new Subject<void>();
   errorMessage = computed(() => this.errorService.error() ?? '');
-  activeSection = signal('variables-top');
-  hoveredSection = signal<string | null>(null);
-  readonly effectiveSection = computed(() => this.hoveredSection() ?? this.activeSection());
-  sidebarCollapsed = signal(false);
-  readonly hasDatasetContext = computed(() => (
-    !!this.selectedDataModel() && this.selectedDatasets().length > 0
-  ));
-  readonly hasAnalysisSelection = computed(() => (
-    this.expStudioService.selectedVariables().length > 0 ||
-    this.expStudioService.selectedCovariates().length > 0
-  ));
-  readonly isDataReviewReady = computed(() => this.hasDatasetContext() && this.hasAnalysisSelection());
-  readonly isAlgorithmReady = computed(() => this.isDataReviewReady());
-  descriptiveProgress = signal<DescriptiveProgressState>({
-    pendingChangeCount: 0,
-    preprocessingStatus: 'none',
-  });
-  private readonly sectionIds = [
-    'variables-top',
-    'statistics-section',
-    'algorithm-section',
-  ] as const;
-  private sectionObserver?: IntersectionObserver;
-  private observedSections: HTMLElement[] = [];
-  private railPreviewScrollY: number | null = null;
-  private railPreviewScrollSync = false;
-  private railPreviewScrollSyncTimer?: ReturnType<typeof setTimeout>;
-
-
-
-
-
-  onResize() {
-    this.checkSidebarCollapse();
-    this.updateActiveSection();
-  }
-
-  onScroll() {
-    if (this.hoveredSection()) {
-      if (!this.railPreviewScrollSync) {
-        this.endRailPreview(false);
-        this.updateActiveSection();
-      }
-      return;
-    }
-    this.updateActiveSection();
-  }
-
-  previewRailSection(sectionId: (typeof this.sectionIds)[number]): void {
-    if (!this.hoveredSection()) {
-      this.railPreviewScrollY = window.scrollY;
-    }
-    this.hoveredSection.set(sectionId);
-    this.scrollToSectionPreview(sectionId);
-  }
-
-  clearRailPreview(): void {
-    this.endRailPreview(true);
-  }
-
-  private endRailPreview(restoreScroll: boolean): void {
-    const restoreScrollY = restoreScroll ? this.railPreviewScrollY : null;
-    this.hoveredSection.set(null);
-    this.railPreviewScrollY = null;
-    this.railPreviewScrollSync = false;
-    clearTimeout(this.railPreviewScrollSyncTimer);
-
-    if (restoreScrollY === null) return;
-
-    requestAnimationFrame(() => {
-      window.scrollTo({ top: restoreScrollY, behavior: 'auto' });
-      this.updateActiveSection();
-    });
-  }
-
-  commitRailSection(sectionId: (typeof this.sectionIds)[number]): void {
-    this.railPreviewScrollY = null;
-    this.hoveredSection.set(null);
-    this.activeSection.set(sectionId);
-  }
-
-  private checkSidebarCollapse() {
-    const width = window.innerWidth;
-    if (width >= 1650) {
-      // Large Desktop: User can toggle, default to expanded
-      this.sidebarCollapsed.set(false);
-    } else if (width >= 1200) {
-      // Medium Screens: Force Icon Rail
-      this.sidebarCollapsed.set(true);
-    } else {
-      // Narrow screens: Fully hidden (handled via CSS), sidebar itself is expanded in drawer
-      this.sidebarCollapsed.set(false);
-    }
-  }
 
   ngOnInit(): void {
-    this.viewportScroller.setOffset(() => [0, this.getSectionScrollOffset()]);
-    this.checkSidebarCollapse();
-    // Reset any lingering global errors when arriving on the studio
     this.errorService.clearError();
     this.dismissedPathologyWarning.set(false);
     this.expStudioService.clearDataExclusionWarnings();
@@ -205,35 +279,30 @@ export class ExperimentStudioComponent implements OnInit, OnDestroy, AfterViewIn
         const mode = params.get('mode');
 
         if (mode === 'edit' && experimentId) {
-          // EDIT MODE
           this.loadExperimentForEdit(experimentId);
+        } else if (mode === 'duplicate' && experimentId) {
+          this.loadExperimentForDuplicate(experimentId);
         } else {
-          // CREATE MODE
           this.initCreateMode();
         }
       });
-  }
 
-  ngAfterViewInit(): void {
-    this.studioNavigation.register(this.navigationHost);
-    this.setupSectionObserver();
-    this.scrollToHash(this.route.snapshot.fragment);
-
+    this.activateFromFragment(this.route.snapshot.fragment);
     this.route.fragment
       .pipe(takeUntil(this.destroy$))
-      .subscribe((fragment) => this.scrollToHash(fragment));
+      .subscribe((fragment) => this.activateFromFragment(fragment));
   }
 
   ngOnDestroy(): void {
+    if (this.unlockTimer) clearTimeout(this.unlockTimer);
     this.studioNavigation.unregister(this.navigationHost);
-    this.viewportScroller.setOffset([0, 0]);
-    this.sectionObserver?.disconnect();
-    clearTimeout(this.railPreviewScrollSyncTimer);
     this.destroy$.next();
     this.destroy$.complete();
   }
 
-
+  ngAfterViewInit(): void {
+    this.studioNavigation.register(this.navigationHost);
+  }
 
   dismissError(): void {
     this.errorService.clearError();
@@ -248,86 +317,72 @@ export class ExperimentStudioComponent implements OnInit, OnDestroy, AfterViewIn
     this.dismissedPathologyWarning.set(true);
   }
 
-  private setupSectionObserver(): void {
-    const observerCallback: IntersectionObserverCallback = () => {
-      if (this.hoveredSection()) return;
-      this.updateActiveSection();
-    };
-
-    // Retry setup for dynamic content
-    let attempts = 0;
-    const tryObserve = () => {
-      const targets = this.sectionIds
-        .map((id) => document.getElementById(id))
-        .filter((el): el is HTMLElement => !!el);
-
-      if (targets.length === this.sectionIds.length || attempts > 5) {
-        if (this.sectionObserver) this.sectionObserver.disconnect();
-        this.observedSections = targets;
-
-        this.sectionObserver = new IntersectionObserver(observerCallback, {
-          root: null,
-          threshold: [0, 0.25, 0.5, 1],
-        });
-
-        targets.forEach((el) => this.sectionObserver?.observe(el));
-        this.updateActiveSection();
-      } else {
-        attempts++;
-        setTimeout(tryObserve, 200);
-      }
-    };
-
-    tryObserve();
-  }
-
-  private scrollToHash(fragment: string | null): void {
-    if (!fragment) return;
-    const target = document.getElementById(this.getScrollTargetId(fragment));
-    if (!target) return;
-    requestAnimationFrame(() => {
-      const top = Math.max(window.scrollY + target.getBoundingClientRect().top - this.getSectionScrollOffset(), 0);
-      window.scrollTo({ top, behavior: 'smooth' });
-    });
-  }
-
-  private updateActiveSection(): void {
-    const sections = this.observedSections.length
-      ? this.observedSections
-      : this.sectionIds
-        .map((id) => document.getElementById(id))
-        .filter((el): el is HTMLElement => !!el);
-    if (!sections.length) return;
-
-    if (this.isScrolledToPageBottom()) {
-      this.activeSection.set(sections[sections.length - 1].id);
+  goToDescriptiveStep(section: DescriptiveStep): void {
+    if (this.railStatus()['statistics-section'] === 'locked') {
       return;
     }
-
-    const offset = this.getActiveSectionOffset();
-    const currentSection = [...sections]
-      .reverse()
-      .find((section) => section.getBoundingClientRect().top <= offset);
-
-    this.activeSection.set((currentSection ?? sections[0]).id);
+    this.navigateToStudioSection('statistics-section');
+    this.scrollToDescriptiveStep(section);
   }
 
-  private getActiveSectionOffset(): number {
-    return this.getSectionScrollOffset() + 100;
+  switchSection(sectionId: StudioSectionId): void {
+    if (this.railStatus()[sectionId] === 'locked') {
+      return;
+    }
+    this.navigateToStudioSection(sectionId);
   }
 
-  private getSectionScrollOffset(): number {
-    return getExperimentStudioScrollOffset();
+  readonly activateGuideTarget = (view: GuideSection, stepId?: string): void => {
+    // Explore -> variables, Analysis -> statistics, Experiment -> algorithm setup,
+    // Results -> execution (result / save-as chrome). Keep these distinct so the
+    // guide can see zero-size-sensitive targets like [data-guide="experiment-result"].
+    const target: StudioSectionId =
+      view === 'Analysis'
+        ? 'statistics-section'
+        : view === 'Results'
+          ? 'execution-section'
+          : view === 'Experiment'
+            ? 'algorithm-section'
+            : 'variables-top';
+    this.activeSection.set(target);
+
+    if (target === 'statistics-section' && stepId) {
+      const section = this.guideStepToSection(stepId);
+      if (section) {
+        this.statisticPanel()?.goToSection(section);
+      }
+    }
+  };
+
+  private guideStepToSection(stepId: string): DescriptiveStep | null {
+    const layout = getAnalysisGuideLayout(stepId);
+    if (!layout || layout.expandSection === 'none') {
+      return null;
+    }
+    return layout.expandSection as DescriptiveStep;
   }
 
   private scrollToDescriptiveStep(section: DescriptiveStep): void {
-    requestAnimationFrame(() => this.statisticPanel?.goToSection(section));
+    requestAnimationFrame(() => this.statisticPanel()?.goToSection(section));
+  }
+
+  private runCurrentExperiment(): void {
+    if (this.activeSection() !== 'algorithm-section') {
+      this.navigateToStudioSection('algorithm-section');
+    }
+    this.algorithmPanel()?.onClickRunExp();
+    if (this.expStudioService.isRunning()) {
+      this.navigateToStudioSection('execution-section');
+    }
   }
 
   private navigateToStudioSection(sectionId: ExperimentStudioSection, anchorId?: string): void {
-    this.hoveredSection.set(null);
-    this.railPreviewScrollY = null;
-    this.activeSection.set(sectionId);
+    this.activeSection.set(sectionId as StudioSectionId);
+    if (sectionId === 'algorithm-section' && !anchorId) {
+      const step: AlgorithmSubstepKey = this.selectedAlgorithm() ? 'parameters' : 'setup';
+      this.algorithmSubstep.set(step);
+      queueMicrotask(() => this.algorithmPanel()?.setStudioSubstep(step));
+    }
 
     void this.router.navigate([], {
       fragment: sectionId,
@@ -335,50 +390,31 @@ export class ExperimentStudioComponent implements OnInit, OnDestroy, AfterViewIn
     });
 
     requestAnimationFrame(() => {
-      const scrollTarget =
-        (anchorId ? document.getElementById(anchorId) : null)
-        ?? document.getElementById(sectionId);
-      if (!scrollTarget) return;
-
-      const top = Math.max(
-        window.scrollY + scrollTarget.getBoundingClientRect().top - this.getSectionScrollOffset(),
-        0,
-      );
-      window.scrollTo({ top, behavior: 'smooth' });
-      this.updateActiveSection();
+      if (anchorId) {
+        document.getElementById(anchorId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        return;
+      }
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     });
   }
 
-  private scrollToSectionPreview(sectionId: (typeof this.sectionIds)[number]): void {
-    const target = document.getElementById(sectionId);
-    if (!target) return;
+  private activateFromFragment(fragment: string | null): void {
+    if (!fragment) return;
+    const targetId = fragment === 'studio-top' ? 'variables-top' : fragment;
+    const section = this.sectionIds.find((id) => id === targetId);
+    if (!section) return;
+    if (section === 'execution-section' && !this.expStudioService.hasRunStarted()) return;
 
-    this.railPreviewScrollSync = true;
-    clearTimeout(this.railPreviewScrollSyncTimer);
+    if (this.activeSection() === section) {
+      return;
+    }
 
+    this.activeSection.set(section);
     requestAnimationFrame(() => {
-      const top = Math.max(
-        window.scrollY + target.getBoundingClientRect().top - this.getSectionScrollOffset(),
-        0,
-      );
-      window.scrollTo({ top, behavior: 'smooth' });
-      this.railPreviewScrollSyncTimer = setTimeout(() => {
-        this.railPreviewScrollSync = false;
-      }, 500);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     });
   }
 
-  private isScrolledToPageBottom(): boolean {
-    const scrollBottom = window.scrollY + window.innerHeight;
-    const pageHeight = document.documentElement.scrollHeight;
-    return scrollBottom >= pageHeight - 2;
-  }
-
-  private getScrollTargetId(fragment: string): string {
-    return fragment === 'studio-top' ? 'variables-top' : fragment;
-  }
-
-  // Clean create mode.
   private initCreateMode(): void {
     this.expStudioService.setEditingExistingExperiment(false);
   }
@@ -387,31 +423,59 @@ export class ExperimentStudioComponent implements OnInit, OnDestroy, AfterViewIn
     this.expStudioService.setEditingExistingExperiment(true);
     this.dashboardService.getExperiment(uuid).subscribe({
       next: (backendExp) => {
-        // Prefill Experiment Studio (datasets, domain, variables, filters, algo, params)
         this.expStudioService.hydrateFromBackendExperiment(backendExp);
       },
       error: (err) => {
         console.error('Failed to load experiment for edit:', err);
-        // fallback turns to create mode if something goes wrong
         this.initCreateMode();
       },
     });
   }
 
+  private loadExperimentForDuplicate(uuid: string): void {
+    this.dashboardService.getExperiment(uuid).subscribe({
+      next: (backendExp) => {
+        this.expStudioService.hydrateFromBackendExperiment(backendExp);
+        // Keep the configuration, drop the persisted identity and run it as a new experiment.
+        this.expStudioService.clearCurrentExperimentUUID();
+        this.expStudioService.setEditingExistingExperiment(false);
+      },
+      error: (err) => {
+        console.error('Failed to load experiment for duplication:', err);
+        this.initCreateMode();
+      },
+    });
+  }
+
+  onBackClick(): void {
+    const prev = this.previousSection();
+    if (prev) {
+      this.switchSection(prev);
+    }
+  }
+
   onBackToDashboard(): void {
-    // If an experiment is running, ignore the click
     if (this.isRunning()) {
       return;
     }
 
-    // Clean up experiment studio state
     this.expStudioService.resetStudioState();
     this.expStudioService.setEditingExistingExperiment(false);
     this.errorService.clearError();
     this.expStudioService.loadAndCategorizeModels().subscribe();
 
-    // Go to experiments dashboard
     this.router.navigate(['/experiments-dashboard']);
   }
 
+  onCtaClick(): void {
+    if (!this.canContinue()) return;
+    const active = this.activeSection();
+    if (active === 'variables-top') {
+      this.switchSection('statistics-section');
+    } else if (active === 'statistics-section') {
+      this.switchSection('algorithm-section');
+    } else if (active === 'algorithm-section') {
+      this.runCurrentExperiment();
+    }
+  }
 }

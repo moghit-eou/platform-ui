@@ -2,7 +2,6 @@ import {
   AlgorithmSpecification,
   AnalysisInputDataSpecification,
   PreprocessingStepSpecification,
-  RawAlgorithmDefinition,
   RawInputData,
   RawParameter,
 } from '../models/backend-algorithms.model';
@@ -31,7 +30,6 @@ const CATEGORY_MAPPING: Record<string, string> = {
   "pca_with_transformation": "Dimensionality Reduction",
   "linear_regression_cv": "Regression",
   "logistic_regression_cv": "Regression",
-  "logistic_regression_cv_fedaverage": "Regression",
   "naive_bayes_gaussian_cv": "Classification",
   "naive_bayes_categorical_cv": "Classification",
   "anova_twoway": "Statistical Tests",
@@ -297,7 +295,7 @@ export function mapSpecificationsToAlgorithmConfigs(
 
   const mapped: Record<string, AlgorithmConfig> = {};
   for (const raw of algorithmSpecs) {
-    const normalizedName = raw.name === 'anova' ? 'anova_twoway' : raw.name;
+    const normalizedName = raw.name;
     const algorithmDocumentationLabels = buildDocumentationLabelMap(raw.parameters ?? {});
     const inputdata = applyFallbackInputCounts(
       {
@@ -307,6 +305,7 @@ export function mapSpecificationsToAlgorithmConfigs(
       },
       normalizedName,
     ) as RawInputData;
+    const outputSchema = getOutputSchema(normalizedName);
 
     mapped[normalizedName] = {
       name: normalizedName,
@@ -324,50 +323,13 @@ export function mapSpecificationsToAlgorithmConfigs(
       requires_validation_datasets: raw.requires_validation_datasets,
       required_preprocessing: raw.required_preprocessing ?? [],
       isDisabled: false,
-      ...(getOutputSchema(normalizedName) ? { outputSchema: getOutputSchema(normalizedName) } : {}),
+      ...(outputSchema ? { outputSchema } : {}),
     };
   }
 
   return mapped;
 }
 
-export function mapRawAlgorithmToAlgorithmConfig(raw: RawAlgorithmDefinition): AlgorithmConfig {
-  const normalizedName = raw.name === 'anova' ? 'anova_twoway' : raw.name;
-  const algorithmDocumentationLabels = buildDocumentationLabelMap(raw.parameters ?? {});
-  const preprocessing = [...(raw.preprocessing ?? [])]
-    .map((step) => ({
-      ...step,
-      documentation: sanitizeDocumentation(
-        step.documentation ?? '',
-        buildDocumentationLabelMap(step.parameters ?? {}),
-      ),
-    }))
-    .sort(
-      (left, right) => (left.order ?? Number.MAX_SAFE_INTEGER) - (right.order ?? Number.MAX_SAFE_INTEGER)
-    );
-
-  const inputdata = applyFallbackInputCounts(
-    normalizeInputData(raw.inputdata),
-    normalizedName
-  ) as unknown as RawAlgorithmDefinition['inputdata'];
-
-  return {
-    name: normalizedName,
-    label: raw.label,
-    description: raw.desc ?? '',
-    documentation: sanitizeDocumentation(raw.documentation ?? '', algorithmDocumentationLabels),
-    type: raw.type,
-    flags: raw.flags ?? [],
-    inputdata,
-    requiredVariable: inputdata?.y?.types || [],
-    covariate: inputdata?.x?.types || [],
-    category: CATEGORY_MAPPING[normalizedName] ?? 'Uncategorized',
-    configSchema: buildConfigSchema(raw.parameters ?? {}),
-    preprocessing,
-    isDisabled: false,
-    ...(getOutputSchema(normalizedName) ? { outputSchema: getOutputSchema(normalizedName) } : {}),
-  };
-}
 
 
 export function getOutputSchema(algorithmName: string): any[] | undefined {
@@ -600,34 +562,6 @@ export function getOutputSchema(algorithmName: string): any[] | undefined {
           label: 'Cutpoints',
           type: 'array',
           elementType: 'number'
-        }
-      ];
-    case 'logistic_regression_cv_fedaverage':
-      return [
-        {
-          key: 'accuracy',
-          label: 'Accuracy (per fold)',
-          type: 'array',
-        },
-        {
-          key: 'recall',
-          label: 'Recall (per fold)',
-          type: 'array',
-        },
-        {
-          key: 'precision',
-          label: 'Precision (per fold)',
-          type: 'array',
-        },
-        {
-          key: 'fscore',
-          label: 'F1 Score (per fold)',
-          type: 'array',
-        },
-        {
-          key: 'auc',
-          label: 'AUC (per fold)',
-          type: 'array',
         }
       ];
     case 'logistic_regression_cv':
@@ -922,4 +856,10 @@ export function getOutputSchema(algorithmName: string): any[] | undefined {
     default:
       return undefined;
   }
+}
+
+/** Turns a snake_case algorithm/field key into a human label ("logistic_regression" → "Logistic Regression"). */
+export function prettifyLabel(label: string): string {
+  if (!label) return '';
+  return label.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }

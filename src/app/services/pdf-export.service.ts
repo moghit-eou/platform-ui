@@ -2,8 +2,9 @@ import { Injectable } from '@angular/core';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import autoTable from 'jspdf-autotable';
+import { captureHtmlToPng, renderMipVersion } from '../core/pdf.utils';
 
-export interface PdfExportOptions {
+interface PdfExportOptions {
     title: string;
     nodeLabel: string;
     modelLabel: string;
@@ -17,7 +18,7 @@ export interface PdfExportOptions {
     isGroupView: boolean;
 }
 
-export interface DescriptiveStatsData {
+interface DescriptiveStatsData {
     pathologyName?: string;
     variables: any[];
     models: any[];
@@ -39,9 +40,7 @@ export class PdfExportService {
         element: HTMLElement,
         options: PdfExportOptions
     ): Promise<void> {
-        document.body.classList.add('pdf-exporting');
-        await new Promise(res => setTimeout(res, 50));
-
+        return this.withExportClass(async () => {
         try {
             const doc = new jsPDF('p', 'mm', 'a4');
             const { title, nodeLabel, modelLabel, datasetLabels, description, meta, isGroupView } = options;
@@ -171,15 +170,12 @@ export class PdfExportService {
         } catch (err) {
             console.error('Histogram PDF export failed:', err);
             throw err;
-        } finally {
-            document.body.classList.remove('pdf-exporting');
         }
+        });
     }
 
     async exportDescriptiveStatisticsPdf(data: DescriptiveStatsData): Promise<void> {
-        document.body.classList.add('pdf-exporting');
-        await new Promise(res => setTimeout(res, 50));
-
+        return this.withExportClass(async () => {
         const doc = new jsPDF();
         let yOffset = 10;
 
@@ -245,15 +241,9 @@ export class PdfExportService {
                     if (!chartEl) continue;
 
                     try {
-                        const canvas = await html2canvas(chartEl, {
-                            backgroundColor: '#ffffff',
-                            scale: 3,
-                            useCORS: true,
-                            logging: false,
-                        });
-                        const imgData = canvas.toDataURL('image/png');
+                        const { dataUrl: imgData, width: canvasWidth, height: canvasHeight } = await captureHtmlToPng(chartEl, 3);
                         const imgWidth = 180;
-                        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+                        const imgHeight = (canvasHeight * imgWidth) / canvasWidth;
 
                         doc.setFontSize(11);
                         doc.text(label, 15, yOffset);
@@ -262,7 +252,7 @@ export class PdfExportService {
                         doc.addImage(imgData, 'PNG', 15, yOffset, imgWidth, imgHeight);
                         yOffset += imgHeight + 12;
                     } catch (err) {
-                        console.warn(`Failed to render chart for ${label}`, err);
+                        console.warn('Failed to render chart', label, err);
                         doc.text(`${label} — (chart not ready)`, 15, yOffset);
                         yOffset += 10;
                     }
@@ -289,15 +279,9 @@ export class PdfExportService {
                     if (!chartEl) continue;
 
                     try {
-                        const canvas = await html2canvas(chartEl, {
-                            backgroundColor: '#ffffff',
-                            scale: 3,
-                            useCORS: true,
-                            logging: false,
-                        });
-                        const imgData = canvas.toDataURL('image/png');
+                        const { dataUrl: imgData, width: canvasWidth, height: canvasHeight } = await captureHtmlToPng(chartEl, 3);
                         const imgWidth = 180;
-                        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+                        const imgHeight = (canvasHeight * imgWidth) / canvasWidth;
 
                         doc.setFontSize(11);
                         doc.text(label, 15, yOffset);
@@ -306,7 +290,7 @@ export class PdfExportService {
                         doc.addImage(imgData, 'PNG', 15, yOffset, imgWidth, imgHeight);
                         yOffset += imgHeight + 12;
                     } catch (err) {
-                        console.warn(`Failed to render nominal chart for ${label}`, err);
+                        console.warn('Failed to render nominal chart', label, err);
                         doc.text(`${label} — (chart not ready)`, 15, yOffset);
                         yOffset += 10;
                     }
@@ -314,22 +298,27 @@ export class PdfExportService {
             }
 
             if (data.mipVersion) {
-                const totalPages = (doc as any).getNumberOfPages();
-                doc.setPage(totalPages);
-                doc.setFont('helvetica', 'italic');
-                doc.setFontSize(9);
-                doc.setTextColor(150);
-                const versionText = `MIP Version: ${data.mipVersion}`;
-                const textWidth = doc.getTextWidth(versionText);
-                const pageWidth = doc.internal.pageSize.getWidth();
-                const pageHeight = doc.internal.pageSize.getHeight();
-                doc.text(versionText, pageWidth - 10 - textWidth, pageHeight - 10);
+                renderMipVersion(doc, data.mipVersion, {
+                    pageWidth: doc.internal.pageSize.getWidth(),
+                    pageHeight: doc.internal.pageSize.getHeight(),
+                    right: 10,
+                    bottom: 10,
+                });
             }
 
             doc.save('descriptive_statistics.pdf');
         } catch (err) {
             console.error('Descriptive statistics PDF export failed:', err);
             throw err;
+        }
+        });
+    }
+
+    private async withExportClass<T>(fn: () => Promise<T>): Promise<T> {
+        document.body.classList.add('pdf-exporting');
+        await new Promise((res) => setTimeout(res, 50));
+        try {
+            return await fn();
         } finally {
             document.body.classList.remove('pdf-exporting');
         }

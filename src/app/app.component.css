@@ -4,6 +4,33 @@
   min-height: 100vh;
 }
 
+.skip-link {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  transform: translate(-50%, -120%);
+  z-index: 10001;
+  padding: 8px 16px;
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  background: var(--primary-color);
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: transform 0.15s ease;
+}
+
+.skip-link:focus-visible {
+  transform: translate(-50%, 0);
+  outline: 2px solid var(--text-main);
+  outline-offset: 2px;
+}
+
+/*
+ * The shell is the only place that knows the chrome exists: app-header is sticky and
+ * takes its own height out of this column, so `main` starts below it and no page adds a
+ * header offset. Pages fill the leftover with flex, not with `100vh - <magic px>`.
+ */
 main {
   flex: 1 1 auto;
   padding: 0;
@@ -12,20 +39,13 @@ main {
   min-height: 0;
 }
 
+/* Notebook wants its own scroll height instead of the leftover, because the iframe
+   manages the rest. No padding-top: the sticky bar is already above this box. */
 main.main--notebook {
   flex: 0 0 auto;
-  min-height: 100dvh;
-  padding-top: var(--header-height);
-  box-sizing: border-box;
 }
 
-/* app-header and app-footer are components and will handle their own styles */
-app-header {
-  position: sticky;
-  top: 0;
-  z-index: 1000;
-}
-
+/* app-header and app-footer are components and will handle their own styles. */
 app-footer {
   margin-top: auto;
   flex-shrink: 0;

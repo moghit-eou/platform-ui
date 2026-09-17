@@ -1,7 +1,9 @@
+<a class="skip-link" href="#main-content">Skip to content</a>
+
 <app-header></app-header>
 
 <!-- Route-specific content loaded here  -->
-<main [class.main--notebook]="notebookRouteActive()">
+<main id="main-content" [class.main--notebook]="notebookRouteActive()">
   <router-outlet></router-outlet>
 </main>
 

@@ -1,0 +1,189 @@
+:host {
+  display: block;
+}
+
+.station-action-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--studio-card-border, rgba(43, 51, 233, 0.1));
+  border-radius: var(--radius-md, 8px);
+  background: var(--studio-card-header-bg);
+}
+
+.station-action-bar.tone-pending {
+  border-color: color-mix(in srgb, var(--primary-color) 25%, transparent);
+  background: color-mix(in srgb, var(--primary-color) 4%, white);
+}
+
+.station-action-bar.tone-applied {
+  border-color: color-mix(in srgb, var(--panel-success-text, #166534) 22%, transparent);
+  background: var(--panel-success-bg, #dfefe4);
+}
+
+/* Footer variant: the station card already draws the frame, so only the top divider
+   is ours. Widths only — the tone rules above keep owning border-color/background. */
+.station-action-bar.is-flush {
+  border-width: 0;
+  border-top-width: 1px;
+  border-top-style: solid;
+  border-radius: 0;
+}
+
+.station-action-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.station-action-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent-color) 18%, white 82%);
+  color: #92400e;
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.tone-applied .station-action-count {
+  background: color-mix(in srgb, var(--panel-success-text, #166534) 14%, white 86%);
+  color: var(--panel-success-text, #166534);
+}
+
+.station-action-text {
+  letter-spacing: 0.01em;
+}
+
+.tone-applied .station-action-text {
+  color: var(--panel-success-text, #166534);
+  font-weight: 700;
+}
+
+.station-action-buttons {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-left: auto;
+}
+
+/* Secondary action: the solid Apply button is the only primary-coloured
+   control in this bar. Blue-on-white reset read as a second primary. */
+.station-action-reset {
+  padding: 7px 10px;
+  border: 0;
+  border-radius: var(--radius-md, 8px);
+  background: transparent;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, opacity 0.2s ease;
+}
+
+.station-action-reset:hover:not(:disabled) {
+  color: var(--text-main);
+  background: color-mix(in srgb, var(--primary-color) 6%, white);
+}
+
+/* Middle action: outlined, so it reads as a step (Clear · Preview · Apply) not a link pair.
+   Disabled wears the same treatment as its neighbours; the station's fix list says why. */
+.station-action-preview {
+  padding: 6px 12px;
+  border: 1px solid color-mix(in srgb, var(--primary-color) 24%, transparent);
+  border-radius: var(--radius-md, 8px);
+  background: transparent;
+  color: var(--text-main);
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+}
+
+.station-action-preview:hover:not(:disabled) {
+  border-color: var(--primary-color);
+  background: color-mix(in srgb, var(--primary-color) 6%, white);
+}
+
+.station-action-apply {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border: 0;
+  border-radius: var(--radius-md, 8px);
+  background: var(--primary-color);
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(43, 51, 233, 0.18);
+  transition: background 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+}
+
+.station-action-apply:hover:not(:disabled) {
+  background: var(--primary-dark);
+  box-shadow: 0 3px 12px rgba(43, 51, 233, 0.28);
+}
+
+/* Close, not Apply: same slot and same geometry, ring drawn as an inset shadow so adding
+   a border never nudges the button against its Clear / Preview neighbours. */
+.station-action-apply.is-quiet {
+  background: transparent;
+  color: var(--text-main);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary-color) 24%, transparent);
+}
+
+.station-action-apply.is-quiet:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--primary-color) 6%, white);
+  box-shadow: inset 0 0 0 1px var(--primary-color);
+}
+
+.station-action-reset:disabled,
+.station-action-preview:disabled,
+.station-action-apply:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.station-action-reset:focus-visible,
+.station-action-preview:focus-visible,
+.station-action-apply:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.station-action-apply i {
+  font-size: 0.85em;
+}
+
+@media (max-width: 768px) {
+  .station-action-bar {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 10px 12px;
+  }
+
+  .station-action-buttons {
+    width: 100%;
+  }
+}

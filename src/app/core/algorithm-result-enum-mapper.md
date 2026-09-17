@@ -11,7 +11,7 @@ metadata enumerations and variable labels. The implementation lives in:
 - **Enum maps** (category codes → labels) come from data model enumerations.
 - **Label maps** (variable codes → labels) come from data model variable labels.
 - **Y/X variables** are derived from:
-  - Studio: selected variables/covariates.
+  - Studio: algorithm y / x roles and the assignable pool.
   - Dashboard detail: experiment algorithm input `y` / `x`.
   - Compare view: experiment variables / covariates.
 

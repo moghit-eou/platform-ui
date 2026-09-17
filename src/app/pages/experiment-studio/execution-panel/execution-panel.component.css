@@ -1,0 +1,268 @@
+/* Result workspace chrome (.experiment-panel-workspace, .result-section-toolbar, .toolbar-btn,
+   .save-as-inline) is global in styles.css. Only this step's own surfaces live here. */
+
+/* Result workspace's second column (the grid track is declared in styles.css). Sticky below
+   the header + sub-header pair, like the other sticky offsets on this route; the card inside
+   scrolls itself, so the frame never grows past the viewport. */
+.experiment-panel-aside {
+  position: sticky;
+  top: calc(var(--header-height, 64px) + var(--studio-sub-header-height, 44px) + 12px);
+  min-width: 0;
+}
+
+/* Under the workspace breakpoint the column drops below the result at full width, where
+   sticking a tall card to the bar only hides the page behind it. */
+@media (max-width: 1100px) {
+  .experiment-panel-aside {
+    position: static;
+  }
+}
+
+.panel-loader {
+  margin: 20px 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 480px;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 20px;
+  gap: 1.5rem;
+  border: 1px dashed rgba(148, 163, 184, 0.3);
+}
+
+.panel-loader p {
+  color: var(--text-muted);
+  font-weight: 500;
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.save-as-input {
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid #cbd5e1;
+  font-size: 0.85rem;
+  outline: none;
+  min-width: 200px;
+}
+
+.save-as-input:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(43, 51, 233, 0.1);
+}
+
+.mip-version-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  margin-top: 12px;
+  background: rgba(248, 250, 252, 0.8);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 8px;
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.mip-version-label {
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #94a3b8;
+}
+
+.mip-version-value {
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+}
+
+.execution-error {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin: 16px 0;
+  padding: 18px 20px;
+  background: color-mix(in srgb, var(--danger) 6%, white);
+  border: 1px solid color-mix(in srgb, var(--danger) 28%, transparent);
+  border-radius: var(--radius-lg, 12px);
+}
+
+.execution-error > i {
+  font-size: 1.25rem;
+  color: var(--danger);
+}
+
+.execution-error-copy {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+
+.execution-error-title {
+  margin: 0 0 4px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.execution-error-message {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.execution-error-action {
+  appearance: none;
+  border: 0;
+  background: var(--primary-color);
+  color: #ffffff;
+  font-family: inherit;
+  font-weight: 650;
+  font-size: 0.85rem;
+  padding: 10px 16px;
+  border-radius: var(--radius-md, 8px);
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(43, 51, 233, 0.18);
+  transition: background-color 0.2s ease;
+}
+
+.execution-error-action:hover {
+  background: var(--primary-dark);
+}
+
+.execution-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 8px;
+  padding: 64px 24px;
+  min-height: 320px;
+}
+
+.execution-empty-icon {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 6px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--primary-color) 8%, white);
+  color: var(--primary-color);
+  font-size: 1.1rem;
+}
+
+.execution-empty h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  color: var(--text-main);
+}
+
+.execution-empty p {
+  margin: 0;
+  max-width: 46ch;
+  font-size: 0.88rem;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
+.execution-empty-action {
+  appearance: none;
+  border: 1px solid rgba(43, 51, 233, 0.25);
+  background: rgba(43, 51, 233, 0.08);
+  color: var(--primary-color);
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 0.85rem;
+  padding: 10px 16px;
+  border-radius: 12px;
+  cursor: pointer;
+  margin-top: 12px;
+  transition: background-color 0.2s ease;
+}
+
+.execution-empty-action:hover {
+  background: rgba(43, 51, 233, 0.14);
+}
+
+.success-notification {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 9999;
+  animation: slideInUp 0.3s ease-out, fadeOut 0.3s ease-in 3.5s forwards;
+}
+
+.notification-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px 20px;
+  background: white;
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #065f46;
+}
+
+.notification-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.notification-title {
+  font-weight: 700;
+}
+
+.notification-subtext {
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: #0f766e;
+}
+
+.notification-link {
+  color: var(--primary-color);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.notification-link:hover,
+.notification-link:focus-visible {
+  color: var(--primary-dark);
+}
+
+.notification-content i {
+  color: var(--success);
+  font-size: 1.1rem;
+  margin-top: 2px;
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
+}

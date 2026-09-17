@@ -4,6 +4,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { HeaderComponent } from './pages/shared/header/header.component';
 import { NavigationEnd, Router, RouterModule } from '@angular/router';
 import { AuthService } from './services/auth.service';
+import { isRoutePath } from './core/route-path.utils';
 import { filter, map, startWith } from 'rxjs';
 
 @Component({
@@ -16,7 +17,6 @@ import { filter, map, startWith } from 'rxjs';
 export class AppComponent implements OnInit {
   authService = inject(AuthService);
   private router = inject(Router);
-  title = 'fl-platform';
 
   readonly notebookRouteActive = toSignal(
     this.router.events.pipe(
@@ -32,8 +32,7 @@ export class AppComponent implements OnInit {
   }
 
   private isNotebookRoute(): boolean {
-    const path = this.router.url.split('?')[0].split('#')[0];
-    return path === '/notebook' || path.startsWith('/notebook/');
+    return isRoutePath(this.router.url, '/notebook');
   }
 
 }

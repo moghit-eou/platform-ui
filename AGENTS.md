@@ -1,7 +1,7 @@
 # Agent Instructions
 
 ## Project Overview
-This repository contains `fl-platform`, the Angular 21 standalone frontend for the Medical Informatics Platform (MIP). The app lets authenticated users compose and run experiments, configure algorithms, integrate with JupyterHub when enabled, and review/export experiment results from a backend exposed under `/services`.
+This repository contains `fl-platform`, the Angular 22 standalone frontend for the Medical Informatics Platform (MIP). The app lets authenticated users compose and run experiments, configure algorithms, integrate with JupyterHub when enabled, and review/export experiment results from a backend exposed under `/services`.
 
 ## Repository Layout
 - `src/main.ts`: Angular bootstrap entrypoint.
@@ -10,7 +10,7 @@ This repository contains `fl-platform`, the Angular 21 standalone frontend for t
 - `src/app/services/`: auth/session, experiment orchestration, dashboard data access, algorithm rules, labeling, runtime env, theme, errors, and PDF/CSV exports.
 - `src/app/models/`: frontend and backend DTOs/interfaces for users, algorithms, experiments, filters, and data models.
 - `src/app/core/`: algorithm mapping, result enum mapping, constants, and result utility logic.
-- `src/app/pages/experiment-studio/`: data model/dataset selection, variable/covariate/filter selection, QueryBuilder filter UI, algorithm configuration, run/edit flows, statistics, visualizations, and result rendering.
+- `src/app/pages/experiment-studio/`: step views switched via a sticky horizontal stepper — `experiment-studio.component` shows one step view at a time (Datasets & Variables · Data review & preprocessing · Algorithm); all views stay mounted (hidden via CSS) so state is preserved. On the Data review step the stepper expands a sub-step row (Filtering, Raw Summary, Preprocessing, Processed Summary, Transformation) that drives the `statistic-analysis-panel` sections (`goToSection`). In-panel section targets use `scroll-margin-top` so `scrollIntoView` clears sticky chrome. Also contains variable/filter selection, QueryBuilder filter UI, algorithm configuration with variable role assignment (outcome y / covariates x on the algorithm panel), run/edit flows, statistics, visualizations, and result rendering.
 - `src/app/pages/experiments-dashboard/`: experiment list/search/pagination, detail view, compare mode, sharing, delete/edit/name updates, and result export.
 - `src/app/pages/terms-page/`: NDA/TOS display and acceptance flow.
 - `src/app/pages/account-page/`: account/profile view and logout entry.
@@ -19,19 +19,19 @@ This repository contains `fl-platform`, the Angular 21 standalone frontend for t
 - `src/assets/`: runtime `env.js`, logos/icons, footer assets, and terms markdown.
 - `public/`: static files copied to the Angular build output.
 - `src/styles.css`: global styling and QueryBuilder theming.
-- `DESIGN_SYSTEM.yaml`: MIP visual/brand guidance; consult before UI styling changes.
+- `DESIGN.md`: MIP visual/brand guidance and app tokens; consult before UI styling changes.
 - `Dockerfile`, `docker-entrypoint.sh`, `nginx.conf.template`: container build and nginx/runtime environment injection.
 - `.github/workflows/`: image publishing and EBRAINS mirror workflows.
-- `docs/`: project documentation, QA checklists, visualization audits, and the durable context system under `docs/context/`.
+- `docs/`: the durable context system under `docs/context/`, plus `docs/llm-wiki/`.
 
 ## Stack
-- Language/runtime: TypeScript, HTML templates, CSS, Node 20+, npm 10+.
-- Framework: Angular 21 standalone application, Angular Router, Angular Material/CDK, Angular Signals, zoneless change detection.
+- Language/runtime: TypeScript, HTML templates, CSS, Node 22+, npm 10+.
+- Framework: Angular 22 standalone application, Angular Router, Angular Material/CDK, Angular Signals, zoneless change detection.
 - Data/async: Angular `HttpClient`, RxJS, browser localStorage/sessionStorage.
 - Visualization/export: ECharts via `ngx-echarts`, D3, html2canvas, jsPDF, jsPDF AutoTable.
 - Test framework: Jasmine/Karma through Angular CLI.
 - Package manager: npm with `package-lock.json`; use `npm ci` for clean installs.
-- Container/runtime: Docker multi-stage Node 20 build served by nginx alpine; runtime config injected into `assets/env.js`.
+- Container/runtime: Docker multi-stage Node 22 build served by nginx alpine; runtime config injected into `assets/env.js`.
 
 ## Setup Commands
 ```bash
@@ -39,7 +39,7 @@ npm ci
 ```
 
 Requirements:
-- Node 20+ and npm 10+.
+- Node 22+ and npm 10+.
 - Backend reachable at `http://localhost:8080/services` for local development unless `src/proxy.conf.json` is changed.
 - Keycloak/OAuth2 endpoints available through the backend proxy for authenticated flows.
 
@@ -72,18 +72,19 @@ npm test
 ```
 Runs Jasmine/Karma unit tests through Angular CLI.
 
-Manual browser QA is required for authenticated experiment workflows and backend-dependent chart/result rendering. See `docs/frontend-browser-qa-checklist.md`.
+Manual browser QA is required for authenticated experiment workflows and backend-dependent chart/result rendering. The checklist lives in `docs/context/testing.md` (Frontend Manual QA).
 
 ## Lint / Format / Typecheck
-No dedicated lint, format, or standalone typecheck scripts are defined in `package.json`.
+No ESLint/Prettier setup; `npm run build` remains the template/type check that matters. Static checks that need no browser:
 
-Known available checks:
 ```bash
-npm run build
-npm test
+npm run verify          # typecheck + dead-code scan + build
+npm test                # Jasmine/Karma (needs a browser; see docs/context/testing.md)
 ```
 
-Unknown / TODO: verify whether the project wants dedicated lint, format, or typecheck scripts added later.
+`scripts/check-dead-code.mjs` is a plain Node script, so a finding is a bug in the code or in its allowlist (`RUNTIME_CLASS_PREFIXES`) — never a reason to delete a runtime class Angular applies. Its header explains how emulated encapsulation, `@import` and `@keyframes` scoping are decided; the individual commands are listed in `docs/context/testing.md`.
+
+`.nvmrc` and `scripts/check-node-version.mjs` both require Node 22; `nvm use` must land on 22 or every npm script fails its pre-hook.
 
 ## Output and Runtime Budget Guardrails
 Agents must not run high-output or long-running commands on their own unless the user explicitly asked for that validation, or the agent first states the expected runtime/token cost and gets confirmation. Prefer targeted, bounded commands.
@@ -120,7 +121,7 @@ When a high-output command is justified, announce why it is needed, say it may c
 - Use `inject()` consistently with nearby services/components.
 - Keep TypeScript strictness intact; `tsconfig.json` enables strict templates, no unused locals/parameters, no implicit returns, and related checks.
 - Use CSS component styles (`styleLanguage: css`) and global styles only for app-wide concerns.
-- Follow `DESIGN_SYSTEM.yaml` for UI aesthetics, brand colors, logo usage, typography, spacing, and visual hierarchy.
+- Follow `DESIGN.md` for UI aesthetics, brand colors, logo usage, typography, spacing, and visual hierarchy.
 - Keep backend API paths relative (`/services/...`) so proxy/nginx routing continues to work.
 - Handle backend errors explicitly through local state or `ErrorService`; avoid hiding failures.
 - Use existing mapper, label, and registry helpers before adding new presentation logic.
@@ -158,4 +159,4 @@ Every agent change should include:
 - Public API, route, runtime env, and backend contract changes are documented when made.
 - Relevant unit tests, build, or manual QA steps passed, or skipped checks are explicitly reported with reasons.
 - No unrelated user work, generated artifacts, lockfiles, or formatting churn were introduced.
-- For UI changes, `DESIGN_SYSTEM.yaml` was consulted and responsive/authenticated flows were considered.
+- For UI changes, `DESIGN.md` was consulted and responsive/authenticated flows were considered.

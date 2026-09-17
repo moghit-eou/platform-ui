@@ -9,7 +9,7 @@ export interface OutlierRule {
   fold: number | null;
 }
 
-export interface OutlierVariable {
+interface OutlierVariable {
   code: string;
   label?: string;
   name?: string;
@@ -17,7 +17,7 @@ export interface OutlierVariable {
   enumerations?: unknown[];
 }
 
-export interface SerializedOutlierRules {
+interface SerializedOutlierRules {
   strategies: Record<string, OutlierStrategy>;
   tails: Record<string, OutlierTail>;
   folds: Record<string, number>;
@@ -36,7 +36,7 @@ export const OUTLIER_TAILS: Array<{ value: OutlierTail; label: string }> = [
   { value: 'both', label: 'Both' },
 ];
 
-export const OUTLIER_DEFAULT_FOLDS: Record<OutlierStrategy, number> = {
+const OUTLIER_DEFAULT_FOLDS: Record<OutlierStrategy, number> = {
   gaussian: 3.0,
   iqr: 1.5,
   mad: 3.0,
@@ -45,11 +45,11 @@ export const OUTLIER_DEFAULT_FOLDS: Record<OutlierStrategy, number> = {
 
 const OUTLIER_NUMERIC_TYPES = new Set(['real', 'int', 'integer', 'numeric', 'number']);
 
-export function isOutlierStrategy(value: unknown): value is OutlierStrategy {
+function isOutlierStrategy(value: unknown): value is OutlierStrategy {
   return value === 'gaussian' || value === 'iqr' || value === 'mad' || value === 'quantile';
 }
 
-export function isOutlierTail(value: unknown): value is OutlierTail {
+function isOutlierTail(value: unknown): value is OutlierTail {
   return value === 'left' || value === 'right' || value === 'both';
 }
 

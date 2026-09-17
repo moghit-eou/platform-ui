@@ -16,14 +16,13 @@ describe('NotebookNavService', () => {
   });
 
   it('defaults to not visited', () => {
-    expect(service.hasVisitedNotebook()).toBeFalse();
     expect(service.hasVisited()).toBeFalse();
   });
 
   it('marks visited and persists to localStorage', () => {
     service.markVisited();
 
-    expect(service.hasVisitedNotebook()).toBeTrue();
+    expect(service.hasVisited()).toBeTrue();
     expect(localStorage.getItem('mip.notebook.nav.seen')).toBe('true');
   });
 
@@ -31,20 +30,20 @@ describe('NotebookNavService', () => {
     service.markVisited();
     service.markVisited();
 
-    expect(service.hasVisitedNotebook()).toBeTrue();
+    expect(service.hasVisited()).toBeTrue();
   });
 
   it('reads visited state from localStorage on init', () => {
     localStorage.setItem('mip.notebook.nav.seen', 'true');
     const fresh = new NotebookNavService();
 
-    expect(fresh.hasVisitedNotebook()).toBeTrue();
+    expect(fresh.hasVisited()).toBeTrue();
   });
 
   it('does not throw when localStorage is unavailable', () => {
     spyOn(localStorage, 'setItem').and.throwError('quota');
 
     expect(() => service.markVisited()).not.toThrow();
-    expect(service.hasVisitedNotebook()).toBeFalse();
+    expect(service.hasVisited()).toBeFalse();
   });
 });

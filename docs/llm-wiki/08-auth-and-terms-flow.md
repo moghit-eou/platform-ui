@@ -7,7 +7,6 @@ Use for login, logout, active user, route protection, terms, and onboarding.
 - `src/app/app.routes.ts`
 - `src/app/guards/auth.guard.ts`
 - `src/app/guards/terms.guard.ts`
-- `src/app/guards/studio-guide-onboarding.guard.ts`
 - `src/app/services/auth.service.ts`
 - `src/app/services/auth.interceptor.ts`
 
@@ -21,7 +20,7 @@ Use for login, logout, active user, route protection, terms, and onboarding.
 
 | Route | Guards |
 |---|---|
-| dashboard | auth, terms, onboarding |
+| dashboard | auth, terms |
 | terms | auth |
 | account | auth, terms |
 | studio | auth, terms |

@@ -7,7 +7,7 @@ algorithm constants, and algorithm/result models.
 
 ## Responsibilities
 
-- normalize backend algorithm names
+- key configs by the backend algorithm name as delivered (no alias rewriting)
 - assign categories
 - build parameter/config schemas
 - normalize enum/dictionary fields
@@ -26,9 +26,14 @@ algorithm constants, and algorithm/result models.
 
 ## Search Keys
 
-Algorithm backend name, output key, `mapRawAlgorithmToAlgorithmConfig`,
-`getOutputSchema`, `buildConfigSchema`, `CATEGORY_MAPPING`, `dynamic-table`,
-`section`, `number`, `table`.
+Algorithm backend name, output key, `mapSpecificationsToAlgorithmConfigs`,
+`getOutputSchema`, `prettifyLabel`, `buildConfigSchema`, `CATEGORY_MAPPING`,
+`dynamic-table`, `section`, `number`, `table`.
 
 Do not read all of `algorithm-mappers.ts` unless the task crosses many
 algorithms or the targeted search is inconclusive.
+
+Names are now used exactly as the backend sends them: the `anova` ->
+`anova_twoway` rewrite and the `histogram_sql` /
+`logistic_regression_cv_fedaverage` entries are gone, so check stored experiment
+compatibility before removing or adding an alias.

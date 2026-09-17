@@ -1,0 +1,163 @@
+:host {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  flex: 1;
+  height: 100%;
+}
+
+.studio-stepper-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-width: 0;
+}
+
+/* Steps track */
+.stepper-track {
+  display: flex;
+  align-items: center;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  gap: 8px;
+  flex: 1;
+  justify-content: center;
+  min-width: 0;
+}
+
+.stepper-track-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.stepper-connector {
+  width: 24px;
+  height: 2px;
+  background-color: var(--border-color, #e5e7eb);
+  /* First thing to give when the four step labels and the CTA compete for the bar. */
+  flex: 0 1 24px;
+  min-width: 6px;
+  transition: background-color 0.2s ease;
+}
+
+.stepper-connector.is-complete {
+  background-color: var(--primary-color);
+}
+
+/* Parent step button */
+.stepper-step-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  padding: 4px 8px;
+  border-radius: var(--radius-md, 6px);
+  cursor: pointer;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+/* Last resort after the connectors have shrunk: clip rather than sit under the CTA. */
+.stepper-step-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stepper-step-btn:hover:not(:disabled) {
+  color: var(--text-main);
+  background-color: color-mix(in srgb, var(--primary-light) 25%, transparent);
+}
+
+.stepper-step-btn:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+.stepper-step-btn.is-active {
+  color: var(--primary-color);
+  font-weight: 700;
+}
+
+.stepper-step-btn.is-complete {
+  color: var(--text-main);
+}
+
+.stepper-step-btn.is-locked {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+/* Step node (circle) */
+.stepper-node {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border: 1.5px solid var(--border-color, #cbd5e1);
+  background: #ffffff;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.stepper-node.is-active {
+  background: var(--primary-color);
+  border-color: var(--primary-color);
+  color: #ffffff;
+}
+
+.stepper-node.is-complete {
+  background: color-mix(in srgb, var(--primary-color) 15%, #ffffff);
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+.stepper-check-icon {
+  font-size: 0.7rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 1100px) {
+  /* Four long labels cannot share this bar with the CTA. Keep the step you are on
+     named, let the rest read as numbered nodes (full name stays in [title]).
+     Without this, flex shrink ellipsises all four labels at once.
+     1100px is the measured crossover for the widest CTA ("Continue with N variables").
+     ponytail: viewport-derived, so a longer CTA string can clip the labels for a ~30px
+     band above this. Upgrade path is a ResizeObserver on .studio-sub-header. */
+  .stepper-step-btn:not(.is-active) .stepper-step-label {
+    display: none;
+  }
+  .stepper-connector {
+    flex-basis: 20px;
+  }
+}
+
+@media (max-width: 1024px) {
+  .stepper-connector {
+    flex-basis: 12px; /* flex-basis, not width: the item is a flex item */
+  }
+}
+
+@media (max-width: 768px) {
+  .stepper-step-label {
+    display: none;
+  }
+  .stepper-connector {
+    flex-basis: 8px;
+  }
+}

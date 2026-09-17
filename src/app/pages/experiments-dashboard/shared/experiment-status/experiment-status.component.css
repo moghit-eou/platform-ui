@@ -1,0 +1,52 @@
+:host {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.status-chip i {
+  font-size: 0.68rem;
+}
+
+.status-chip--compact {
+  padding: 2px 8px;
+  font-size: 0.65rem;
+}
+
+.status-chip--compact i {
+  font-size: 0.65rem;
+}
+
+.status-chip.completed {
+  background: #ecfdf5;
+  color: #065f46;
+  border-color: rgba(16, 185, 129, 0.2);
+}
+
+.status-chip.error {
+  background: #fff1f2;
+  color: #991b1b;
+  border-color: rgba(225, 29, 72, 0.2);
+}
+
+.status-chip.pending {
+  background: #fffbeb;
+  color: #92400e;
+  border-color: rgba(245, 158, 11, 0.24);
+}

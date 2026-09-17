@@ -15,22 +15,7 @@ circle {
 }
 
 circle:hover {
-  stroke-width: 4;
-  transform: scale(1.1);
-}
-
-circle.selected {
-  fill: hsl(200, 80%, 60%) !important;
-  stroke: black !important;
-  stroke-width: 2px !important;
-}
-
-/* Visualization type container */
-.visualization-type-container {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 4px;
+  stroke-width: 1.5;
 }
 
 /* Chart container styling */
@@ -48,11 +33,11 @@ circle.selected {
 }
 
 .error-message {
-  color: var(--danger, #ef4444);
+  color: var(--danger);
   font-size: 1.2em;
   text-align: center;
   padding: 20px;
-  border: 1px solid var(--danger, #ef4444);
+  border: 1px solid var(--danger);
   background-color: rgba(239, 68, 68, 0.1);
 }
 
@@ -65,6 +50,58 @@ circle.selected {
   position: relative;
   display: flex;
   flex-direction: column;
+}
+
+.map-chrome {
+  position: absolute;
+  z-index: 3;
+  left: 10px;
+  right: 10px;
+  top: 10px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.map-chrome > * {
+  pointer-events: auto;
+}
+
+.map-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(43, 51, 233, 0.12);
+  font-size: 0.68rem;
+  font-weight: 650;
+  color: var(--text-muted);
+}
+
+.map-legend-swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  display: inline-block;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+.map-legend-swatch.group {
+  background: var(--primary-light);
+}
+
+.map-legend-swatch.available {
+  background: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.28);
+}
+
+.map-legend-swatch.pool {
+  background: var(--accent-color);
 }
 
 #chart-canvas {
@@ -94,16 +131,10 @@ circle.selected {
 /* Label styling for D3 nodes */
 .label {
   text-anchor: middle;
-  font: 10px sans-serif;
+  font-family: var(--font-sans);
+  font-size: 12px;
   pointer-events: none;
   font-weight: 500;
-}
-
-.label-bg {
-  stroke: none;
-  pointer-events: none;
-  fill: white;
-  opacity: 0.9;
 }
 
 /* Dynamic colors are now handled by D3 and component state */
@@ -123,9 +154,4 @@ circle.node.filter {
 
 circle.node.group {
   fill-opacity: 0.8;
-}
-
-circle.node.selected {
-  stroke: black;
-  stroke-width: 2px;
 }

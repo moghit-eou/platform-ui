@@ -1,0 +1,259 @@
+@if (folder(); as activeFolder) {
+<div class="folder-canvas" [class.folder-canvas--receiving]="isReceiving()" (dragover)="onDragOver($event)"
+  (dragleave)="onDragLeave($event)" (drop)="onDrop($event)">
+  <header class="folder-canvas-header">
+    <div class="folder-heading">
+      <button type="button" class="folder-back-btn" (click)="back.emit()" title="Clear folder selection">
+        <i class="fas fa-arrow-left" aria-hidden="true"></i>
+        <span>All</span>
+      </button>
+
+      @if (!isEditingName()) {
+      <div class="folder-title-row">
+        <h2 class="folder-title" [title]="activeFolder.name">{{ activeFolder.name }}</h2>
+        <span class="count-badge">{{ memberCount() }}</span>
+      </div>
+      } @else {
+      <div class="folder-rename-form">
+        <input class="folder-rename-input" [value]="nameDraft()" (input)="nameDraft.set($any($event.target).value)"
+          (keydown.enter)="saveRename()" (keydown.escape)="cancelRename()" aria-label="Folder name" />
+        <button type="button" class="folder-form-action" [disabled]="busy()" (click)="saveRename()">Save</button>
+        <button type="button" class="folder-form-action cancel" (click)="cancelRename()">Cancel</button>
+      </div>
+      }
+
+      @if (summary(); as summaryLine) {
+      <p class="folder-summary">{{ summaryLine }}</p>
+      }
+
+      @if (nameError(); as nameError) {
+      <p class="folder-form-error">{{ nameError }}</p>
+      }
+
+      @if (actionError(); as actionError) {
+      <p class="folder-form-error" role="alert">{{ actionError }}</p>
+      }
+
+      @if (dropNotice(); as notice) {
+      <p class="folder-drop-notice" [class.folder-drop-notice--duplicate]="notice.kind === 'duplicate'" role="status"
+        aria-live="polite">
+        <i class="fas fa-arrow-down-to-line" aria-hidden="true"></i>{{ notice.text }}
+      </p>
+      }
+    </div>
+
+    <div class="folder-actions">
+      <button type="button" class="folder-compare-btn" (click)="onCompare()" [disabled]="!canCompare()"
+        [title]="canCompare() ? 'Compare these runs side by side' : 'Add at least two runs to compare'">
+        <i class="fas fa-columns" aria-hidden="true"></i>
+        Compare in workspace
+      </button>
+
+      @if (!isEditingName()) {
+      <button type="button" class="folder-form-action" title="Rename folder" (click)="startRename()">
+        <i class="far fa-edit" aria-hidden="true"></i>
+        Rename
+      </button>
+      }
+
+      @if (!isConfirmingDelete()) {
+      <button type="button" class="folder-form-action delete" title="Delete folder" (click)="askDelete()">
+        <i class="far fa-trash-alt" aria-hidden="true"></i>
+        Delete
+      </button>
+      } @else {
+      <div class="folder-delete-confirm">
+        <span>Delete folder? Runs stay in your history.</span>
+        <button type="button" class="folder-form-action danger" [disabled]="busy()" (click)="confirmDelete()">Delete</button>
+        <button type="button" class="folder-form-action cancel" (click)="cancelDelete()">Cancel</button>
+      </div>
+      }
+    </div>
+  </header>
+
+  @if (isEmpty()) {
+  <div class="folder-empty" [class.folder-empty--receiving]="isReceiving()">
+    <div class="folder-empty-icon">
+      <i class="far fa-folder-open"></i>
+    </div>
+    <h3>{{ isReceiving() ? "Drop it here" : "Nothing in this folder yet" }}</h3>
+    <p>
+      Drag a run from the list on the left and let go here, or press its folder icon and pick this
+      folder. Runs you add here can be compared side by side.
+    </p>
+  </div>
+  } @else {
+  <!-- One heading per set, Ungrouped last: the canvas reads in the order the compare will. -->
+  <div class="folder-groups">
+    @for (group of groups(); track group.id) {
+    <section class="member-group" [class.member-group--collapsed]="isGroupCollapsed(group)">
+      <header class="member-group-header">
+        <button type="button" class="member-group-toggle" (click)="toggleGroup(group)"
+          [attr.aria-expanded]="!isGroupCollapsed(group)"
+          [title]="isGroupCollapsed(group) ? 'Expand ' + group.name : 'Collapse ' + group.name">
+          <i class="fas" [class.fa-chevron-down]="isGroupCollapsed(group)" [class.fa-chevron-up]="!isGroupCollapsed(group)"
+            aria-hidden="true"></i>
+        </button>
+
+        @if (renamingSetId() === group.id) {
+        <div class="member-group-rename">
+          <input class="member-group-rename-input" [value]="setRenameDraft()"
+            (input)="setRenameDraft.set($any($event.target).value)" (keydown.enter)="saveSetRename()"
+            (keydown.escape)="cancelSetRename()" aria-label="Set name" />
+          <button type="button" class="folder-form-action" [disabled]="busy()" (click)="saveSetRename()">Save</button>
+          <button type="button" class="folder-form-action cancel" (click)="cancelSetRename()">Cancel</button>
+        </div>
+        } @else {
+        <h3 class="member-group-name" [title]="group.name">{{ group.name }}</h3>
+        <span class="count-badge">{{ group.rows.length }}</span>
+        }
+
+        @if (renamingSetId() !== group.id && !group.isUngrouped) {
+        <div class="member-group-actions">
+          @if (confirmingSetDeleteId() !== group.id) {
+          <button type="button" class="icon-btn" title="Rename set" (click)="startSetRename(group)">
+            <i class="far fa-edit" aria-hidden="true"></i>
+          </button>
+          <button type="button" class="icon-btn danger" title="Delete set" (click)="askSetDelete(group)">
+            <i class="far fa-trash-alt" aria-hidden="true"></i>
+          </button>
+          } @else {
+          <div class="member-group-confirm">
+            <span>Delete set? Its runs stay in the folder.</span>
+            <button type="button" class="folder-form-action danger" [disabled]="busy()" (click)="confirmSetDelete()">Delete</button>
+            <button type="button" class="folder-form-action cancel" (click)="cancelSetDelete()">Cancel</button>
+          </div>
+          }
+        </div>
+        }
+      </header>
+
+      @if (renamingSetId() === group.id && setRenameError(); as setRenameError) {
+      <p class="folder-form-error">{{ setRenameError }}</p>
+      }
+
+      @if (!isGroupCollapsed(group)) {
+      @if (!group.rows.length) {
+      <p class="member-group-empty">Nothing moved here yet — press the set icon on a run to move it in.</p>
+      } @else {
+      <ul class="folder-members">
+        @for (row of group.rows; track row.id; let position = $index) {
+        <li class="member-row" [class.member-row--gone]="isUnavailable(row.id)"
+          [class.member-row--landed]="dropNotice()?.landedId === row.id" (click)="onRowClick(row)">
+          <span class="member-index" aria-hidden="true">{{ group.start + position + 1 }}</span>
+          <div class="row-main">
+            <div class="row-title-line">
+              @if (row.experiment) {
+              <span class="member-name" [title]="row.experiment.name">
+                {{ row.experiment.name || "Untitled Investigation" }}
+              </span>
+              <app-experiment-status [status]="row.experiment.status" [compact]="true" />
+              } @else if (isUnavailable(row.id)) {
+              <span class="member-name member-name--gone">No longer available</span>
+              } @else if (memberError(row.id); as loadError) {
+              <span class="member-name member-name--gone">{{ loadError }}</span>
+              } @else if (isLoading(row)) {
+              <span class="member-skeleton member-skeleton--title" aria-hidden="true"></span>
+              }
+            </div>
+
+            <div class="row-meta-line">
+              @if (row.experiment) {
+              <span class="meta-item">
+                <i class="far fa-calendar"></i>
+                {{ row.experiment.dateCreated | date : "mediumDate" }}
+              </span>
+              <span class="meta-item algo-item">
+                <i class="fas fa-flask"></i>
+                {{ getAlgorithmLabel(row.experiment.algorithmName) }}
+              </span>
+              } @else if (isUnavailable(row.id)) {
+              <span class="meta-item">Removed from this folder</span>
+              } @else if (memberError(row.id)) {
+              <span class="meta-item">Check your connection and try again.</span>
+              } @else if (isLoading(row)) {
+              <span class="member-skeleton member-skeleton--meta" aria-hidden="true"></span>
+              }
+            </div>
+          </div>
+
+          <div class="row-actions">
+            @if (!isUnavailable(row.id)) {
+            <!-- Move to set: the same membership menu the list rows already carry. -->
+            <span class="set-menu-anchor">
+              <button type="button" class="icon-btn" [class.active]="setMenuRowId() === row.id" title="Move to set"
+                aria-haspopup="menu" [attr.aria-expanded]="setMenuRowId() === row.id"
+                (click)="toggleSetMenu(row); $event.stopPropagation()">
+                <i class="fas fa-object-group" aria-hidden="true"></i>
+              </button>
+            </span>
+            }
+
+            <button type="button" class="icon-btn"
+              [title]="isUnavailable(row.id) ? 'Dismiss this row' : 'Remove from folder'"
+              (click)="onRemoveMember(row); $event.stopPropagation()">
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
+
+          <!-- The panel belongs to the row, not to the trigger: the centre pane clips horizontal
+               overflow, and a trigger-anchored menu runs off its left edge. -->
+          @if (setMenuRowId() === row.id) {
+          <div class="set-menu" cdkMenu (keydown.escape)="closeSetMenu()"
+            (click)="$event.stopPropagation()">
+            @if (activeFolder.sets.length) {
+            <p class="set-menu__hint">Move to</p>
+            }
+
+            @for (set of activeFolder.sets; track set.id) {
+            <button type="button" class="set-menu__item" cdkMenuItem role="menuitemradio"
+              [attr.aria-checked]="set.id === currentSetId(row)" (cdkMenuItemTriggered)="onSetMenuPick(set, row)">
+              <i class="fas fa-check set-menu__check" [class.set-menu__check--off]="set.id !== currentSetId(row)"
+                aria-hidden="true"></i>
+              <span class="set-menu__name">{{ set.name }}</span>
+              <span class="count-badge">{{ set.experimentIds.length }}</span>
+            </button>
+            }
+
+            @if (currentSetId(row)) {
+            <button type="button" class="set-menu__item set-menu__item--unset" cdkMenuItem
+              (cdkMenuItemTriggered)="onSetMenuUnset(row)">
+              <i class="fas fa-ellipsis-h set-menu__check" aria-hidden="true"></i>
+              <span class="set-menu__name">Leave the set</span>
+            </button>
+            }
+
+            @if (setMenuNewOpen()) {
+            <div class="set-menu__form">
+              <input class="set-menu__input" [value]="setMenuDraft()" placeholder="Set name" aria-label="New set name"
+                (input)="setMenuDraft.set($any($event.target).value)" (keydown.enter)="commitSetMenuNew(row)" />
+              <button type="button" class="set-menu__form-action" [disabled]="busy()"
+                (click)="commitSetMenuNew(row)">Add</button>
+            </div>
+            @if (setMenuError(); as setMenuError) {
+            <p class="set-menu__error">{{ setMenuError }}</p>
+            }
+            } @else {
+            <button type="button" class="set-menu__item set-menu__item--new" cdkMenuItem
+              (cdkMenuItemTriggered)="openSetMenuNew()">
+              <i class="fas fa-plus set-menu__check" aria-hidden="true"></i>
+              <span class="set-menu__name">New set…</span>
+            </button>
+            }
+
+            @if (!activeFolder.sets.length && !setMenuNewOpen()) {
+            <p class="set-menu__hint">No sets yet. Create one to group these runs.</p>
+            }
+          </div>
+          }
+        </li>
+        }
+      </ul>
+      }
+      }
+    </section>
+    }
+  </div>
+  }
+</div>
+}

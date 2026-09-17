@@ -1,12 +1,13 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import { D3HierarchyNode } from '../../../../models/data-model.interface';
+import { countLeafNodes } from '../../../../core/data-model.utils';
 
-export interface MetadataPathNode {
+interface MetadataPathNode {
   code: string;
   label: string;
 }
 
-export interface MetadataGroupInfo {
+interface MetadataGroupInfo {
   groupCount: number;
   hasGroups: boolean;
 }
@@ -36,7 +37,7 @@ export class MetadataInfoPanelComponent {
   readonly isGroup = computed(() => !!this.selectedNode()?.children?.length);
   readonly directGroupCount = computed(() => this.children().filter((child) => !!child.children?.length).length);
   readonly directVariableCount = computed(() => this.children().filter((child) => !child.children?.length).length);
-  readonly totalVariableCount = computed(() => this.children().reduce((total, child) => total + this.countLeafNodes(child), 0));
+  readonly totalVariableCount = computed(() => this.children().reduce((total, child) => total + countLeafNodes(child), 0));
   readonly enumerations = computed(() => this.resolveEnumerationEntries(this.selectedNode()?.enumerations));
   readonly fields = computed<MetadataField[]>(() => {
     const node = this.selectedNode();
@@ -54,10 +55,6 @@ export class MetadataInfoPanelComponent {
     return this.selectedNode()?.children ?? [];
   }
 
-  private countLeafNodes(node: D3HierarchyNode): number {
-    if (!node.children?.length) return 1;
-    return node.children.reduce((total, child) => total + this.countLeafNodes(child), 0);
-  }
 
   private resolveEnumerationEntries(value: unknown): EnumerationEntry[] {
     if (!Array.isArray(value) || !value.length) {

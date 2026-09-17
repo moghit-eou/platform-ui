@@ -133,7 +133,7 @@ Implement the frontend behavior below.
 
 Read:
 - `AGENTS.md`
-- `DESIGN_SYSTEM.yaml`
+- `DESIGN.md`
 - `docs/context/architecture.md`
 - `docs/context/module-index.md`
 - Existing page/service/component patterns for the target feature

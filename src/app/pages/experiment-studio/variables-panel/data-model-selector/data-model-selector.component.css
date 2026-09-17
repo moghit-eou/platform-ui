@@ -1,120 +1,109 @@
 :host {
-  --dms-border: #d1e4ea;
-  --dms-bg: #ffffff;
-  --dms-text: var(--text-main, #0f172a);
-  --dms-label: #64748b;
-  --dms-radius: 999px;
-  --dms-transition: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  display: block;
+  width: 100%;
 }
 
-.data-model-selector {
-  display: inline-flex;
+.data-model-selector-group {
+  display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
-  min-width: 0;
+  gap: 10px;
+  width: 100%;
 }
 
-.control-label {
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--dms-label);
-  line-height: 1;
+.data-model-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 8px;
+  width: 100%;
 }
 
-.data-model-control {
+.studio-chip.data-model-chip {
   position: relative;
   display: inline-flex;
   align-items: center;
-  width: min(210px, 100%);
-  min-width: 0;
-  min-height: 34px;
-  border: 1px solid var(--dms-border);
-  border-radius: var(--dms-radius);
-  background: var(--dms-bg);
-  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);
-  transition:
-    border-color var(--dms-transition),
-    box-shadow var(--dms-transition),
-    background-color var(--dms-transition);
-}
-
-.data-model-control:hover {
-  border-color: rgba(43, 51, 233, 0.28);
-  background: #f8fbff;
-}
-
-.data-model-control:focus-within {
-  border-color: var(--primary-color, #2b33e9);
-  box-shadow: 0 0 0 3px rgba(43, 51, 233, 0.1);
-}
-
-.data-model-select {
-  width: 100%;
-  min-width: 0;
+  gap: 8px;
   min-height: 32px;
-  padding: 0 30px 0 12px;
-  border: 0;
-  border-radius: inherit;
-  background: transparent;
+  padding: 6px 12px;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 10px;
+  background: var(--bg-neutral);
+  color: var(--chart-label-color);
   font-size: 0.82rem;
   font-weight: 600;
-  color: var(--dms-text);
-  line-height: 1.2;
-  outline: none;
+  line-height: 1.25;
   cursor: pointer;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  overflow: hidden;
-
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  appearance: none;
+  box-sizing: border-box;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.12s ease;
+  user-select: none;
 }
 
-.data-model-chevron {
+.studio-chip.data-model-chip input {
   position: absolute;
-  right: 12px;
-  top: 50%;
-  transform: translateY(-50%);
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  opacity: 0;
   pointer-events: none;
-  font-size: 0.62rem;
-  color: var(--primary-color, #2b33e9);
-  opacity: 0.8;
-  transition: opacity var(--dms-transition), transform var(--dms-transition);
 }
 
-.data-model-control:hover .data-model-chevron,
-.data-model-control:focus-within .data-model-chevron {
-  opacity: 1;
-}
-
-.data-model-select optgroup[label] {
-  font-weight: 700;
-  color: var(--primary-color, #2b33e9);
-}
-
-:host-context(.visualization-toolbar) {
-  --dms-border: rgba(127, 156, 232, 0.22);
-  --dms-bg: rgba(255, 255, 255, 0.96);
-}
-
-:host-context(.visualization-toolbar) .data-model-control {
-  box-shadow: none;
-}
-
-:host-context(.visualization-toolbar) .data-model-control:hover {
+.model-radio-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(148, 163, 184, 0.6);
   background: #ffffff;
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
-@media (max-width: 960px) {
-  .data-model-control {
-    width: min(180px, 100%);
-  }
-
-  .data-model-select {
-    font-size: 0.8rem;
-  }
+.model-label {
+  white-space: nowrap;
 }
+
+.studio-chip.data-model-chip:hover {
+  background: #ffffff;
+  border-color: rgba(43, 51, 233, 0.35);
+  color: var(--text-main);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(43, 51, 233, 0.06);
+}
+
+.studio-chip.data-model-chip:hover .model-radio-indicator {
+  border-color: rgba(43, 51, 233, 0.4);
+}
+
+.studio-chip.data-model-chip.is-selected {
+  background: rgba(43, 51, 233, 0.08);
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+  font-weight: 700;
+  box-shadow: 0 1px 4px rgba(43, 51, 233, 0.12);
+}
+
+.studio-chip.data-model-chip.is-selected .model-radio-indicator {
+  background: var(--primary-color);
+  border-color: var(--primary-color);
+  box-shadow: inset 0 0 0 2.5px #ffffff;
+}
+
+.studio-chip.data-model-chip:has(input:focus-visible),
+.studio-chip.data-model-chip:focus-visible {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(43, 51, 233, 0.18);
+}
+
+

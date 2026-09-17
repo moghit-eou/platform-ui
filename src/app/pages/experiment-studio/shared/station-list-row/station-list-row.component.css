@@ -1,0 +1,56 @@
+:host {
+  display: block;
+}
+
+/* --group-accent is inherited from the nesting level of the surrounding filter group. */
+.station-list-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid rgba(var(--group-accent, 43, 51, 233), 0.16);
+  border-radius: var(--radius-md, 8px);
+  background: var(--studio-card-bg);
+  box-shadow: var(--studio-card-shadow, 0 1px 2px rgba(43, 51, 233, 0.06));
+}
+
+.station-list-row-content {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.station-list-row-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--studio-card-border, rgba(43, 51, 233, 0.15));
+  border-radius: 999px;
+  background: var(--studio-card-bg);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.station-list-row-remove:hover {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 40%, transparent);
+}
+
+.station-list-row-remove:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.station-list-row-remove i {
+  font-size: 0.78rem;
+}
+
+@media (max-width: 768px) {
+  .station-list-row {
+    padding: 12px 10px;
+  }
+}

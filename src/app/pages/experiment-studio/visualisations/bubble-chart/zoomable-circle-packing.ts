@@ -28,6 +28,7 @@ function createLabelGroup(group: d3.Selection<SVGGElement, any, any, any>, d: an
   if (currentLine.length > 0) lines.push(currentLine.join(' '));
 
   const fontSize = d.children ? 15 : 10;
+  const hangFromTop = !!d.children;
 
   const textNode = group
     .append('text')
@@ -43,9 +44,12 @@ function createLabelGroup(group: d3.Selection<SVGGElement, any, any, any>, d: an
 
   // Add tspans
   lines.forEach((lineStr, i) => {
+    const firstDy = hangFromTop
+      ? '1em'
+      : (lines.length === 1 ? '0.35em' : `-${(lines.length - 1) * 0.6}em`);
     textNode.append('tspan')
       .attr('x', 0)
-      .attr('dy', i === 0 ? (lines.length === 1 ? '0.35em' : `-${(lines.length - 1) * 0.6}em`) : '1.2em')
+      .attr('dy', i === 0 ? firstDy : '1.2em')
       .text(lineStr);
   });
 
@@ -66,6 +70,19 @@ const toCodeSet = (arr: any[] | undefined | null): Set<string> =>
       .filter((v): v is string => !!v)
   );
 
+/** Text alternative for the packed chart: the shape of the data, not the 294 circles. */
+const bubbleChartLabel = (root: d3.HierarchyNode<any>): string => {
+  const nodes = root.descendants().slice(1);
+  const groups = nodes.filter((d) => d.children).length;
+  const leaves = nodes.length - groups;
+  const groupWord = groups === 1 ? 'group' : 'groups';
+  const leafWord = leaves === 1 ? 'variable' : 'variables';
+  return (
+    `Variable hierarchy bubble chart, ${groups} ${groupWord} and ${leaves} ${leafWord}. ` +
+    `Double-click a bubble to add it to the pool, or use the search field to find a variable by name.`
+  );
+};
+
 type BubbleColorConfig = {
   variable: string;
   covariate: string;
@@ -75,7 +92,7 @@ type BubbleColorConfig = {
   groupEnd: string;
 };
 
-const defaultColors: BubbleColorConfig = {
+export const DEFAULT_BUBBLE_COLORS: BubbleColorConfig = {
   variable: '#ffba08',     // MIP golden yellow
   covariate: '#bba66f',    // MIP tan/beige
   filter: '#483300',       // MIP dark brown
@@ -87,7 +104,7 @@ const defaultColors: BubbleColorConfig = {
 // Calculate leaf color
 const colorForLeaf = (
   d: any,
-  sets: { vars: Set<string>; covs: Set<string>; filters: Set<string> },
+  sets: { vars: Set<string>; filters: Set<string> },
   colors: BubbleColorConfig,
   tutorialHighlightCode: string | null,
   tutorialHighlightColor: string
@@ -96,7 +113,6 @@ const colorForLeaf = (
   if (!code) return 'white';
   if (tutorialHighlightCode && code === tutorialHighlightCode) return tutorialHighlightColor;
   if (sets.vars.has(code)) return colors.variable; // variable
-  if (sets.covs.has(code)) return colors.covariate; // covariate
   if (sets.filters.has(code)) return colors.filter; // filter
   return 'white';
 };
@@ -110,24 +126,28 @@ export function createZoomableCirclePacking(
   onNodeDoubleClick: (node: any) => void,
   options?: {
     selectedVariables?: any[];
-    selectedCovariates?: any[];
     selectedFilters?: any[];
     colors?: Partial<BubbleColorConfig>;
     tutorialHighlightCode?: string | null;
     tutorialHighlightColor?: string;
     onAnimationStart?: () => void;
     onAnimationEnd?: () => void;
+    onFocusChange?: (path: Array<{ code: string; label: string }>) => void;
   }
-): { zoomToNode: (d: any) => void; refreshColors: (opts?: any) => void; destroy?: () => void } {
+): {
+  zoomToNode: (d: any) => void;
+  refreshColors: (opts?: any) => void;
+  resetZoom: () => void;
+  destroy?: () => void;
+} {
 
   // local snapshots, decouple references of the experiment studio service signals
   let sets = {
     vars: toCodeSet(options?.selectedVariables),
-    covs: toCodeSet(options?.selectedCovariates),
     filters: toCodeSet(options?.selectedFilters),
   };
 
-  let colors: BubbleColorConfig = { ...defaultColors, ...(options?.colors ?? {}) };
+  let colors: BubbleColorConfig = { ...DEFAULT_BUBBLE_COLORS, ...(options?.colors ?? {}) };
   let tutorialHighlightCode = options?.tutorialHighlightCode ?? null;
   let tutorialHighlightColor = options?.tutorialHighlightColor ?? '#ffba08';
 
@@ -147,7 +167,7 @@ export function createZoomableCirclePacking(
 
   if (!container) {
     console.error('No container provided');
-    return { zoomToNode: () => { }, refreshColors: () => { } };
+    return { zoomToNode: () => { }, refreshColors: () => { }, resetZoom: () => { } };
   }
   container.innerHTML = '';
 
@@ -167,20 +187,24 @@ export function createZoomableCirclePacking(
     }
   }
 
+  function appendTooltipRow(name: string, value: string): void {
+    const row = tooltip.append('div').style('margin-top', '4px');
+    row.append('strong').text(name);
+    row.append('span').text(' ' + value);
+  }
+
   function showTooltip(event: MouseEvent, d: any) {
     const label = d.data.label || '(no label)';
     const descriptionRaw = d.data.description || '';
     const description = decodeUnicode(descriptionRaw.trim());
     const type = d.data.type || '';
 
-    let html = `<div><strong>${label}</strong></div>`;
-    if (type)
-      html += `<div style="margin-top:4px;"><strong>Type:</strong> ${type}</div>`;
-    if (description)
-      html += `<div style="margin-top:4px;"><strong>Description:</strong> ${description}</div>`;
+    tooltip.selectAll('*').remove();
+    tooltip.append('div').append('strong').text(label);
+    if (type) appendTooltipRow('Type:', type);
+    if (description) appendTooltipRow('Description:', description);
 
     tooltip
-      .html(html)
       .style('left', `${event.clientX + 10}px`)
       .style('top', `${event.clientY + 10}px`)
       .transition()
@@ -199,7 +223,6 @@ export function createZoomableCirclePacking(
   }
 
   // Create a perfectly square pack layout
-  // Create a perfectly square pack layout based on the minimum dimension
   const packSize = size;
   const packHeight = packSize;
 
@@ -211,13 +234,20 @@ export function createZoomableCirclePacking(
 
   let focus = root;
   // Use a 2.05x radius to reduce padding
-  let view: [number, number, number] = [focus.x, focus.y, focus.r * 2];
+  let view: [number, number, number] = [focus.x, focus.y, focus.r * 2.05];
   let selectedDataNode: d3.HierarchyNode<any> | null = null;
 
   const svg = d3
     .create('svg')
     .attr('viewBox', `0 0 ${width} ${height}`)
     .attr('preserveAspectRatio', 'xMidYMid meet')
+    // The 294 circles carry no semantics of their own, so expose the chart as one
+    // labelled image and let the search field stay the keyboard path to a variable.
+    .attr('role', 'img')
+    .attr(
+      'aria-label',
+      bubbleChartLabel(root)
+    )
     .attr(
       'style',
       `width: 100%; height: 100%; display: block; margin: 0;
@@ -283,25 +313,17 @@ export function createZoomableCirclePacking(
         onNodeDoubleClick(d.data);
       }
     })
-    .on('mouseover', function (event, d) {
+    .on('mouseover', function (event, d: any) {
       d3.select(this)
-        .transition()
-        .duration(200)
-        .attr('stroke', '#000')
-        .attr('stroke-width', 2)
-        .attr('filter', 'url(#node-glow)');
+        .attr('stroke', '#2b33e9')
+        .attr('stroke-width', 1.5)
+        .attr('fill-opacity', d.children ? 0.78 : 1);
       showTooltip(event, d);
     })
     .on('mousemove', function (event) {
       moveTooltip(event);
     })
     .on('mouseout', function () {
-      d3.select(this)
-        .transition()
-        .duration(200)
-        .attr('stroke', (d: any) => (d.children ? 'rgba(0,0,0,0.08)' : 'rgba(0,0,0,0.12)'))
-        .attr('stroke-width', (d: any) => (d.children ? 1 : 0.6))
-        .attr('filter', 'none');
       updateSelection();
       hideTooltip();
     });
@@ -317,7 +339,8 @@ export function createZoomableCirclePacking(
     .attr('transform', (d: any) => `translate(${d.x},${d.y})`)
     .style('display', (d: any) => (d.parent === focus ? 'inline' : 'none'));
 
-  zoomTo([focus.x, focus.y, focus.r * 2]);
+  zoomTo([focus.x, focus.y, focus.r * 2.05]);
+  emitFocusChange();
   container.appendChild(svg.node()!);
 
   // Functions
@@ -331,8 +354,8 @@ export function createZoomableCirclePacking(
     labelNodes.attr('transform', (d: any) => {
       const x = (d.x - v[0]) * k + size / 2 + offsetX;
       const y = (d.y - v[1]) * k + size / 2 + offsetY;
-      const offset = d.children ? d.r * k + 8 : 0;
-      return `translate(${x}, ${y - offset})`;
+      const topY = d.children ? y - d.r * k + 2 : y;
+      return `translate(${x}, ${topY})`;
     })
       .each(function (d: any) {
         const el = d3.select(this as SVGGElement);
@@ -372,12 +395,13 @@ export function createZoomableCirclePacking(
     svg.transition()
       .duration(isFast ? 7500 : 750)
       .tween('zoom', () => {
-        const i = d3.interpolateZoom(view, [d.x, d.y, d.r * 2]);
+        const i = d3.interpolateZoom(view, [d.x, d.y, d.r * 2.05]);
         return (t: number) => zoomTo(i(t));
       })
       .on('end', () => {
         selectedDataNode = null;
         updateSelection();
+        emitFocusChange();
         options?.onAnimationEnd?.();
       })
       .on('interrupt', () => {
@@ -398,10 +422,11 @@ export function createZoomableCirclePacking(
     if (focus === group) {
       selectedDataNode = target.children ? null : target;
       updateSelection();
+      emitFocusChange();
       return;
     }
 
-    const zoomTarget: [number, number, number] = [group.x, group.y, group.r * 2];
+    const zoomTarget: [number, number, number] = [group.x, group.y, group.r * 2.05];
 
     labelNodes.each(function (nd: any) {
       const el = d3.select(this as SVGGElement);
@@ -411,13 +436,14 @@ export function createZoomableCirclePacking(
       } else el.style('display', 'none').style('fill-opacity', 0);
     });
 
-    if (!view) view = [root.x, root.y, root.r * 2];
+    if (!view) view = [root.x, root.y, root.r * 2.05];
 
     if (focus === root && !selectedDataNode) {
       zoomTo(zoomTarget);
       focus = group;
       selectedDataNode = target.children ? null : target; // group -> null
       updateSelection();
+      emitFocusChange();
     }
 
     options?.onAnimationStart?.();
@@ -443,11 +469,25 @@ export function createZoomableCirclePacking(
           } else el.style('display', 'none').style('fill-opacity', 0);
         });
 
+        emitFocusChange();
         options?.onAnimationEnd?.();
       })
       .on('interrupt', () => {
         options?.onAnimationEnd?.();
       });
+  }
+
+  function emitFocusChange(): void {
+    const path: Array<{ code: string; label: string }> = [];
+    let current: any = focus;
+    while (current) {
+      path.unshift({
+        code: String(current.data?.code ?? ''),
+        label: String(current.data?.label ?? current.data?.name ?? ''),
+      });
+      current = current.parent;
+    }
+    options?.onFocusChange?.(path);
   }
 
   svg.on('click', function (event: MouseEvent) {
@@ -457,7 +497,6 @@ export function createZoomableCirclePacking(
   // immutable refreshColors
   function refreshColors(newOptions?: {
     selectedVariables?: any[];
-    selectedCovariates?: any[];
     selectedFilters?: any[];
     colors?: Partial<BubbleColorConfig>;
     tutorialHighlightCode?: string | null;
@@ -487,11 +526,6 @@ export function createZoomableCirclePacking(
           .map(codeOf)
           .filter((v): v is string => !!v)
       ),
-      covs: new Set(
-        [...(newOptions?.selectedCovariates ?? [])]
-          .map(codeOf)
-          .filter((v): v is string => !!v)
-      ),
       filters: new Set(
         [...(newOptions?.selectedFilters ?? [])]
           .map(codeOf)
@@ -503,14 +537,21 @@ export function createZoomableCirclePacking(
   }
 
   function shouldShowLabel(d: any, k: number): boolean {
+    if (d === root) return false;
+    if (focus === root && !d.children) return false;
     const radius = d.r * k;
-    if (radius < 16) return false;
-    return true;
+    if (d.children) return radius >= 18;
+    return radius >= 22;
   }
 
   return {
     zoomToNode,
     refreshColors,
+    resetZoom: () => {
+      if (focus !== root) {
+        zoom(null, root);
+      }
+    },
     destroy: () => {
       tooltip.remove();
     }

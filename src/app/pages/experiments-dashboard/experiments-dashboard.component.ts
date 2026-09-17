@@ -1,6 +1,7 @@
 import { AuthService } from './../../services/auth.service';
-import { Component, OnInit, OnDestroy, computed, effect, signal, inject, ChangeDetectionStrategy } from '@angular/core';
+import { Component, HostListener, OnInit, OnDestroy, computed, effect, signal, inject, ChangeDetectionStrategy } from '@angular/core';
 import { Router, RouterModule } from '@angular/router';
+import { Title } from '@angular/platform-browser';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
@@ -14,6 +15,10 @@ import { ErrorService } from '../../services/error.service';
 import { ExperimentStudioService } from '../../services/experiment-studio.service';
 import { Subject, takeUntil } from 'rxjs';
 import { ExperimentsDashboardGuideComponent } from './guide/experiments-dashboard-guide.component';
+import { ExperimentFolderComponent } from './experiment-folder/experiment-folder.component';
+import { ExperimentFoldersService } from '../../services/experiment-folders.service';
+import { readDashboardQuery, updateDashboardQuery } from './dashboard-query.utils';
+import { ExperimentStatusComponent } from './shared/experiment-status/experiment-status.component';
 
 @Component({
   selector: 'app-experiments-dashboard',
@@ -27,7 +32,9 @@ import { ExperimentsDashboardGuideComponent } from './guide/experiments-dashboar
     ExperimentDetailsComponent,
     ExperimentsListComponent,
     ExperimentsCompareComponent,
-    ExperimentsDashboardGuideComponent
+    ExperimentsDashboardGuideComponent,
+    ExperimentFolderComponent,
+    ExperimentStatusComponent
   ]
 })
 export class ExperimentsDashboardComponent implements OnInit, OnDestroy {
@@ -37,23 +44,36 @@ export class ExperimentsDashboardComponent implements OnInit, OnDestroy {
   private authService = inject(AuthService);
   private route = inject(ActivatedRoute);
   private errorService = inject(ErrorService);
+  private titleService = inject(Title);
+  readonly foldersService = inject(ExperimentFoldersService);
 
   selectedExperiment = signal<Experiment | null>(null);
 
   isConfirmingDelete = false;
   experimentToDeleteId: string | null = null;
 
+  /** Sharing and ownership speak email; folders are keyed off the user the service was given. */
   currentUserEmail = computed(() => this.authService.authState().user?.email ?? null);
+
+  readonly experimentSummary = computed(() => {
+    const total = this.experimentsService.totalExperiments();
+    return total === 1 ? '1 experiment' : `${total} experiments`;
+  });
+
+  readonly mobileDetailOpen = computed(() =>
+    Boolean(this.selectedExperiment() || this.selectedFolderId() || this.compareMode()),
+  );
   compareIds = signal<string[]>([]);
   compareMode = signal(false);
+  /** Folder canvas owns the centre pane while set; it never coexists with detail or compare. */
+  selectedFolderId = signal<string | null>(null);
+  /**
+   * The folder the open compare set came from. The id is what travels: the workspace reads the
+   * way back off it, and reads the folder's sets off the same service the canvas edits.
+   */
+  compareOriginFolderId = signal<string | null>(null);
   private sharedExperimentId = signal<string | null>(null);
   private sharedFetchInFlight = signal<string | null>(null);
-
-  // Greeting name: default "researcher"
-  greetingName = computed(() => {
-    const user = this.authService.authState().user;
-    return this.deriveGreetingName(user);
-  });
   errorMessage = computed(() => this.errorService.error());
   readonly pathologyAccessWarning = this.experimentStudioService.pathologyAccessWarning;
   readonly dismissedPathologyWarning = signal(false);
@@ -64,6 +84,12 @@ export class ExperimentsDashboardComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
 
   constructor() {
+    // Folders belong to the signed-in user, and the session only resolves after the first render:
+    // the service is told who to read for, and it reads them from PostgreSQL for that user.
+    effect(() => {
+      this.foldersService.setActiveUser(this.authService.authState().user ?? null);
+    });
+
     effect(() => {
       const targetId = this.sharedExperimentId();
       const list = this.experimentsService.experiments();
@@ -79,8 +105,10 @@ export class ExperimentsDashboardComponent implements OnInit, OnDestroy {
           next: (exp) => {
             this.experimentsService.upsertExperiment(exp);
             this.selectedExperiment.set(exp);
+            this.selectedFolderId.set(null);
             this.compareMode.set(false);
             this.compareIds.set([]);
+            this.compareOriginFolderId.set(null);
             this.sharedExperimentId.set(null);
             this.sharedFetchInFlight.set(null);
           },
@@ -96,10 +124,12 @@ export class ExperimentsDashboardComponent implements OnInit, OnDestroy {
 
       // set selected experiment
       this.selectedExperiment.set(found);
+      this.selectedFolderId.set(null);
 
       // not in compare mode
       this.compareMode.set(false);
       this.compareIds.set([]);
+      this.compareOriginFolderId.set(null);
 
       this.sharedExperimentId.set(null);
     });
@@ -108,8 +138,11 @@ export class ExperimentsDashboardComponent implements OnInit, OnDestroy {
   hasDeepLink = signal(false);
 
   ngOnInit(): void {
+    this.titleService.setTitle('Experiments · MIP');
     this.errorService.clearError();
+    this.experimentsService.invalidateListCache();
     this.dismissedPathologyWarning.set(false);
+    this.applyUrlSelection();
     this.experimentStudioService.getAllDataModels()
       .pipe(takeUntil(this.destroy$))
       .subscribe();
@@ -128,6 +161,64 @@ export class ExperimentsDashboardComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
+  @HostListener('window:popstate')
+  onDashboardPopState() {
+    this.applyUrlSelection();
+  }
+
+  private syncSelectionUrl(experimentId: string) {
+    updateDashboardQuery({
+      experiment: experimentId,
+      folder: null,
+      compare: null,
+    });
+  }
+
+  private syncCompareUrl(ids: string[]) {
+    updateDashboardQuery({
+      compare: ids.length ? ids.join(',') : null,
+      experiment: null,
+      folder: null,
+    });
+  }
+
+  private applyUrlSelection() {
+    const params = readDashboardQuery();
+    const experimentId = params.get('experiment');
+    const folderId = params.get('folder');
+    const compareParam = params.get('compare');
+
+    if (compareParam) {
+      const ids = compareParam.split(',').map((id) => id.trim()).filter(Boolean);
+      this.compareMode.set(ids.length > 0);
+      this.compareIds.set(ids);
+      this.selectedFolderId.set(null);
+      this.selectedExperiment.set(null);
+      this.compareOriginFolderId.set(folderId);
+      return;
+    }
+
+    if (folderId) {
+      this.compareMode.set(false);
+      this.compareIds.set([]);
+      this.selectedExperiment.set(null);
+      this.selectedFolderId.set(folderId);
+      this.compareOriginFolderId.set(null);
+      return;
+    }
+
+    this.compareMode.set(false);
+    this.compareIds.set([]);
+    this.selectedFolderId.set(null);
+    this.compareOriginFolderId.set(null);
+    if (experimentId) {
+      this.sharedExperimentId.set(experimentId);
+      this.hasDeepLink.set(true);
+    } else {
+      this.selectedExperiment.set(null);
+    }
+  }
+
   dismissError() {
     this.errorService.clearError();
   }
@@ -136,33 +227,12 @@ export class ExperimentsDashboardComponent implements OnInit, OnDestroy {
     this.dismissedPathologyWarning.set(true);
   }
 
-  private deriveGreetingName(user: any | null): string {
-    if (!user) {
-      return 'researcher';
-    }
-
-    const raw =
-      (user.fullname as string | undefined) ||
-      (user.username as string | undefined) ||
-      '';
-
-    const trimmed = raw.trim();
-    if (!trimmed) {
-      return 'researcher';
-    }
-
-    const lower = trimmed.toLowerCase();
-    // if no user name or anonymous, set it to generic
-    if (lower === 'anonymous' || lower === 'anon') {
-      return 'researcher';
-    }
-
-    // keep only first name for casual greeting
-    const firstPart = trimmed.split(' ')[0];
-    return firstPart || 'researcher';
-  }
-
   // COMPARE MODE
+
+  clearCompareSelection() {
+    this.compareIds.set([]);
+    this.syncCompareUrl([]);
+  }
 
   toggleCompareMode() {
     const isOn = this.compareMode();
@@ -171,33 +241,140 @@ export class ExperimentsDashboardComponent implements OnInit, OnDestroy {
       // turn OFF -> clear
       this.compareMode.set(false);
       this.compareIds.set([]);
+      this.compareOriginFolderId.set(null);
+      updateDashboardQuery({ compare: null, folder: null });
     } else {
       // turn ON -> set selected
       const current = this.selectedExperiment();
+      // The canvas and the workspace both own the centre pane, and the canvas branch is
+      // checked first: opening compare has to give the folder up or the button flips while
+      // the pane stays put.
+      const ids = current ? [current.id] : [];
+      this.compareIds.set(ids);
+      this.selectedFolderId.set(null);
+      this.compareOriginFolderId.set(null);
       this.compareMode.set(true);
-      this.compareIds.set(current ? [current.id] : []);
+      this.syncCompareUrl(ids);
     }
   }
 
+  readonly compareOriginFolderName = computed(() => {
+    const id = this.compareOriginFolderId();
+    return id ? this.foldersService.folderById(id)?.name ?? null : null;
+  });
+
+  readonly canQuickCompare = computed(() => {
+    return this.compareIds().length === 0 && this.experimentsService.experiments().length >= 2;
+  });
+
+  removeFromCompare(experimentId: string) {
+    const ids = this.compareIds().filter((id) => id !== experimentId);
+    this.compareIds.set(ids);
+    this.syncCompareUrl(ids);
+  }
+
+  selectFirstTwoForCompare() {
+    const list = this.experimentsService.experiments();
+    if (list.length >= 2) {
+      const ids = [list[0].id, list[1].id];
+      this.compareIds.set(ids);
+      this.syncCompareUrl(ids);
+    }
+  }
+
+  getAlgorithmLabel(code: string | null | undefined): string {
+    if (!code) return 'Unknown algorithm';
+    return this.experimentStudioService.backendAlgorithms?.()?.[code]?.label || code;
+  }
+
+  /** Order follows `compareIds`, so a folder keeps its numbered order in the workspace and
+   *  manual picks keep the order they were clicked in. */
   readonly experimentsForCompare = computed(() => {
     const ids = this.compareIds();
     const list = this.experimentsService.experiments();
-    return list.filter(exp => ids.includes(exp.id));
+    const current = this.selectedExperiment();
+    return ids
+      .map((id) => list.find((exp) => exp.id === id) || (current?.id === id ? current : undefined))
+      .filter((exp): exp is Experiment => !!exp);
   });
 
   // click on list row
   onExperimentSelected(experiment: Experiment) {
     this.selectedExperiment.set(experiment);
+    this.selectedFolderId.set(null);
 
     // if in compare mode, toggle comparison list
     if (this.compareMode()) {
       const ids = this.compareIds();
-      if (ids.includes(experiment.id)) {
-        this.compareIds.set(ids.filter(id => id !== experiment.id));
-      } else {
-        this.compareIds.set([...ids, experiment.id]);
-      }
+      const nextIds = ids.includes(experiment.id)
+        ? ids.filter(id => id !== experiment.id)
+        : [...ids, experiment.id];
+      this.compareIds.set(nextIds);
+      this.syncCompareUrl(nextIds);
+      return;
     }
+
+    this.syncSelectionUrl(experiment.id);
+  }
+
+  onFolderSelected(folderId: string | null) {
+    this.selectedFolderId.set(folderId);
+    // A folder opened from the strip is a fresh look, not a compare back-path.
+    this.compareOriginFolderId.set(null);
+    if (!folderId) {
+      updateDashboardQuery({ folder: null });
+      return;
+    }
+
+    // The canvas replaces both other centre-pane views, so leave compare mode cleanly.
+    this.compareMode.set(false);
+    this.compareIds.set([]);
+    this.selectedExperiment.set(null);
+    updateDashboardQuery({ folder: folderId, experiment: null, compare: null });
+  }
+
+  /**
+   * Handoff to the compare workspace. Members on another page are fetched and upserted
+   * first: `experimentsForCompare` only resolves the loaded page, so without this an
+   * off-page member would vanish from the comparison. The folder id rides along, so its
+   * sets section the workspace — including sets made after this handoff.
+   */
+  onFolderCompare(memberIds: string[]) {
+    if (memberIds.length < 2) return;
+
+    const originFolderId = this.selectedFolderId();
+
+    this.experimentsService.hydrateExperiments(memberIds).subscribe({
+      next: (experiments) => {
+        this.selectedFolderId.set(null);
+        this.selectedExperiment.set(null);
+        this.compareMode.set(true);
+        const ids = experiments.map((exp) => exp.id);
+        this.compareIds.set(ids);
+        this.compareOriginFolderId.set(originFolderId);
+        updateDashboardQuery({ folder: originFolderId, experiment: null, compare: ids.join(',') });
+      },
+      error: (err) => {
+        console.error('[Folders] Compare handoff failed', err);
+        this.errorService.setError('Could not load the experiments in this folder.');
+      },
+    });
+  }
+
+  /** Go back to the folder the compare set was built from; a deleted folder is simply no way back. */
+  onBackToOriginFolder() {
+    const folderId = this.compareOriginFolderId();
+    if (!folderId || !this.foldersService.folderById(folderId)) return;
+    this.onFolderSelected(folderId);
+  }
+
+  closeMobileDetail() {
+    this.selectedExperiment.set(null);
+    this.selectedFolderId.set(null);
+    this.compareMode.set(false);
+    this.compareIds.set([]);
+    this.compareOriginFolderId.set(null);
+    updateDashboardQuery({ experiment: null, folder: null, compare: null });
   }
 
   onRunExperiment(expId: string) {
@@ -247,7 +424,13 @@ export class ExperimentsDashboardComponent implements OnInit, OnDestroy {
   confirmDelete(expId: string) {
     if (!expId) return;
 
-    this.experimentsService.deleteExperiment(expId);
+    // Membership is dropped from the mirror only after the backend confirms the delete: the
+    // delete request is optimistic and can roll back, and folder membership must not be lost
+    // on a failed delete. `pruneExperiment` is local-only — the cascade has already removed the
+    // rows behind it.
+    this.experimentsService.deleteExperiment(expId, (deletedId) => {
+      this.foldersService.pruneExperiment(deletedId);
+    });
 
     if (this.selectedExperiment()?.id === expId) {
       this.selectedExperiment.set(null);
@@ -257,6 +440,17 @@ export class ExperimentsDashboardComponent implements OnInit, OnDestroy {
 
     this.experimentToDeleteId = null;
     this.isConfirmingDelete = false;
+  }
+
+  deleteTargetName(): string {
+    const id = this.experimentToDeleteId;
+    if (!id) return 'this experiment';
+    const selected = this.selectedExperiment();
+    if (selected?.id === id) return selected.name || 'Untitled Investigation';
+    return (
+      this.experimentsService.experiments().find((experiment) => experiment.id === id)?.name ||
+      'this experiment'
+    );
   }
 
   cancelDelete() {

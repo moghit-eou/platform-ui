@@ -155,4 +155,72 @@ describe('metadata browser normalizer', () => {
     expect(index.groupsById[selection.groupId].pathLabels).toContain('Other Vitals');
     expect(selection.originalNode).toBe(index.groupsById[otherVitalsResult!.id].original);
   });
+
+  it('ranks exact label matches above prefix, substring, description, and enumeration hits', () => {
+    const modelWithAge: D3HierarchyNode = {
+      label: 'Stroke 3.7',
+      code: 'Stroke',
+      children: [
+        {
+          label: 'Demographics',
+          code: 'demographics',
+          children: [
+            { label: 'Age', code: 'age', type: 'integer', sql_type: 'integer' },
+            { label: 'Native imaged setting', code: 'native', type: 'nominal', sql_type: 'text' },
+          ],
+        },
+        {
+          label: 'Imaging',
+          code: 'imaging',
+          children: [
+            {
+              label: 'Age acquisition note',
+              code: 'age-note',
+              type: 'text',
+              sql_type: 'text',
+            },
+          ],
+        },
+      ],
+    };
+    const index = normalizeMetadataTree(modelWithAge);
+    const results = searchMetadataIndex(index, 'age');
+    const order = results.map((result) => result.label);
+
+    expect(order[0]).toBe('Age');
+    expect(order.indexOf('Age')).toBeLessThan(order.indexOf('Native imaged setting'));
+    expect(order.indexOf('Age')).toBeLessThan(order.indexOf('Age acquisition note'));
+  });
+
+  it('ranks label substring hits before description-only hits', () => {
+    const modelWithNote: D3HierarchyNode = {
+      label: 'Root',
+      code: 'root',
+      children: [
+        {
+          label: 'Group A',
+          code: 'group-a',
+          children: [{ label: 'Note', code: 'note', type: 'text', sql_type: 'text' }],
+        },
+        {
+          label: 'Group B',
+          code: 'group-b',
+          children: [
+            {
+              label: 'Unrelated',
+              code: 'unrelated',
+              type: 'text',
+              sql_type: 'text',
+              description: 'Contains a note about the visit',
+            },
+          ],
+        },
+      ],
+    };
+    const index = normalizeMetadataTree(modelWithNote);
+    const results = searchMetadataIndex(index, 'note');
+
+    expect(results[0]?.label).toBe('Note');
+    expect(results.map((result) => result.label)).toContain('Unrelated');
+  });
 });

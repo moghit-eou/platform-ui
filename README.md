@@ -1,6 +1,6 @@
 # Medical Informatics Platform (MIP) - Platform UI
 
-The Platform UI for the Medical Informatics Platform (MIP). An Angular 21 standalone frontend application for composing, running, and analyzing data science experiments, featuring algorithmic configurations. It integrates with a backend over `/services` (proxied in dev) and uses Keycloak for robust OAuth2 authentication.
+The Platform UI for the Medical Informatics Platform (MIP). An Angular 22 standalone frontend application for composing, running, and analyzing data science experiments, featuring algorithmic configurations. It integrates with a backend over `/services` (proxied in dev) and uses Keycloak for robust OAuth2 authentication.
 
 ## Highlights
 - **Experiment Studio** (`src/app/pages/experiment-studio`): select data models/datasets, pick variables and filters, configure algorithms, run jobs, view charts/tables.
@@ -8,7 +8,7 @@ The Platform UI for the Medical Informatics Platform (MIP). An Angular 21 standa
 - **Auth**: Keycloak-based session via `/services/activeUser`; guard protects routes and redirects to login if unauthenticated.
 
 ## Requirements
-- Node 20+ and npm 10+
+- Node 22+ and npm 10+
 - Backend reachable at `http://localhost:8080/services` (adjustable in proxy/Docker env).
 - Keycloak endpoints exposed at `/services/oauth2/authorization/keycloak` and `/services/logout`.
 

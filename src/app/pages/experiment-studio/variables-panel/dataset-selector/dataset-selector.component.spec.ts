@@ -11,7 +11,6 @@ describe('DatasetSelectorComponent', () => {
   const setInputs = (inputs: {
     datasets?: { code: string; label: string }[];
     selectedDatasetCodes?: string[];
-    autoSelectAll?: boolean;
   }): void => {
     Object.entries(inputs).forEach(([name, value]) => {
       fixture.componentRef.setInput(name, value);
@@ -34,22 +33,20 @@ describe('DatasetSelectorComponent', () => {
     component = fixture.componentInstance;
   });
 
-  it('does not preselect all datasets while edit state is waiting for hydration', () => {
+  it('does not select datasets the service has not asked for', () => {
     setInputs({
-      autoSelectAll: false,
       datasets: [
         { code: 'ds1', label: 'Dataset 1' },
         { code: 'ds2', label: 'Dataset 2' },
       ],
     });
 
-    expect(component.selectedDatasets.size).toBe(0);
+    expect(component.selectedDatasets().size).toBe(0);
     expect(expStudioService.setSelectedDatasets).not.toHaveBeenCalled();
   });
 
   it('uses hydrated dataset codes instead of replacing them with all datasets', () => {
     setInputs({
-      autoSelectAll: false,
       selectedDatasetCodes: ['ds2'],
       datasets: [
         { code: 'ds1', label: 'Dataset 1' },
@@ -62,26 +59,67 @@ describe('DatasetSelectorComponent', () => {
     expect(expStudioService.setSelectedDatasets).not.toHaveBeenCalled();
   });
 
-  it('preselects the new pathology datasets when no previous selection is valid', () => {
-    setInputs({
-      autoSelectAll: true,
-      datasets: [
-        { code: 'old-ds1', label: 'Old Dataset 1' },
-        { code: 'old-ds2', label: 'Old Dataset 2' },
-      ],
-    });
+  it('renders a chip per dataset and toggles the selection on click', () => {
     expStudioService.setSelectedDatasets.calls.reset();
-
+    // Mirror the real service: writing the selection is what feeds the input back.
+    expStudioService.setSelectedDatasets.and.callFake((codes: string[]) =>
+      fixture.componentRef.setInput('selectedDatasetCodes', codes)
+    );
     setInputs({
-      selectedDatasetCodes: [],
+      selectedDatasetCodes: ['ds1'],
       datasets: [
-        { code: 'new-ds1', label: 'New Dataset 1' },
-        { code: 'new-ds2', label: 'New Dataset 2' },
+        { code: 'ds1', label: 'Dataset 1' },
+        { code: 'ds2', label: 'Dataset 2' },
       ],
     });
 
-    expect(component.isDatasetSelected('new-ds1')).toBeTrue();
-    expect(component.isDatasetSelected('new-ds2')).toBeTrue();
-    expect(expStudioService.setSelectedDatasets).toHaveBeenCalledWith(['new-ds1', 'new-ds2']);
+    const chips = fixture.nativeElement.querySelectorAll('.studio-chip') as NodeListOf<HTMLElement>;
+    expect(chips.length).toBe(2);
+    expect(chips[0].classList.contains('is-selected')).toBeTrue();
+    expect(chips[1].classList.contains('is-selected')).toBeFalse();
+
+    chips[1].click();
+    fixture.detectChanges();
+
+    expect(component.isDatasetSelected('ds2')).toBeTrue();
+    expect(expStudioService.setSelectedDatasets).toHaveBeenCalledWith(['ds1', 'ds2']);
+  });
+
+  it('selects all datasets when selectAll is called', () => {
+    setInputs({
+      selectedDatasetCodes: ['ds1'],
+      datasets: [
+        { code: 'ds1', label: 'Dataset 1' },
+        { code: 'ds2', label: 'Dataset 2' },
+      ],
+    });
+
+    component.selectAll();
+    expect(expStudioService.setSelectedDatasets).toHaveBeenCalledWith(['ds1', 'ds2']);
+  });
+
+  it('clears all datasets when clearAll is called', () => {
+    setInputs({
+      selectedDatasetCodes: ['ds1', 'ds2'],
+      datasets: [
+        { code: 'ds1', label: 'Dataset 1' },
+        { code: 'ds2', label: 'Dataset 2' },
+      ],
+    });
+
+    component.clearAll();
+    expect(expStudioService.setSelectedDatasets).toHaveBeenCalledWith([]);
+  });
+
+  it('shows empty state when datasets array is empty', () => {
+    setInputs({
+      datasets: [],
+      selectedDatasetCodes: [],
+    });
+
+    const emptyState = fixture.nativeElement.querySelector('.dataset-empty-state');
+    expect(emptyState).toBeTruthy();
+    expect(emptyState.textContent).toContain('No datasets available');
   });
 });
+

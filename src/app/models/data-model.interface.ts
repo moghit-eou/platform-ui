@@ -13,7 +13,7 @@ export interface Variable {
   maxValue?: number;
 }
 
-export interface EnumValue {
+interface EnumValue {
   label: string;  // UI label
   code: any;    //  backend value
 }

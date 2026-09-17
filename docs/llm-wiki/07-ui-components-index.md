@@ -8,7 +8,7 @@ Use for component behavior, templates, CSS, charts, tables, and export UI.
 |---|---|
 | TypeScript behavior | component `.ts`, service, model |
 | template binding | component `.ts`, then `.html` |
-| styling/layout | `.html`, then component `.css`, then global CSS if needed |
+| styling/layout | `DESIGN.md`, then `.html`, component `.css`, then `src/styles.css` `:root` |
 | chart rendering | visualisation component, chart builder/registry |
 | result table | algorithm schema, auto renderer/table registry |
 | export/PDF | dashboard/detail component, export service |

@@ -13,7 +13,7 @@ Evidence:
 npm ci
 ```
 
-Use Node 20+ and npm 10+.
+Use Node 22+ and npm 10+.
 
 ## Run Locally
 ```bash
@@ -43,16 +43,8 @@ npm test
 
 Runs Angular CLI Karma tests with Jasmine.
 
-## Lint
-Unknown / TODO: verify. No lint script is defined in `package.json`.
-
-## Format
-Unknown / TODO: verify. No format script is defined in `package.json`.
-
-## Typecheck
-Unknown / TODO: verify. No standalone typecheck script is defined in `package.json`.
-
-Use `npm run build` as the available strict TypeScript/template validation path.
+## Typecheck / Static Checks
+No lint or format script is defined in `package.json`. `npm run verify` runs the typecheck, the dead-code scan and a production build; `docs/context/testing.md` says what each one covers.
 
 ## Database / Migrations
 Not applicable in this frontend repository.
@@ -95,4 +87,4 @@ Detected workflows:
 - `.github/workflows/publish_images.yml`: on published releases, builds and pushes Docker images to Docker Hub and EBRAINS Harbor.
 - `.github/workflows/ebrains.yml`: mirrors `master` and tags to EBRAINS GitLab.
 
-Unknown / TODO: verify whether another pipeline outside this repository runs pull-request tests.
+- `.github/workflows/checks.yml`: on pull requests, runs `npm run verify` (typecheck, dead-code scan, build).

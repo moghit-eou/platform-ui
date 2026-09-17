@@ -1,4 +1,4 @@
-export type AlgorithmInputCountRole = 'y' | 'x';
+type AlgorithmInputCountRole = 'y' | 'x';
 
 type CountBounds = { min?: number; max?: number };
 
@@ -14,7 +14,7 @@ const FALLBACK_INPUT_COUNT_BOUNDS: Record<string, Partial<Record<AlgorithmInputC
   anova_twoway: { y: { max: 1 }, x: { min: 2, max: 2 } },
 };
 
-export function normalizeInputCount(value: number | string | undefined | null): number | null {
+function normalizeInputCount(value: number | string | undefined | null): number | null {
   if (value === undefined || value === null || value === '') return null;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
@@ -27,7 +27,7 @@ export function readInputCount(field: unknown, key: 'min_count' | 'max_count'): 
   return normalizeInputCount(record[key] as number | string | undefined | null ?? record[camelKey] as number | string | undefined | null);
 }
 
-export function isInputFieldRequired(field: unknown): boolean {
+function isInputFieldRequired(field: unknown): boolean {
   if (!field || typeof field !== 'object') return false;
   const required = (field as Record<string, unknown>)['required'];
   if (typeof required === 'boolean') return required;
@@ -64,18 +64,6 @@ export function resolveInputMaxCount(
   return null;
 }
 
-export function formatInputCountRequirement(
-  field: unknown,
-  role: AlgorithmInputCountRole,
-  algorithmName?: string | null,
-  label?: string
-): string {
-  const minCount = resolveInputMinCount(field, role, algorithmName);
-  const maxCount = resolveInputMaxCount(field, role, algorithmName);
-  const count = formatInputCountRange(minCount, maxCount);
-  const parts = [`${label ?? role}: ${count}`];
-  return parts.join(' • ');
-}
 
 export function formatInputCountRange(minCount: number, maxCount: number | null): string {
   if (minCount === 1 && maxCount === 1) return 'exactly 1';

@@ -19,7 +19,7 @@
   /* Softer brand-tinted border */
   --studio-card-bg: #ffffff;
   --studio-card-border: rgba(43, 51, 233, 0.1);
-  --studio-card-shadow: 0 8px 32px rgba(15, 23, 42, 0.06);
+  --studio-card-shadow: 0 1px 2px rgba(43, 51, 233, 0.06);
   --studio-card-header-bg: #f8fbff;
   --studio-card-header-border: rgba(43, 51, 233, 0.08);
 
@@ -34,24 +34,81 @@
   --chart-label-color: #334155;
   /* Darker for better visibility */
 
-  /* Arctic Precision (Glassmorphism) */
-  --glass-bg: rgba(255, 255, 255, 0.7);
-  --glass-border: rgba(255, 255, 255, 0.2);
-  --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
-  --glass-blur: blur(12px);
+  /* Glass tokens alias solid studio surfaces (no frost). */
+  --glass-bg: var(--card-bg);
+  --glass-border: var(--border-color);
+  --glass-shadow: var(--studio-card-shadow);
+  --glass-blur: none;
 
-  /* Typography - Alaska Aesthetic */
-  --line-height-config: 1.6;
+  /* Typography - Alaska Aesthetic.
+     Alaska is the licensed brand face and stays first in the slot: it resolves when the
+     user has it locally, and will win outright the moment a @font-face ships.
+     Inter is the face we actually load (see index.html) and therefore the app's real
+     default; system-ui is the honest fallback, not an accident. */
+  --font-sans: 'Alaska Regular', 'Alaska', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   --letter-spacing-config: 0.015em;
 
   /* Spacing & Borders - Charter standard */
   --radius-sm: 4px;
   --radius-md: 8px;
   --radius-lg: 12px;
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-sm: 0 1px 2px rgba(43, 51, 233, 0.05);
+  --shadow-md: 0 1px 2px rgba(43, 51, 233, 0.06);
+  --shadow-lg: 0 2px 8px rgba(43, 51, 233, 0.08);
   --header-height: 64px;
+
+  /* Top chrome: one surface recipe shared by the header and the studio sub-header. */
+  --header-surface: var(--card-bg);
+  --header-border: color-mix(in srgb, var(--primary-color) 14%, transparent);
+  --header-shadow: 0 1px 2px rgba(43, 51, 233, 0.06), 0 4px 12px -6px rgba(43, 51, 233, 0.14);
+
+  /* Studio content column: the measure of .studio-inner's panels. */
+  --studio-page-gutter: 16px;
+  --studio-inner-max: 1320px;
+
+  /* Chrome inset — the floor, not the measure. One flat value on every route: the header
+     and the studio sub-header are two rows of the same bar, so they never disagree about
+     where the bar starts and no route can indent its own bar. It matches the dashboard
+     gutter, the one surface the bar sits above most often. A row that sits above a
+     centred column caps its own content instead of changing this value — see
+     .sub-header-inner, which shares .studio-inner's measure on the studio route. */
+  --chrome-inline-padding: 24px;
+
+  /* Mono slot. Numbers, IDs and measurements are set in mono across the product, but
+     four files each carried their own stack (JetBrains Mono / Roboto Mono / bare
+     ui-monospace), so the same kind of cell rendered in three faces. One token. */
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Tint ladder. Every light brand tint in the app is a percentage of a brand colour
+     over one base, so a component asks for a step and never writes the recipe. The
+     steps below are the ones already shipped in the chrome; a new step is a design
+     decision, not a free value. */
+  --tint-base: #ffffff;
+  --tint-nav-hover: color-mix(in srgb, var(--primary-light) 20%, var(--tint-base));
+
+  /* Avatar ring and placeholder fill, previously inline on the header control. */
+  --ring-avatar: color-mix(in srgb, var(--primary-light) 40%, var(--tint-base));
+  --avatar-bg: color-mix(in srgb, var(--text-main) 30%, var(--tint-base));
+
+  /* Focus ring. It was --primary-light, which is 2.68:1 on white — under the 3:1 a
+     focus indicator needs, and the one place the brand's own "never a foreground on
+     paper" rule was broken. --primary-color is 7.63:1 on the card. */
+  --color-focus: var(--primary-color);
+
+  /* Motion: one enter curve, a shorter exit, applied to background/border/shadow/
+     transform only. Exit is decisive because the user already chose to dismiss. */
+  --motion-enter: 200ms;
+  --motion-exit: 140ms;
+  --ease-standard: cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+/* The header's height IS this token at every breakpoint. Consumers (sub-header, warning
+   banner, page padding, scroll anchors, guide spotlight) all derive from it, so changing
+   the token here — never a component's height — keeps the whole chrome stack aligned. */
+@media (max-width: 768px) {
+  :root {
+    --header-height: 56px;
+  }
 }
 
 html,
@@ -61,7 +118,7 @@ body {
 
 body {
   margin: 0;
-  font-family: 'Alaska Regular', 'Alaska', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-family: var(--font-sans);
   background-color: var(--bg-color);
   color: var(--text-main);
   line-height: 1.6;
@@ -102,8 +159,10 @@ button:focus-visible,
 a:focus-visible,
 input:focus-visible,
 select:focus-visible,
-textarea:focus-visible {
-  outline: 2px solid var(--primary-light);
+textarea:focus-visible,
+[role='button']:focus-visible,
+[tabindex='0']:focus-visible {
+  outline: 2px solid var(--color-focus);
   outline-offset: 2px;
 }
 
@@ -111,37 +170,16 @@ textarea:focus-visible {
 input:required,
 textarea:required,
 select:required {
-  border-color: #ccc;
-  /* Neutral border color for required fields */
-  background-color: #fafafa;
-  /* Light background color */
+  border-color: var(--border-color);
+  background-color: var(--card-bg);
   box-shadow: none;
-  /* Remove any default shadow */
 }
 
-/* Style for invalid fields (unfilled required fields) */
 input:required:invalid,
 textarea:required:invalid,
 select:required:invalid {
-  border-color: #d32f2f;
-  /* Red border for invalid fields */
-  background-color: #ffe6e6;
-  /* Light red background for visibility */
-}
-
-
-@keyframes glacialPulse {
-  0% {
-    box-shadow: 0 0 0 0 rgba(43, 51, 233, 0.2);
-  }
-
-  70% {
-    box-shadow: 0 0 0 10px rgba(43, 51, 233, 0);
-  }
-
-  100% {
-    box-shadow: 0 0 0 0 rgba(43, 51, 233, 0);
-  }
+  border-color: var(--danger);
+  background-color: color-mix(in srgb, var(--danger) 10%, white);
 }
 
 @keyframes studioSoftReveal {
@@ -180,113 +218,30 @@ select:required:invalid {
   }
 }
 
-/* Glassmorphism Utility */
-.glass-panel {
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-border);
-  box-shadow: var(--glass-shadow);
-  border-radius: var(--radius-lg);
-}
-
-/* Premium Page Utility */
-.premium-page {
-  font-family: 'Alaska Regular', 'Alaska', 'Inter', system-ui, -apple-system, sans-serif;
-  line-height: var(--line-height-config);
-  letter-spacing: var(--letter-spacing-config);
-  color: var(--text-main);
-  box-sizing: border-box;
-}
-
-/* Style for valid fields (when required fields are filled) */
 input:required:valid,
 textarea:required:valid,
 select:required:valid {
-  border-color: #4caf50;
-  /* Green border for valid fields */
-  background-color: #e8f5e9;
-  /* Light green background */
+  border-color: var(--success);
+  background-color: color-mix(in srgb, var(--success) 10%, white);
 }
 
-.studio-panel-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
-  padding: 0 0 20px;
-  margin: 0;
-  background: transparent;
-  border-bottom: 1px solid rgba(43, 51, 233, 0.1);
-}
-
-.studio-panel-header .header-main {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  min-width: 0;
-}
-
-.studio-panel-header .header-text {
-  min-width: 0;
-}
-
-.studio-panel-header p {
-  margin: 0;
-  font-size: 1.05rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--primary-color, #2B33E9);
-}
-
-.studio-panel-header .header-subtitle {
-  display: block;
-  margin-top: 4px;
-  color: var(--text-muted, #64748b);
-  font-size: 0.85rem;
-  font-weight: 500;
-}
-
-.studio-panel-header .panel-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 42px;
-  height: 42px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, rgba(43, 51, 233, 0.1), rgba(43, 51, 233, 0.02));
-  border: 1px solid rgba(43, 51, 233, 0.15);
-  color: var(--primary-color, #2B33E9);
-  font-size: 1.2rem;
-  opacity: 0.72;
-  box-shadow: 0 4px 12px rgba(43, 51, 233, 0.08);
-}
-
-.studio-panel-header .panel-icon::before {
-  transform: translateY(1px);
+@media (prefers-reduced-motion: reduce) {
+  .experiment-studio-page .config-field,
+  .experiment-studio-page .workflow-section-body.open > *,
+  .experiment-studio-page .summary-workspace,
+  .experiment-studio-page .result-section,
+  .experiment-studio-page .empty-state-block i,
+  .experiment-studio-page .statistics-variable-btn.active,
+  .experiment-studio-page .preprocessing-state-chip,
+  .experiment-studio-page .studio-skeleton-line,
+  .experiment-studio-page .studio-skeleton-bar,
+  .experiment-studio-page .studio-skeleton-cell {
+    animation: none;
+  }
 }
 
 @media (max-width: 768px) {
-  .studio-panel-header {
-    align-items: flex-start;
-    padding-bottom: 16px;
-  }
 
-  .studio-panel-header p {
-    font-size: 0.9rem;
-  }
-
-  .studio-panel-header .header-subtitle {
-    font-size: 0.78rem;
-  }
-
-  .studio-panel-header .panel-icon {
-    width: 38px;
-    height: 38px;
-    border-radius: 10px;
-    font-size: 1.05rem;
-  }
 }
 
 .experiment-studio-page input:not([type='checkbox']):not([type='radio']),
@@ -415,38 +370,6 @@ select:required:valid {
   background-color: rgba(241, 245, 249, 0.82);
 }
 
-.experiment-studio-page .advanced-config-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  width: 100%;
-  margin: 2px 0;
-  padding: 11px 14px;
-  border: 1px dashed rgba(43, 51, 233, 0.22);
-  border-radius: var(--radius-lg, 12px);
-  background: rgba(43, 51, 233, 0.035);
-  color: var(--primary-color);
-  cursor: pointer;
-  font-weight: 800;
-  letter-spacing: 0.02em;
-}
-
-.experiment-studio-page .advanced-config-toggle small {
-  margin-left: auto;
-  color: var(--text-muted);
-  font-size: 0.72rem;
-  font-weight: 700;
-}
-
-.experiment-studio-page .advanced-config-toggle i {
-  transition: transform 0.18s ease;
-}
-
-.experiment-studio-page .advanced-config-toggle.open i {
-  transform: rotate(180deg);
-}
-
 .experiment-studio-page .config-field,
 .experiment-studio-page .workflow-section-body.open > *,
 .experiment-studio-page .summary-workspace,
@@ -455,21 +378,84 @@ select:required:valid {
 }
 
 .experiment-studio-page .statistics-variable-btn.active,
-.experiment-studio-page .selected-filter-chip,
-.experiment-studio-page .info-chip,
 .experiment-studio-page .preprocessing-state-chip {
   animation: studioBadgePop 0.22s ease both;
 }
 
-.experiment-studio-page .settings-cta-row {
+/* Selectable chip pickers (pathology, datasets). A chip is either a button or a
+   label wrapping a hidden native input that carries selection/keyboard state. */
+.experiment-studio-page .studio-chip-group {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+  font-family: inherit;
+}
+
+.experiment-studio-page .studio-chip-label {
+  font-size: 0.72rem;
+  font-weight: 750;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #475569;
+  line-height: 1;
+}
+
+.experiment-studio-page .studio-chip-row {
   display: flex;
-  justify-content: flex-end;
-  align-items: center;
   flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 20px;
-  padding-top: 16px;
-  border-top: 1px solid rgba(43, 51, 233, 0.08);
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+}
+
+.experiment-studio-page .studio-chip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 5px 12px;
+  border: 1px solid rgba(43, 51, 233, 0.12);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--text-main, #0f172a);
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  box-shadow: none;
+  transition: border-color 0.15s ease, background-color 0.15s ease,
+    box-shadow 0.15s ease, color 0.15s ease;
+}
+
+.experiment-studio-page .studio-chip:hover {
+  border-color: rgba(43, 51, 233, 0.35);
+  background: #f8fbff;
+}
+
+.experiment-studio-page .studio-chip.is-selected {
+  border-color: var(--primary-color, #2b33e9);
+  background: var(--primary-color, #2b33e9);
+  color: #ffffff;
+}
+
+.experiment-studio-page .studio-chip:focus-visible,
+.experiment-studio-page .studio-chip:has(input:focus-visible) {
+  outline: none;
+  border-color: var(--primary-color, #2b33e9);
+  box-shadow: 0 0 0 3px rgba(43, 51, 233, 0.18);
+}
+
+@media (max-width: 960px) {
+  .experiment-studio-page .studio-chip {
+    font-size: 0.78rem;
+  }
 }
 
 .experiment-studio-page .panel-secondary-btn {
@@ -566,7 +552,6 @@ select:required:valid {
 .experiment-studio-page .toolbar-btn--ghost:hover {
   background: rgba(127, 156, 232, 0.14);
   color: #2b33e9;
-  transform: translateY(-1px);
 }
 
 .experiment-studio-page .toolbar-btn--ghost:hover .toolbar-btn-icon {
@@ -575,9 +560,9 @@ select:required:valid {
 }
 
 .experiment-studio-page .toolbar-btn--primary {
-  background: #2b33e9;
+  background: var(--primary-color);
   color: #fff;
-  box-shadow: 0 4px 14px rgba(43, 51, 233, 0.24);
+  box-shadow: var(--shadow-sm);
 }
 
 .experiment-studio-page .toolbar-btn--primary .toolbar-btn-icon {
@@ -586,9 +571,8 @@ select:required:valid {
 }
 
 .experiment-studio-page .toolbar-btn--primary:hover:not(:disabled) {
-  background: linear-gradient(135deg, #2b33e9 0%, #4f5cf0 100%);
-  box-shadow: 0 8px 20px rgba(43, 51, 233, 0.28);
-  transform: translateY(-1px);
+  background: var(--primary-dark);
+  box-shadow: var(--shadow-md);
 }
 
 .experiment-studio-page .toolbar-btn--primary:disabled {
@@ -729,39 +713,8 @@ select:required:valid {
   border-radius: 8px 8px 2px 2px;
 }
 
-.experiment-studio-page .empty-state-block,
-.experiment-studio-page .empty-state-welcome {
+.experiment-studio-page .empty-state-block {
   position: relative;
-  overflow: hidden;
-}
-
-.experiment-studio-page .empty-state-block::before,
-.experiment-studio-page .empty-state-welcome::before {
-  content: "";
-  position: absolute;
-  inset: 16px auto auto 50%;
-  width: 150px;
-  height: 88px;
-  transform: translateX(-50%);
-  pointer-events: none;
-  opacity: 0.5;
-  background:
-    radial-gradient(circle at 16% 42%, rgba(43, 51, 233, 0.22) 0 5px, transparent 6px),
-    radial-gradient(circle at 50% 24%, rgba(255, 186, 8, 0.32) 0 6px, transparent 7px),
-    radial-gradient(circle at 82% 58%, rgba(127, 156, 232, 0.34) 0 5px, transparent 6px),
-    linear-gradient(24deg, transparent 20%, rgba(127, 156, 232, 0.22) 21% 23%, transparent 24%),
-    linear-gradient(155deg, transparent 35%, rgba(255, 186, 8, 0.2) 36% 38%, transparent 39%);
-}
-
-.experiment-studio-page .empty-state-block > *,
-.experiment-studio-page .empty-state-welcome > * {
-  position: relative;
-  z-index: 1;
-}
-
-.experiment-studio-page .empty-state-block i,
-.experiment-studio-page .empty-state-icon {
-  animation: studioSoftReveal 0.34s ease both;
 }
 
 .btn-cancel,
@@ -797,8 +750,7 @@ select:required:valid {
 
 .btn-create:hover {
   background-color: var(--primary-dark);
-  transform: translateY(-1.5px);
-  box-shadow: 0 6px 12px rgba(43, 51, 233, 0.25);
+  box-shadow: var(--shadow-md);
 }
 
 /* Primary Action Buttons (Harsh Fixes) */
@@ -813,15 +765,14 @@ select:required:valid {
   border-radius: var(--radius-md);
   font-weight: 700;
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 4px 12px rgba(43, 51, 233, 0.2);
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+  box-shadow: var(--shadow-sm);
   text-decoration: none;
 }
 
 .primary-action-btn:hover:not(:disabled) {
   background: var(--primary-dark);
-  transform: translateY(-2px);
-  box-shadow: 0 10px 20px rgba(43, 51, 233, 0.3);
+  box-shadow: var(--shadow-md);
 }
 
 .primary-action-btn:disabled {
@@ -832,27 +783,15 @@ select:required:valid {
   box-shadow: none;
 }
 
-.custom-validation-tooltip {
-  position: absolute;
-  background-color: #d32f2f;
-  color: white;
-  padding: 5px 10px;
-  border-radius: 4px;
-  font-size: 0.85em;
-  white-space: nowrap;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-  z-index: 1000;
-}
-
 .tooltip {
   position: fixed;
   pointer-events: none;
-  background: rgba(255, 255, 255, 0.92);
-  border: 1px solid rgba(0, 0, 0, 0.25);
-  border-radius: 6px;
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
-  color: #111;
-  font-family: system-ui, sans-serif;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  color: var(--text-main);
+  font-family: inherit;
   font-size: 12.5px;
   line-height: 1.45;
   padding: 8px 10px;
@@ -861,7 +800,6 @@ select:required:valid {
   transform: translateY(4px);
   transition: opacity 0.15s ease, transform 0.15s ease;
   z-index: 200000;
-  backdrop-filter: blur(3px);
 }
 
 .tooltip.visible {
@@ -881,21 +819,10 @@ select:required:valid {
   line-height: 1.4;
 }
 
-/* GLOBAL MOBILE HEADER OVERRIDES */
-@media (max-width: 768px) {
-
-  header.topbar,
-  .topbar,
-  .topbar-inner,
-  .brand,
-  .account-pill,
-  .header-logo,
-  .header-account,
-  .user-icon,
-  .login-icon {
-    display: none !important;
-  }
-}
+/* Removed: "GLOBAL MOBILE HEADER OVERRIDES" (max-width 768). It hid .topbar/.brand/
+   .header-logo/.login-icon — classes no template uses — plus the header's account slot,
+   which was display:none on phones, kept alive only by a competing !important in the
+   component. The header owns its own responsive rules. */
 
 .summary-workspace {
   display: grid;
@@ -906,10 +833,8 @@ select:required:valid {
   display: flex;
   align-items: center;
   gap: 12px;
-}
-
-.chart-panel-header {
   justify-content: space-between;
+  margin-bottom: 10px;
 }
 
 .chart-panel-kicker {
@@ -923,10 +848,6 @@ select:required:valid {
 .chart-search {
   max-width: none;
   margin: 10px 0 12px;
-}
-
-.chart-panel-header {
-  margin-bottom: 10px;
 }
 
 .chart-panel-header h4 {
@@ -946,32 +867,83 @@ select:required:valid {
   box-sizing: border-box;
 }
 
+/* One card, two panes. The summary sub-steps used to render the shared class as
+   two separate bordered boxes 24px apart, which is what made them read as
+   unrelated surfaces. The preprocessing stations already had this shell. */
 .statistics-workspace {
   display: grid;
   grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
-  gap: 24px;
-}
-
-.statistics-browser,
-.statistics-panel {
-  border-radius: 12px;
+  gap: 0;
+  align-items: stretch;
+  border: 1px solid var(--studio-card-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--studio-card-bg);
+  box-shadow: var(--studio-card-shadow);
+  /* The cap belongs on the card, not the rail. Capping the rail left its tinted
+     background and divider stopping short of the card's bottom edge. */
+  max-height: min(72vh, 760px);
 }
 
 .statistics-browser {
-  padding: 20px;
-  max-height: 560px;
+  display: flex;
+  flex-direction: column;
+  padding: 14px 16px;
+  min-height: 0;
+  border-right: 1px solid var(--studio-card-border);
+  background: var(--studio-card-header-bg);
   overflow-y: auto;
-  background: rgba(43, 51, 233, 0.02);
-  border: 1px solid rgba(43, 51, 233, 0.045);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.62);
+}
+
+/* Rail foot. The rail stretches to the table's height, so a short list left a
+   large blank inside the card's own border. Rather than pad it, this shows the
+   one number the per-variable table cannot: coverage re-pooled over the whole
+   selection. It sits directly under the list, not pinned to the card's bottom
+   edge — pinned, a five-variable list put ~320px of blank between the list and
+   the rule, which reads as a broken column. Trailing blank below a list reads
+   as a short list. */
+.statistics-browser-foot {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--studio-card-border);
+}
+
+.statistics-browser-foot-label {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: var(--letter-spacing-config);
+  text-transform: uppercase;
+}
+
+.statistics-browser-foot-value {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 3px;
+  font-variant-numeric: tabular-nums;
+}
+
+.statistics-browser-foot-value strong {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.statistics-browser-foot-value small {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  line-height: 1.35;
+  text-wrap: pretty;
 }
 
 .statistics-panel {
-  background: rgba(255, 255, 255, 0.78);
-  border: 1px solid rgba(255, 255, 255, 0.64);
-  box-shadow:
-    0 4px 6px -1px rgba(43, 51, 233, 0.025),
-    0 12px 18px -5px rgba(43, 51, 233, 0.055);
+  min-width: 0;
+  min-height: 0;
+  padding: 20px;
+  overflow-y: auto;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
 }
 
 .statistics-browser-header,
@@ -993,17 +965,17 @@ select:required:valid {
 .statistics-browser-header small,
 .statistics-panel-kicker,
 .statistics-variable-group-title {
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.06em;
+  font-weight: 700;
+  letter-spacing: var(--letter-spacing-config);
   text-transform: uppercase;
 }
 
 .statistics-variable-btn > span {
   color: var(--text-main);
   font-size: 0.86rem;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .statistics-variable-group {
@@ -1012,17 +984,30 @@ select:required:valid {
   margin-top: 20px;
 }
 
+/* Rail row = name, then the one number the step is decided on, right-aligned.
+   A bordered card per row made the rail a stack of boxes instead of a list you
+   can scan; selection is a tonal fill plus a leading accent edge. */
 .statistics-variable-btn {
-  display: grid;
-  gap: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   width: 100%;
-  padding: 12px;
-  border: 1px solid rgba(43, 51, 233, 0.075);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.76);
+  padding: 7px 10px;
+  border: 0;
+  border-left: 2px solid transparent;
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  background: transparent;
   color: var(--text-main);
   cursor: pointer;
   text-align: left;
+  transition: background 0.14s var(--ease-standard),
+    border-color 0.14s var(--ease-standard);
+}
+
+.statistics-variable-btn > span:first-of-type {
+  min-width: 0;
+  line-height: 1.35;
+  text-wrap: pretty;
 }
 
 .statistics-variable-btn small {
@@ -1039,6 +1024,8 @@ select:required:valid {
   color: var(--text-muted);
   font-size: 0.68rem;
   line-height: 1.25;
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
 }
 
 .statistics-variable-meta small {
@@ -1046,34 +1033,24 @@ select:required:valid {
   font: inherit;
 }
 
-.statistics-variable-btn.active,
 .statistics-variable-btn:hover {
-  border-color: rgba(43, 51, 233, 0.3);
-  background: rgba(43, 51, 233, 0.07);
+  border-left-color: color-mix(in srgb, var(--primary-color) 35%, transparent);
+  background: color-mix(in srgb, var(--primary-color) 5%, transparent);
 }
 
-.statistics-variable-btn.active > span,
 .statistics-variable-btn:hover > span {
-  color: var(--primary-color);
+  color: color-mix(in srgb, var(--primary-color) 72%, var(--text-main));
 }
 
-.statistics-missing,
-.statistics-meta-chip {
-  display: inline-flex;
-  align-items: center;
-  border-radius: 999px;
-  font-size: 0.72rem;
-  font-weight: 800;
+.statistics-variable-btn.active {
+  border-left-color: var(--primary-color);
+  background: color-mix(in srgb, var(--primary-color) 9%, transparent);
 }
 
-.statistics-missing {
-  justify-self: start;
-  padding: 4px 8px;
-}
-
-.statistics-panel {
-  min-width: 0;
-  padding: 24px;
+/* Selection must not rely on hue alone (1.4.1). The active row keeps --text-main
+   and carries the state in the edge and the fill. */
+.statistics-variable-btn.active > span:first-of-type {
+  font-weight: 700;
 }
 
 .statistics-panel-header {
@@ -1092,75 +1069,85 @@ select:required:valid {
   font-weight: 700;
 }
 
+/* Export actions read as one segmented control in the same family as the
+   .summary-tabs pill tray above the pane: one tray, no per-button chrome. */
 .summary-panel-actions {
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 6px;
+  gap: 2px;
   padding: 3px;
-  border: 1px solid rgba(43, 51, 233, 0.1);
-  border-radius: 8px;
-  background: rgba(43, 51, 233, 0.035);
+  border: 1px solid var(--studio-card-border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--primary-color) 5%, white);
 }
 
-.statistics-meta-grid {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
-  width: fit-content;
-  max-width: 100%;
-  margin-bottom: 18px;
-}
-
-.statistics-meta-chip {
-  flex: 0 0 auto;
-  justify-content: flex-start;
-  gap: 10px;
-  padding: 6px 12px;
-  border: 0;
-  background: rgba(43, 51, 233, 0.045);
-  color: var(--text-muted);
-}
-
-.statistics-meta-chip strong {
-  color: var(--text-main);
-}
-
-.missing-none {
-  background: rgba(223, 239, 228, 0.8);
-  color: #166534;
-  border: 0;
-}
-
-.missing-warning {
-  background: rgba(255, 186, 8, 0.16);
-  color: #92400e;
-  border: 0;
-}
-
-.missing-high {
-  background: rgba(239, 68, 68, 0.12);
-  color: #991b1b;
-  border: 0;
-}
-
-.statistics-variable-btn .statistics-missing {
-  justify-self: auto;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
+.summary-panel-actions .studio-export-btn {
+  min-height: 28px;
+  padding: 5px 12px;
+  border: 1px solid color-mix(in srgb, var(--primary-color) 18%, transparent);
+  border-radius: 999px;
   background: transparent;
-  font-size: inherit;
+  font-size: 0.78rem;
+  letter-spacing: var(--letter-spacing-config);
+}
+
+.summary-panel-actions .studio-export-btn:hover:not(:disabled) {
+  background: var(--card-bg);
+  border-color: transparent;
+  box-shadow: var(--shadow-sm);
+}
+
+.summary-panel-actions .studio-export-btn:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.summary-panel-actions .studio-export-btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+/* The share a variable is judged on, right-aligned in the rail. Severity is
+   colour-only here by design: the rail is the one surface where the values are
+   compared against each other. In the table the row is labelled "Missing", so
+   the same red would fire on nearly every numeric variable and say nothing. */
+.statistics-variable-coverage,
+.preprocessing-variable-coverage {
+  color: var(--text-muted);
+  font-size: 0.72rem;
   font-weight: 700;
+  white-space: nowrap;
+}
+
+.statistics-variable-coverage[data-severity='warning'],
+.statistics-browser-foot-value strong[data-severity='warning'] {
+  /* --accent-color is 1.9:1 as text, so it is deepened toward --text-main the
+     same way the state dots are. */
+  color: color-mix(in srgb, var(--accent-color) 45%, var(--text-main));
+}
+
+.statistics-variable-coverage[data-severity='high'],
+.preprocessing-variable-coverage[data-severity='high'],
+.statistics-browser-foot-value strong[data-severity='high'] {
+  color: color-mix(in srgb, var(--danger) 58%, var(--text-main));
+}
+
+/* Share of Total, next to the Missing count it belongs to. */
+.statistics-cell-note {
+  margin-left: 6px;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
 }
 
 .statistics-table-wrapper {
   padding: 0;
-  overflow: auto;
-  max-height: 460px;
-  border: 1px solid rgba(43, 51, 233, 0.1);
-  border-radius: 10px;
-  background: #ffffff;
+  /* Vertical scrolling belongs to the panel; the wrapper only scrolls sideways
+     for the 620px minimum. Two nested vertical scrollbars in one card is worse
+     than either alone. */
+  overflow-x: auto;
+  border: 1px solid var(--studio-card-border);
+  border-radius: var(--radius-md);
+  background: var(--card-bg);
 }
 
 .statistics-table {
@@ -1189,21 +1176,53 @@ select:required:valid {
 
 .statistics-table td:not(:first-child) {
   color: var(--text-main);
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .statistics-table td:first-child,
 .statistics-table .metric-cell {
   color: var(--text-muted);
+  font-weight: 500;
+}
+
+/* The pooled column is a rollup over the datasets beside it, not a fourth
+   dataset. Without a divider it reads as one more of the same. */
+.statistics-table th.statistics-col-rollup,
+.statistics-table td.statistics-col-rollup {
+  border-left: 1px solid var(--studio-card-border);
+  background: color-mix(in srgb, var(--primary-color) 4%, var(--card-bg));
+}
+/* Metric groups: the three counts answer "how much data do I have", the rest
+   answer "what does it look like". One flat list of ten identical bold rows
+   answers neither. */
+.statistics-table tr.statistics-metric-group td {
+  position: static;
+  padding: 6px 12px 4px;
+  height: auto;
+  border: 0;
+  border-top: 1px solid var(--studio-card-border);
+  background: var(--studio-card-header-bg);
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: var(--letter-spacing-config);
+  text-transform: uppercase;
 }
 
 @media (max-width: 768px) {
   .statistics-workspace {
     grid-template-columns: 1fr;
+    max-height: none;
   }
 
   .statistics-browser {
     max-height: 320px;
+    border-right: 0;
+    border-bottom: 1px solid var(--studio-card-border);
+  }
+
+  .statistics-panel {
+    padding: 16px;
   }
 
   .statistics-panel-header {
@@ -1213,150 +1232,101 @@ select:required:valid {
 }
 
 /* Preprocessing shell — unified step layout */
-.preprocessing-section .workflow-section-body {
-  padding-left: 0;
-  padding-right: 0;
-}
-
 .preprocessing-shell {
-  counter-reset: preprocessing-step;
   display: flex;
   flex-direction: column;
-  border: 1px solid rgba(127, 156, 232, 0.18);
-  border-radius: 14px;
-  background: linear-gradient(180deg, rgba(248, 251, 255, 0.96) 0%, rgba(255, 255, 255, 0.9) 100%);
-  box-shadow: 0 8px 24px rgba(43, 51, 233, 0.04);
-  overflow: hidden;
+  gap: 12px;
 }
 
-.preprocessing-step-card {
-  counter-increment: preprocessing-step;
-  margin-top: 0;
-  background: transparent;
-  border: 0;
-  border-bottom: 1px solid rgba(127, 156, 232, 0.12);
+/* Inside a station card the card is the only frame: the workspace drops its own
+   border/radius/shadow and the body's 14px padding, so the variable rail and the
+   evidence pane reach the card edge instead of nesting a third 12px box. */
+.station-card:has(.preprocessing-workspace) .station-card-body {
+  padding: 0;
+}
+
+.station-card .preprocessing-workspace {
+  border: none;
   border-radius: 0;
   box-shadow: none;
+  background: transparent;
+  margin: 0;
 }
 
-.preprocessing-step-card:last-of-type {
-  border-bottom: 0;
-}
+/* The preprocessing documentation rows wear the algorithm configuration panel's
+   disclosure, and they own their inset: the workspace card body has no padding of its
+   own (see .station-card:has(.preprocessing-workspace)), so the component styles carry
+   the 8px rather than a global override competing with them at equal specificity. */
 
-.preprocessing-step-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  border: 0;
-  background: rgba(255, 255, 255, 0.42);
-  padding: 13px 18px;
-  cursor: pointer;
-  text-align: left;
-  transition: background 0.2s ease;
-}
-
-.preprocessing-step-header:hover {
-  background: rgba(255, 255, 255, 0.62);
-}
-
-.preprocessing-step-card:has(.preprocessing-step-body.open) .preprocessing-step-header {
-  border-bottom: 1px solid rgba(127, 156, 232, 0.1);
-  background: rgba(255, 255, 255, 0.55);
-}
-
-.preprocessing-step-header .preprocessing-section-heading {
-  font-size: 0.86rem;
-  letter-spacing: 0.04em;
-  color: #334155;
-}
-
-.preprocessing-step-header .preprocessing-section-heading::before {
-  content: counter(preprocessing-step);
+/* Station status chip — shared by station-card headers, preprocessing detail headers and variable rows. */
+.preprocessing-state-mini,
+.preprocessing-state-chip {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 22px;
-  height: 22px;
-  margin-right: 2px;
+  border: 1px solid rgba(71, 85, 105, 0.14);
   border-radius: 999px;
-  background: rgba(43, 51, 233, 0.08);
-  color: var(--primary-color, #2b33e9);
-  font-size: 0.72rem;
+  background: rgba(248, 250, 252, 0.88);
+  color: #475569;
   font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
-.preprocessing-step-header-meta {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-left: auto;
-  min-width: 0;
-  flex: 1 1 auto;
+.preprocessing-state-mini {
+  padding: 3px 7px;
+  font-size: 0.66rem;
 }
 
-.preprocessing-step-header .preprocessing-state-chip {
+.preprocessing-state-chip {
+  padding: 6px 10px;
+  font-size: 0.74rem;
   flex-shrink: 0;
 }
 
-.preprocessing-step-body {
-  display: none;
-  padding: 0 18px 18px;
+.preprocessing-state-mini.state-pending,
+.preprocessing-state-chip.state-pending {
+  background: color-mix(in srgb, var(--accent-color) 14%, white 86%);
+  border-color: color-mix(in srgb, var(--accent-color) 30%, transparent);
+  color: #92400e;
 }
 
-.preprocessing-step-body.open {
-  display: block;
-  padding-top: 14px;
-  background: rgba(255, 255, 255, 0.28);
+.preprocessing-state-mini.state-applied,
+.preprocessing-state-chip.state-applied {
+  background: var(--panel-success-bg, #dfefe4);
+  border-color: color-mix(in srgb, var(--panel-success-text, #166534) 18%, transparent);
+  color: var(--panel-success-text, #166534);
 }
 
-.preprocessing-step-body .preprocessing-documentation-panel {
-  margin-bottom: 12px;
+.preprocessing-state-mini.state-default,
+.preprocessing-state-chip.state-default {
+  background: rgba(43, 51, 233, 0.06);
+  border-color: rgba(43, 51, 233, 0.18);
+  color: var(--primary-color, #2B33E9);
 }
 
 .preprocessing-shell .success-message.glass-feedback {
   margin: 0;
-  border-radius: 0;
-  border-top: 1px solid rgba(127, 156, 232, 0.1);
 }
 
 .preprocessing-workspace {
   margin-top: 0;
-  gap: 0;
-  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
-  border: 1px solid rgba(127, 156, 232, 0.14);
-  border-radius: 12px;
-  overflow: hidden;
-  background: #fff;
-}
-
-.preprocessing-workspace .statistics-browser,
-.preprocessing-workspace .preprocessing-browser {
-  max-height: 460px;
-  padding: 14px 16px;
-  border: 0;
-  border-right: 1px solid rgba(127, 156, 232, 0.12);
-  border-radius: 0;
-  background: rgba(248, 251, 255, 0.72);
-  box-shadow: none;
+  /* Only the column width is local — the shared .statistics-workspace rule now
+     owns the single-card shell, the tonal rail pane and the transparent panel. */
+  grid-template-columns: minmax(224px, 288px) minmax(0, 1fr);
 }
 
 .preprocessing-workspace .statistics-panel,
 .preprocessing-workspace .preprocessing-detail-panel,
 .preprocessing-workspace .preprocessing-detail-column {
-  min-width: 0;
   padding: 16px;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
 }
 
 .preprocessing-workspace .statistics-panel-header {
   margin-bottom: 12px;
   padding-bottom: 12px;
-  border-bottom: 1px solid rgba(127, 156, 232, 0.1);
+  border-bottom: 1px solid var(--studio-card-border);
 }
 
 .preprocessing-workspace .statistics-panel-header .preprocessing-state-chip {
@@ -1380,52 +1350,13 @@ select:required:valid {
   flex-direction: column;
   gap: 12px;
   padding: 14px 16px 16px;
-  border-top: 1px solid rgba(127, 156, 232, 0.1);
-  background: rgba(248, 251, 255, 0.45);
-}
-
-.outlier-preview-action-row,
-.preprocessing-action-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 14px;
-  border-radius: 10px;
-  border: 1px solid rgba(127, 156, 232, 0.12);
-  background: rgba(248, 251, 255, 0.72);
-}
-
-.outlier-preview-action-row.has-pending,
-.preprocessing-action-row.has-pending {
-  border-color: rgba(43, 51, 233, 0.25);
-  background: rgba(243, 245, 255, 0.85);
-}
-
-.preprocessing-action-row.is-all-set {
-  border-color: color-mix(in srgb, #166534 18%, transparent);
-  background: rgba(223, 239, 228, 0.72);
-}
-
-.preprocessing-action-row {
-  margin-top: 0;
-  border: 0;
-  border-top: 1px solid rgba(127, 156, 232, 0.14);
-  border-radius: 0;
-  padding: 14px 18px;
-  background: rgba(255, 255, 255, 0.58);
+  border-top: 1px solid var(--studio-card-border);
+  background: var(--studio-card-header-bg);
 }
 
 @media (max-width: 768px) {
   .preprocessing-workspace {
     grid-template-columns: 1fr;
-  }
-
-  .preprocessing-workspace .statistics-browser,
-  .preprocessing-workspace .preprocessing-browser {
-    max-height: 280px;
-    border-right: 0;
-    border-bottom: 1px solid rgba(127, 156, 232, 0.12);
   }
 
   .preprocessing-workspace .statistics-panel-header .preprocessing-state-chip {
@@ -1462,31 +1393,6 @@ select:required:valid {
   user-select: none;
 }
 
-.documentation-trigger {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 32px;
-  padding: 6px 12px 6px 10px;
-  border: 0;
-  border-radius: 999px;
-  background: transparent;
-  box-shadow: none;
-  transition: background 0.2s ease;
-}
-
-.documentation-summary:hover .documentation-trigger,
-.documentation-summary:focus-visible .documentation-trigger {
-  background: rgba(43, 51, 233, 0.06);
-  outline: none;
-}
-
-.documentation-trigger > i:first-child {
-  font-size: 0.8rem;
-  color: var(--primary-color, #2b33e9);
-  opacity: 0.9;
-}
-
 .documentation-label {
   font-family: inherit;
   font-size: 0.78rem;
@@ -1499,16 +1405,12 @@ select:required:valid {
 .documentation-chevron {
   font-size: 0.62rem;
   color: #64748b;
-  transition: transform 0.24s cubic-bezier(0.34, 1.2, 0.64, 1);
+  transition: transform 0.24s var(--ease-standard);
 }
 
 .documentation-panel[open] .documentation-chevron {
   transform: rotate(180deg);
   color: var(--primary-color);
-}
-
-.documentation-panel[open] .documentation-trigger {
-  background: rgba(43, 51, 233, 0.06);
 }
 
 .documentation-panel[open] .documentation-label {
@@ -1532,18 +1434,9 @@ select:required:valid {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Algorithm panel workspace layout */
-.experiment-panel-header-inner {
-  display: block;
-}
-
-.experiment-panel-header-main {
-  min-width: 0;
-}
-
 .experiment-panel-workspace {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
+  grid-template-columns: minmax(0, 1fr);
   gap: 20px;
   padding: 14px;
   align-items: start;
@@ -1553,199 +1446,8 @@ select:required:valid {
   min-width: 0;
 }
 
-.experiment-summary-aside {
-  position: sticky;
-  top: calc(var(--header-height, 64px) + 12px);
-  display: flex;
-  flex-direction: column;
-  max-height: calc(100vh - var(--header-height, 64px) - 48px);
-  padding: 14px 16px 16px;
-  border-radius: 16px;
-  border: 1px solid rgba(127, 156, 232, 0.22);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 251, 255, 0.96) 100%);
-  box-shadow:
-    0 10px 26px rgba(43, 51, 233, 0.06),
-    inset 0 1px 0 rgba(255, 255, 255, 0.85);
-}
-
-.summary-aside-header {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding-bottom: 12px;
-  margin-bottom: 4px;
-  border-bottom: 1px solid rgba(127, 156, 232, 0.16);
-}
-
-.summary-aside-header-icon {
-  flex: 0 0 36px;
-  width: 36px;
-  height: 36px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 10px;
-  background: linear-gradient(135deg, rgba(43, 51, 233, 0.12), rgba(127, 156, 232, 0.2));
-  color: var(--primary-color);
-  box-shadow: inset 0 0 0 1px rgba(43, 51, 233, 0.1);
-}
-
-.summary-aside-header-icon i {
-  font-size: 0.95rem;
-}
-
-.summary-aside-header-copy {
-  min-width: 0;
-}
-
-.summary-aside-header h3 {
-  margin: 0;
-  font-size: 0.94rem;
-  font-weight: 700;
-  color: #0f172a;
-  line-height: 1.25;
-}
-
-.summary-aside-header p {
-  margin: 4px 0 0;
-  font-size: 0.76rem;
-  line-height: 1.45;
-  color: #64748b;
-}
-
-.experiment-panel .summary-fields,
-.experiment-info-panel .summary-fields {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  padding-right: 2px;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(127, 156, 232, 0.45) transparent;
-}
-
-.experiment-panel .summary-fields::-webkit-scrollbar,
-.experiment-info-panel .summary-fields::-webkit-scrollbar {
-  width: 6px;
-}
-
-.experiment-panel .summary-fields::-webkit-scrollbar-thumb,
-.experiment-info-panel .summary-fields::-webkit-scrollbar-thumb {
-  border-radius: 999px;
-  background: rgba(127, 156, 232, 0.4);
-}
-
-.experiment-info-panel .summary-fields {
-  max-height: min(360px, calc(100vh - 220px));
-}
-
-.experiment-panel .summary-field {
-  padding: 12px 0;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.14);
-}
-
-.experiment-panel .summary-field:last-child {
-  border-bottom: 0;
-  padding-bottom: 0;
-}
-
-.experiment-panel .summary-field-label {
-  margin: 0 0 8px;
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-  color: #64748b;
-}
-
-.experiment-panel .summary-field-value {
-  min-width: 0;
-}
-
-.experiment-panel .summary-chip-group {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.experiment-panel .summary-chip-group--compact {
-  gap: 5px;
-}
-
-.experiment-panel .summary-chip {
-  display: inline-flex;
-  align-items: center;
-  max-width: 100%;
-  padding: 4px 10px;
-  border-radius: 999px;
-  border: 1px solid rgba(127, 156, 232, 0.3);
-  background: rgba(43, 51, 233, 0.07);
-  color: #1e293b;
-  font-size: 0.74rem;
-  font-weight: 600;
-  line-height: 1.3;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  overflow: hidden;
-}
-
-.experiment-panel .summary-chip--muted {
-  background: rgba(127, 156, 232, 0.12);
-  border-color: rgba(127, 156, 232, 0.28);
-}
-
-.experiment-panel .summary-chip--outline {
-  background: #fff;
-  border-style: solid;
-}
-
-.experiment-panel .summary-chip--detail {
-  white-space: normal;
-  text-overflow: unset;
-  overflow: visible;
-  font-size: 0.72rem;
-  font-weight: 500;
-  line-height: 1.35;
-  border-radius: 8px;
-  padding: 5px 8px;
-}
-
-.experiment-panel .summary-empty {
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 10px;
-  border-radius: 999px;
-  border: 1px dashed rgba(148, 163, 184, 0.45);
-  background: rgba(248, 250, 252, 0.95);
-  color: #94a3b8;
-  font-size: 0.74rem;
-  font-weight: 500;
-}
-
-.experiment-panel .summary-preprocessing-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.experiment-panel .summary-preprocessing-step {
-  padding: 10px;
-  border-radius: 10px;
-  border: 1px solid rgba(127, 156, 232, 0.18);
-  background: rgba(255, 255, 255, 0.78);
-}
-
-.experiment-panel .summary-preprocessing-step-title {
-  display: block;
-  margin-bottom: 6px;
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--primary-color);
-}
-
 .experiment-panel-workspace--result {
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
   align-items: start;
 }
 
@@ -1821,7 +1523,6 @@ select:required:valid {
 }
 
 .studio-settings-block--alert {
-  border-left: 4px solid #f59e0b;
   border-color: rgba(245, 158, 11, 0.35);
   background: linear-gradient(180deg, #fffbeb 0%, #fff7ed 100%);
   color: #92400e;
@@ -1871,14 +1572,118 @@ select:required:valid {
   outline-offset: 2px;
 }
 
+/* STUDIO UNIFIED EXPORT CONTROLS */
+.studio-export-btn {
+  appearance: none;
+  -webkit-appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 26px;
+  padding: 4px 10px;
+  border: 1px solid rgba(127, 156, 232, 0.35);
+  border-radius: 6px;
+  background: rgba(43, 51, 233, 0.06);
+  box-shadow: none;
+  color: var(--primary-color, #2b33e9);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  white-space: nowrap;
+  transition: color 0.16s ease, background-color 0.16s ease, border-color 0.16s ease, transform 0.12s ease;
+}
+
+.studio-export-btn i {
+  font-size: 0.75rem;
+  color: inherit;
+}
+
+.studio-export-btn:hover:not(:disabled),
+.studio-export-btn[aria-expanded="true"]:not(:disabled) {
+  background: rgba(43, 51, 233, 0.1);
+  border-color: rgba(43, 51, 233, 0.45);
+  color: var(--primary-color, #2b33e9);
+  outline: none;
+  box-shadow: none;
+}
+
+.studio-export-btn:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 1px;
+}
+
+.studio-export-btn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.studio-export-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.studio-export-btn:disabled i {
+  color: inherit;
+}
+
+.studio-export-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 4;
+  min-width: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 3px;
+  border: 1px solid rgba(127, 156, 232, 0.35);
+  border-radius: 6px;
+  background: #ffffff;
+  box-shadow: 0 4px 12px rgba(43, 51, 233, 0.12);
+}
+
+.studio-export-menu-item {
+  appearance: none;
+  -webkit-appearance: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 24px;
+  padding: 0 8px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: #475569;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  white-space: nowrap;
+  transition: color 0.16s ease, background-color 0.16s ease;
+}
+
+.studio-export-menu-item i {
+  font-size: 0.72rem;
+  color: inherit;
+}
+
+.studio-export-menu-item:hover,
+.studio-export-menu-item:focus-visible {
+  background: rgba(43, 51, 233, 0.08);
+  color: var(--primary-color, #2b33e9);
+  outline: none;
+}
+
+
 @media (max-width: 1100px) {
   .experiment-panel-workspace {
     grid-template-columns: minmax(0, 1fr);
-  }
-
-  .experiment-summary-aside {
-    position: static;
-    order: 2;
   }
 
   .experiment-panel-main {

@@ -1,10 +1,11 @@
 import { Injectable } from '@angular/core';
 import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
 import autoTable from 'jspdf-autotable';
-import { AlgorithmTableRegistry, TableSpec } from '../pages/experiment-studio/visualisations/auto-renderer/algorithm-table-registry';
+import { captureHtmlToPng, renderMipVersion } from '../core/pdf.utils';
+import { prettifyLabel } from '../core/algorithm-mappers';
+import { getAlgorithmTableBuilder, TableSpec } from '../pages/experiment-studio/visualisations/auto-renderer/algorithm-table-registry';
 
-export interface ExperimentPdfDetails {
+interface ExperimentPdfDetails {
   experimentName: string;
   createdBy?: string | null;
   createdAt?: Date | string | null;
@@ -21,7 +22,7 @@ export interface ExperimentPdfDetails {
   mipVersion?: string | null;
 }
 
-export interface ExperimentPdfPayload {
+interface ExperimentPdfPayload {
   filename: string;
   details: ExperimentPdfDetails;
   algorithmKey?: string | null;
@@ -114,10 +115,11 @@ export class ResultsPdfExportService {
     });
 
     if (payload.details.mipVersion) {
-      this.renderMipVersion(doc, payload.details.mipVersion, {
+      renderMipVersion(doc, payload.details.mipVersion, {
         pageWidth,
         pageHeight,
-        margin,
+        right: margin.right,
+        bottom: margin.bottom + 2,
       });
     }
 
@@ -497,7 +499,7 @@ export class ResultsPdfExportService {
   private formatParams(params?: Record<string, unknown> | null): string[] {
     if (!params || Object.keys(params).length === 0) return [];
     return Object.entries(params).map(([key, value]) => {
-      const prettyKey = this.prettyLabel(key);
+      const prettyKey = prettifyLabel(key);
       return `${prettyKey}: ${this.formatValue(value)}`;
     });
   }
@@ -519,13 +521,9 @@ export class ResultsPdfExportService {
     }
   }
 
-  private prettyLabel(label: string): string {
-    return label.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-  }
-
   private getTablesForAlgorithm(algorithmKey?: string | null, result?: any): TableSpec[] {
     if (!algorithmKey || !result) return [];
-    const builder = AlgorithmTableRegistry[algorithmKey];
+    const builder = getAlgorithmTableBuilder(algorithmKey);
     if (!builder) return [];
     try {
       return builder(result) || [];
@@ -546,12 +544,7 @@ export class ResultsPdfExportService {
     const images: string[] = [];
     for (const el of chartElements) {
       try {
-        const canvas = await html2canvas(el, {
-          backgroundColor: '#ffffff',
-          scale: 2,
-          useCORS: true,
-        });
-        images.push(canvas.toDataURL('image/png'));
+        images.push((await captureHtmlToPng(el, 2)).dataUrl);
       } catch (error) {
         console.warn('[PdfExportService] Chart capture failed', error);
       }
@@ -592,30 +585,5 @@ export class ResultsPdfExportService {
 
   private formatTimestamp(date: Date): string {
     return date.toLocaleString();
-  }
-
-  private renderMipVersion(
-    doc: jsPDF,
-    version: string,
-    options: {
-      pageWidth: number;
-      pageHeight: number;
-      margin: { left: number; right: number; bottom: number };
-    }
-  ): void {
-    const { pageWidth, pageHeight, margin } = options;
-    const totalPages = (doc as any).getNumberOfPages();
-    doc.setPage(totalPages);
-
-    doc.setFont('helvetica', 'italic');
-    doc.setFontSize(9);
-    doc.setTextColor(150);
-
-    const versionText = `MIP Version: ${version}`;
-    const textWidth = doc.getTextWidth(versionText);
-    const x = pageWidth - margin.right - textWidth;
-    const y = pageHeight - margin.bottom - 2; // Just above the footer line or timestamp
-
-    doc.text(versionText, x, y);
   }
 }

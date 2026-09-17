@@ -1,5 +1,47 @@
-<div class="experiment-studio-page full-bleed premium-page" id="studio-top"
+<div class="experiment-studio-page full-bleed" id="studio-top"
   [class.has-pathology-warning]="!!visiblePathologyAccessWarning()">
+
+  <div class="studio-sub-header">
+    <div class="sub-header-inner">
+      @if (previousSection(); as prev) {
+      <button
+        type="button"
+        class="sub-header-prev"
+        [title]="backLabel()"
+        [attr.aria-label]="backLabel()"
+        (click)="onBackClick()"
+      >
+        <i class="fas fa-chevron-left" aria-hidden="true"></i>
+      </button>
+      } @else {
+      <div class="sub-header-prev-placeholder" aria-hidden="true"></div>
+      }
+
+      <app-studio-stepper></app-studio-stepper>
+
+      @if (activeSection() !== 'execution-section') {
+      <button
+        type="button"
+        class="sub-header-cta"
+        [class.is-run]="isAlgorithmActive()"
+        [disabled]="!canContinue()"
+        [attr.aria-disabled]="!canContinue()"
+        [title]="ctaDisabledReason()"
+        [attr.data-guide]="isAlgorithmActive() ? 'run-experiment' : null"
+        (click)="onCtaClick()"
+      >
+        <span>{{ ctaLabel() }}</span>
+        @if (isRunning()) {
+          <i class="fas fa-spinner fa-spin" aria-hidden="true"></i>
+        } @else if (isAlgorithmActive()) {
+          <i class="fas fa-play" aria-hidden="true"></i>
+        } @else {
+          <i class="fas fa-arrow-right" aria-hidden="true"></i>
+        }
+      </button>
+      }
+    </div>
+  </div>
 
   @if (visiblePathologyAccessWarning(); as warning) {
   <div class="pathology-warning-banner" role="status" aria-live="polite" aria-atomic="true">
@@ -30,126 +72,40 @@
   }
 
   <div class="studio-inner studio-layout">
-    <nav class="studio-sidenav" [class.is-collapsed]="sidebarCollapsed()" aria-label="Studio navigation"
-      data-guide="studio-navigation" (mouseleave)="clearRailPreview()">
-      <div class="studio-rail-context">
-        <div class="studio-rail-context-title">Experiment Studio</div>
-        <a class="studio-rail-context-link" routerLink="/experiments-dashboard"
-          [attr.title]="sidebarCollapsed() ? 'Back to dashboard' : null">
-          <i class="fas fa-arrow-left"></i>
-          <span class="studio-rail-context-text">Back to dashboard</span>
-        </a>
+    <div class="studio-main">
+      <!-- Visually-hidden live region for the once-per-unlock announcement. -->
+      <div class="studio-sr-only" aria-live="polite">
+        @if (unlockAnnouncement(); as announcement) {
+        <span>{{ announcement }}</span>
+        }
       </div>
 
-
-
-      <div class="studio-rail-scroll">
-        <div class="studio-rail-section">
-          <div class="studio-rail-section-title"
-            [class.is-active]="effectiveSection() === 'variables-top'">
-            Studio
-          </div>
-          <a routerLink="." [fragment]="'variables-top'" queryParamsHandling="preserve" class="studio-rail-item"
-            [class.is-active]="activeSection() === 'variables-top'"
-            [class.is-preview]="hoveredSection() === 'variables-top' && activeSection() !== 'variables-top'"
-            (mouseenter)="previewRailSection('variables-top')"
-            (click)="commitRailSection('variables-top')"
-            [attr.aria-current]="activeSection() === 'variables-top' ? 'page' : null">
-            <span class="studio-rail-icon"><i class="fas fa-database"></i></span>
-            <span class="studio-rail-label">Datasets & Variables</span>
-          </a>
-        </div>
-
-        <div class="studio-rail-section">
-          <div class="studio-rail-section-title"
-            [class.is-active]="effectiveSection() === 'statistics-section' || effectiveSection() === 'algorithm-section'">
-            Analysis
-          </div>
-          <a routerLink="." [fragment]="'statistics-section'" queryParamsHandling="preserve" class="studio-rail-item"
-            [class.is-active]="activeSection() === 'statistics-section'"
-            [class.is-preview]="hoveredSection() === 'statistics-section' && activeSection() !== 'statistics-section'"
-            [class.is-muted]="!isDataReviewReady()"
-            (mouseenter)="previewRailSection('statistics-section')"
-            (click)="commitRailSection('statistics-section')"
-            [attr.aria-current]="activeSection() === 'statistics-section' ? 'page' : null">
-            <span class="studio-rail-icon"><i class="fas fa-chart-line"></i></span>
-            <span class="studio-rail-label">Data review & preprocessing</span>
-          </a>
-          @if (activeSection() === 'statistics-section') {
-          <div class="studio-descriptive-progress" aria-label="Data review and preprocessing progress">
-            <button
-              type="button"
-              class="studio-progress-step"
-              [class.is-active]="expStudioService.selectedFilters().length > 0 || !!expStudioService.filterLogic()"
-              (click)="goToDescriptiveStep('filters')"
-            >
-              <span class="studio-progress-num">1</span>
-              <span class="studio-progress-label">Filtering</span>
-            </button>
-            <button type="button" class="studio-progress-step is-active" (click)="goToDescriptiveStep('raw')">
-              <span class="studio-progress-num">2</span>
-              <span class="studio-progress-label">Raw Data Summary</span>
-            </button>
-            <button
-              type="button"
-              class="studio-progress-step"
-              [class.is-active]="descriptiveProgress().pendingChangeCount > 0 || descriptiveProgress().preprocessingStatus === 'applied'"
-              (click)="goToDescriptiveStep('setup')"
-            >
-              <span class="studio-progress-num">3</span>
-              <span class="studio-progress-label">Preprocessing</span>
-            </button>
-            <button
-              type="button"
-              class="studio-progress-step"
-              [class.is-active]="descriptiveProgress().preprocessingStatus === 'applied'"
-              (click)="goToDescriptiveStep('processed')"
-            >
-              <span class="studio-progress-num">4</span>
-              <span class="studio-progress-label">Processed Summary</span>
-            </button>
-          </div>
-          }
-          <a routerLink="." [fragment]="'algorithm-section'" queryParamsHandling="preserve" class="studio-rail-item"
-            [class.is-active]="activeSection() === 'algorithm-section'"
-            [class.is-preview]="hoveredSection() === 'algorithm-section' && activeSection() !== 'algorithm-section'"
-            [class.is-muted]="!isAlgorithmReady()"
-            (mouseenter)="previewRailSection('algorithm-section')"
-            (click)="commitRailSection('algorithm-section')"
-            [attr.aria-current]="activeSection() === 'algorithm-section' ? 'page' : null">
-            <span class="studio-rail-icon"><i class="fas fa-cogs"></i></span>
-            <span class="studio-rail-label">Algorithm</span>
-          </a>
-        </div>
-      </div>
-
-    </nav>
-
-    <div class="studio-main" [class.sidebar-collapsed]="sidebarCollapsed()">
-      <!-- TOP: Variables -->
+      <!-- VIEW: Variables -->
       <section
-        id="variables-top"
         class="studio-section studio-section--variables"
-        [class.is-current]="effectiveSection() === 'variables-top' || (!hoveredSection() && !isDataReviewReady())"
+        [class.is-visible]="activeSection() === 'variables-top'"
         [class.is-complete]="isDataReviewReady()"
       >
         <app-variables-panel></app-variables-panel>
       </section>
 
+      <!-- VIEW: Statistics -->
       <section
         class="studio-section studio-section--statistics"
-        id="statistics-section"
-        [class.is-muted]="!isDataReviewReady()"
-        [class.is-current]="effectiveSection() === 'statistics-section'"
+        [class.is-visible]="activeSection() === 'statistics-section'"
         [class.is-complete]="descriptiveProgress().preprocessingStatus === 'applied'"
       >
+        <app-statistic-analysis-panel (progressStateChange)="descriptiveProgress.set($event)"></app-statistic-analysis-panel>
         @if (!isDataReviewReady()) {
-        <div class="studio-section-state-note" aria-hidden="true">
-          <i class="fas fa-lock"></i>
-          <span>Select at least one variable or covariate to activate data review.</span>
+        <div class="studio-section-empty-state studio-section-empty-state--overlay">
+          <div class="studio-section-empty-icon"><i class="fas fa-chart-line"></i></div>
+          <h3>Data handling</h3>
+          <p>Select at least one variable to activate data handling.</p>
+          <button type="button" class="studio-section-empty-action" (click)="switchSection('variables-top')">
+            Back to Datasets &amp; Variables
+          </button>
         </div>
         }
-        <app-statistic-analysis-panel (progressStateChange)="descriptiveProgress.set($event)"></app-statistic-analysis-panel>
       </section>
 
       @if (dataExclusionWarnings().length > 0) {
@@ -158,39 +114,53 @@
           <div class="banner-content">
             <i class="fas fa-exclamation-triangle"></i>
             <div class="warning-content">
-              <div class="warning-title">Data Exclusion Warning</div>
-              <ul>
-                @for (warning of dataExclusionWarnings(); track warning) {
-                <li>{{ warning }}</li>
-                }
-              </ul>
+              <span class="warning-heading">Excluded datasets:</span>
+              <span>
+                {{ dataExclusionWarnings().join(', ') }}
+              </span>
             </div>
           </div>
-          <button type="button" class="banner-close" (click)="dismissDataExclusionWarnings()">
+          <button type="button" class="banner-close" (click)="dismissDataExclusionWarnings()" aria-label="Dismiss warning">
             &times;
           </button>
         </div>
       </section>
       }
 
-      <!-- BOTTOM: Algorithm -->
+      <!-- VIEW: Algorithm -->
       <section
         class="studio-section studio-section--algorithm"
-        id="algorithm-section"
-        data-guide="experiment-section"
-        [class.is-muted]="!isAlgorithmReady()"
-        [class.is-current]="effectiveSection() === 'algorithm-section'"
+        [class.is-visible]="activeSection() === 'algorithm-section'"
+        [class.is-complete]="!!selectedAlgorithm()"
       >
+        <app-algorithm-panel></app-algorithm-panel>
         @if (!isAlgorithmReady()) {
-        <div class="studio-section-state-note" aria-hidden="true">
-          <i class="fas fa-lock"></i>
-          <span>Algorithm configuration becomes relevant after variable selection.</span>
+        <div class="studio-section-empty-state studio-section-empty-state--overlay">
+          <div class="studio-section-empty-icon"><i class="fas fa-microscope"></i></div>
+          <h3>Algorithm selection &amp; run</h3>
+          <p>Select at least one variable to activate algorithm configuration.</p>
+          <button type="button" class="studio-section-empty-action" (click)="switchSection('variables-top')">
+            Back to Datasets &amp; Variables
+          </button>
         </div>
         }
-        <app-algorithm-panel></app-algorithm-panel>
+      </section>
+
+      <!-- VIEW: Execution -->
+      <section
+        class="studio-section studio-section--execution"
+        [class.is-visible]="activeSection() === 'execution-section'"
+        [class.is-complete]="!!runResult()"
+      >
+        <app-execution-panel
+          (saveAs)="algorithmPanel()?.onSaveAs($event)"
+          (exportPdf)="algorithmPanel()?.onExportResult($event)"
+        ></app-execution-panel>
       </section>
     </div>
   </div>
 
-  <app-experiment-studio-guide></app-experiment-studio-guide>
+  <app-experiment-studio-guide
+    [activateGuideTarget]="activateGuideTarget"
+  ></app-experiment-studio-guide>
 </div>

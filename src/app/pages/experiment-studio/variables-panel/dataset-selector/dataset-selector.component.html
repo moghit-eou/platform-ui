@@ -1,27 +1,61 @@
-<div class="dataset-selector" data-guide="dataset-selector">
-  <label class="control-label">Datasets</label>
-  <div class="dataset-control">
-    <button class="dataset-btn" (click)="toggleDropdown()">
-      <span class="dataset-btn-label">Datasets</span>
-      <span class="dataset-count">{{ selectedDatasets.size }}</span>
-    </button>
+<div class="studio-chip-group dataset-selector-group" data-guide="dataset-selector">
+  <div class="selector-section-header">
+    <div class="selector-title-wrapper">
+      <span class="studio-chip-label" id="datasetsLabel">Datasets</span>
+      <span class="dataset-counter-badge">{{ selectedCount() }}/{{ totalCount() }}</span>
+    </div>
+
+    @if (totalCount() > 0) {
+    <div class="dataset-quick-actions">
+      @if (selectedCount() < totalCount()) {
+      <button
+        type="button"
+        class="dataset-action-link"
+        (click)="selectAll()"
+        title="Select all datasets"
+      >
+        Select all
+      </button>
+      }
+      @if (selectedCount() > 0) {
+      <button
+        type="button"
+        class="dataset-action-link dataset-action-link--clear"
+        (click)="clearAll()"
+        title="Clear selected datasets"
+      >
+        Clear
+      </button>
+      }
+    </div>
+    }
   </div>
 
-  <!-- Dropdown menu -->
-  @if (isDropdownOpen) {
-    <ul class="dataset-dropdown-menu">
-      @for (dataset of datasets(); track dataset) {
-        <li>
-          <label>
-            <input
-              type="checkbox"
-              [checked]="isDatasetSelected(dataset.code)"
-              (change)="toggleDataset(dataset.code)"
-            />
-            {{ dataset.label }}
-          </label>
-        </li>
-      }
-    </ul>
-  }
+  <div
+    class="studio-chip-row dataset-list-container"
+    role="group"
+    aria-labelledby="datasetsLabel"
+  >
+    @for (dataset of datasets(); track dataset.code) {
+    <button
+      type="button"
+      class="studio-chip dataset-item-btn"
+      [class.is-selected]="isDatasetSelected(dataset.code)"
+      [attr.aria-pressed]="isDatasetSelected(dataset.code)"
+      (click)="toggleDataset(dataset.code)"
+      [title]="dataset.label"
+    >
+      <span class="dataset-checkbox-box" aria-hidden="true">
+        @if (isDatasetSelected(dataset.code)) {
+          <i class="fas fa-check"></i>
+        }
+      </span>
+      <span class="dataset-item-label">{{ dataset.label }}</span>
+    </button>
+    } @empty {
+    <div class="dataset-empty-state">
+      <span>No datasets available for this pathology</span>
+    </div>
+    }
+  </div>
 </div>

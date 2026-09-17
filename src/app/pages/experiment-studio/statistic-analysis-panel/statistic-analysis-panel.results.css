@@ -1,0 +1,522 @@
+/* Shared controls and result surfaces of the Data review step: the toggle
+   switch, the federated-data note, the descriptive/data tables, the statistics
+   browser, the chart-export-only containers, the transformation station and the
+   responsive overrides for all three files.
+   Second split of statistic-analysis-panel.component.css (see
+   statistic-analysis-panel.preprocessing.css for the reason and the cascade
+   order). This file is LAST in the styleUrl array, which is why the responsive
+   overrides live here. */
+
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+}
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+/* The input is invisible and zero-sized, and styles.css excludes checkboxes from
+   the studio focus rule, so nothing else can draw the ring. Put it on the slider
+   (the element the user actually sees) with a solid token-coloured outline. */
+.toggle-switch input:focus-visible + .toggle-slider {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  /* OFF must read as a control and as "not on": the old near-white fill hit 1.2:1. */
+  background: color-mix(in srgb, var(--text-muted) 22%, white);
+  transition:
+    background 0.22s ease,
+    border-color 0.22s ease,
+    box-shadow 0.22s ease;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--text-muted) 75%, transparent);
+}
+.toggle-slider:before {
+  content: "";
+  position: absolute;
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  top: 2.5px;
+  background: var(--card-bg);
+  border-radius: 50%;
+  transition:
+    transform 0.22s var(--ease-standard),
+    box-shadow 0.22s ease;
+  /* Ring keeps the knob legible on both the OFF and ON track. */
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.18), inset 0 0 0 1px rgba(15, 23, 42, 0.12);
+}
+.toggle-switch input:checked + .toggle-slider {
+  /* Flat primary: every other studio gradient is a near-white surface wash, and
+     a two-stop brand ramp is invisible on a 44x24 track anyway. */
+  background: var(--primary-color);
+  border-color: rgba(43,51,233,0.24);
+  box-shadow: 0 5px 14px color-mix(in srgb, var(--primary-color) 22%, transparent);
+}
+.toggle-switch input:checked + .toggle-slider:before {
+  transform: translateX(20px);
+}
+
+.row-error {
+  margin-top: 5px;
+  color: #b91c1c;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-align: left;
+}
+
+.table-input:disabled,
+.table-select:disabled,
+button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.table-input:disabled,
+.table-select:disabled {
+  background: color-mix(in srgb, var(--text-muted) 6%, white 94%);
+  border-color: color-mix(in srgb, var(--text-muted) 12%, transparent);
+  color: color-mix(in srgb, var(--text-muted) 74%, white 26%);
+}
+
+
+.federated-info-note {
+  background: rgba(43,51,233,0.06);
+  color: var(--text-main);
+  padding: 10px;
+  margin-bottom: 15px;
+  border: 1px solid color-mix(in srgb, var(--primary-color) 22%, transparent);
+  border-radius: var(--radius-sm, 4px);
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.federated-info-note i {
+  color: var(--primary-color);
+  font-size: 1.05rem;
+}
+
+.table-wrapper {
+  padding: 10px 12px 12px;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: var(--card-bg);
+  border: 1px solid var(--studio-card-border, rgba(43, 51, 233, 0.1));
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.data-table th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: color-mix(in srgb, var(--primary-light) 13%, white 87%);
+  color: var(--text-muted);
+  text-align: center;
+  padding: 10px 14px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-bottom: 1px solid color-mix(in srgb, var(--primary-color) 14%, transparent);
+  box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--primary-color) 14%, transparent);
+}
+
+.data-table td {
+  text-align: center;
+  padding: 14px 16px;
+  font-size: 0.85rem;
+  color: var(--text-main);
+  border-bottom: 1px solid var(--border-color, rgba(43, 51, 233, 0.1));
+  font-variant-numeric: tabular-nums;
+}
+
+.data-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.data-table tbody tr:hover {
+  background-color: rgba(43, 51, 233, 0.03);
+  transition: background-color 0.2s ease;
+}
+
+.data-table td:first-child,
+.metric-cell {
+  font-weight: 600;
+  color: var(--text-muted);
+  text-align: left;
+  padding-left: 16px;
+}
+
+.statistics-table th:not(:first-child),
+.statistics-table td:not(:first-child) {
+  text-align: right;
+}
+
+.statistics-table td:not(:first-child) {
+  color: var(--text-main);
+  /* Twelve rows of semibold digits emphasise nothing. Values read at 400 so the
+     pooled column and the metric labels are what carry weight. */
+  font-weight: 400;
+}
+
+/* The rollup is the column a reader is scanning for; it keeps the emphasis the
+   per-dataset columns just gave up. :not() keeps it above the rule above. */
+.statistics-table td.statistics-col-rollup:not(:first-child) {
+  font-weight: 600;
+}
+
+/* Targets .metric-cell, not td:first-child: the group heading row is a
+   colspan first child too, and a :first-child rule outranks the group's own
+   700 and flattens COVERAGE / DISTRIBUTION into the row labels. */
+.statistics-table td.metric-cell {
+  font-weight: 500;
+}
+
+/* The global rule for this row loses to .data-table td:first-child (the group
+   row is a colspan first child), so 700 was declared here and never applied.
+   Declared in this file so it actually wins. */
+.statistics-table tr.statistics-metric-group td {
+  font-weight: 700;
+}
+
+.statistics-table-wrapper.statistics-table-wrapper--numeric {
+  max-height: none;
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
+.statistics-table-wrapper--numeric .statistics-table th {
+  padding: 7px 12px;
+  line-height: 1.2;
+}
+
+.statistics-table-wrapper--numeric .statistics-table td {
+  padding: 9px 12px;
+  line-height: 1.25;
+}
+
+.statistics-table-wrapper--numeric .statistics-table td:first-child,
+.statistics-table-wrapper--numeric .metric-cell {
+  padding-left: 14px;
+  white-space: nowrap;
+}
+
+.statistics-table-wrapper--numeric .metric-cell:hover {
+  padding-left: 11px;
+}
+
+.chart-container {
+  width: 100%;
+  max-width: none;
+  min-height: 360px;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid var(--studio-card-border, rgba(43, 51, 233, 0.1));
+  border-radius: 8px;
+  padding: 10px 12px;
+  box-shadow: 0 4px 24px rgba(15, 23, 42, 0.04);
+}
+
+.hidden-charts-for-export {
+  position: fixed;
+  top: -9999px;
+  left: -9999px;
+  width: 900px;
+  height: auto;
+  opacity: 1;
+  pointer-events: none;
+  background: var(--card-bg);
+}
+
+.hidden-charts-for-export app-chart-renderer {
+  width: 800px;
+  height: 500px;
+  display: block;
+}
+
+.pdf-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.8);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 999;
+  font-size: 1.2rem;
+  color: #333;
+  font-weight: 500;
+}
+
+
+@media (max-width: 768px) {
+  .modal-content {
+    border-radius: var(--radius-lg, 12px);
+  }
+
+  .workflow-section-body {
+    padding: 12px;
+  }
+
+
+  .search-inline {
+    max-width: none;
+  }
+
+  .longitudinal-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .visit-controls {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .data-table th,
+  .data-table td {
+    padding: 6px 8px;
+    font-size: 12px;
+  }
+
+}
+
+/* ===== TRANSFORMATION: CREATE CATEGORICAL COLUMN =====
+   Chrome comes from app-station-card / app-station-list-row / app-station-action-bar;
+   only the field and table styling is local. */
+.transformation-create {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Pill tabs reuse existing .modal-tabs styles. */
+/* The two identity fields belong to one decision (what this column is called and
+   what it falls back to), so they share a row instead of stacking as two full-height gaps. */
+.transformation-fields-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.transformation-field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.transformation-field label {
+  color: #1e293b;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.transformation-field input {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 38px;
+  border: 1px solid rgba(43, 51, 233, 0.15);
+  border-radius: var(--radius-md, 8px);
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--text-main);
+  padding: 6px 10px;
+  font-family: inherit;
+  font-size: 0.84rem;
+}
+
+.transformation-field input:focus-visible {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 18%, transparent);
+}
+
+/* Rules heading (weight 800 section label) with its own count and add trigger. */
+.transformation-rules-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  color: var(--text-main);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.transformation-rules-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.transformation-rules-title > i {
+  color: var(--primary-color);
+  font-size: 0.82rem;
+  opacity: 0.85;
+}
+
+/* Same count-chip anatomy as .pipeline-status-badge. */
+.transformation-rules-count {
+  padding: 2px 8px;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+}
+
+.btn-add-category {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1.5px solid color-mix(in srgb, var(--primary-color) 35%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--primary-color) 4%, white);
+  color: var(--primary-color);
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.btn-add-category:hover {
+  background: color-mix(in srgb, var(--primary-color) 9%, white);
+  border-color: var(--primary-color);
+  box-shadow: 0 2px 8px rgba(43, 51, 233, 0.1);
+}
+
+.btn-add-category:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.btn-add-category i {
+  font-size: 0.72rem;
+}
+
+/* Empty state (mirrors .empty-filter-group: dashed primary border, horizontal flex) */
+.transformation-empty-rules {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px dashed rgba(43, 51, 233, 0.22);
+  border-radius: var(--radius-lg, 12px);
+  background: color-mix(in srgb, var(--primary-color) 2%, white);
+  color: #64748b;
+  padding: 14px 16px;
+}
+
+.transformation-empty-rules > i {
+  flex: 0 0 auto;
+  color: var(--primary-color);
+  font-size: 0.95rem;
+  opacity: 0.7;
+}
+
+.transformation-empty-rules span {
+  font-size: 0.82rem;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+.transformation-rules {
+  display: grid;
+  gap: 12px;
+}
+
+/* Category rule rows reuse the shared station row chrome; only the accent differs here. */
+.transformation-rule {
+  --group-accent: 100, 128, 225;
+}
+
+.transformation-rule-fields {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+}
+
+.transformation-rule-value {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 38px;
+  border: 1px solid rgba(43, 51, 233, 0.15);
+  border-radius: var(--radius-md, 8px);
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--text-main);
+  padding: 6px 10px;
+  font-family: inherit;
+  font-size: 0.84rem;
+}
+
+.transformation-rule-value:focus-visible {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 18%, transparent);
+}
+
+/* Statistics preview: the card owns the frame, the table owns the rows. */
+.transformation-statistics {
+  display: grid;
+  gap: 12px;
+}
+
+.transformation-stats-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(43, 51, 233, 0.1);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.transformation-stats-table th,
+.transformation-stats-table td {
+  text-align: left;
+  padding: 9px 12px;
+  font-size: 0.82rem;
+  border-bottom: 1px solid var(--border-color, rgba(43, 51, 233, 0.1));
+  font-variant-numeric: tabular-nums;
+}
+
+.transformation-stats-table th {
+  font-weight: 700;
+  color: var(--text-main);
+  background: rgba(248, 250, 252, 0.9);
+}
+
+.transformation-stats-table tr:last-child td {
+  border-bottom: none;
+}
+
+.transformation-stats-table td {
+  color: var(--chart-label-color);
+}
+
+@media (max-width: 768px) {
+  .transformation-empty-rules {
+    align-items: flex-start;
+  }
+}

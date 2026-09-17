@@ -6,9 +6,6 @@ export class NotebookNavService {
 
   readonly hasVisited = signal(this.readVisited());
 
-  hasVisitedNotebook(): boolean {
-    return this.hasVisited();
-  }
 
   markVisited(): void {
     if (this.hasVisited()) {

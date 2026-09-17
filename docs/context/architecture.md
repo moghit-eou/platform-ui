@@ -1,7 +1,7 @@
 # Architecture
 
 ## App Type
-This repository is a single Angular 21 standalone frontend application named `fl-platform`. It is the Platform UI for the Medical Informatics Platform (MIP), used to compose experiments, configure algorithms, access optional notebooks, and review/export results from a backend available under `/services`.
+This repository is a single Angular 22 standalone frontend application named `fl-platform`. It is the Platform UI for the Medical Informatics Platform (MIP), used to compose experiments, configure algorithms, access optional notebooks, and review/export results from a backend available under `/services`.
 
 ## High-Level Structure
 ```mermaid
@@ -36,13 +36,16 @@ flowchart TD
   - `GET /services/activeUser`
   - `POST /services/activeUser/agreeNDA`
   - `GET /services/data-models`
-  - `GET /services/algorithms`
+  - `GET /services/specifications/inputdata`
+  - `GET /services/specifications/preprocessing`
+  - `GET /services/specifications/algorithms`
   - `GET /services/experiments`
   - `GET /services/experiments/:id`
   - `POST /services/experiments`
   - `POST /services/experiments/transient`
   - `PATCH /services/experiments/:id`
   - `DELETE /services/experiments/:id`
+  - `GET|POST|PATCH|DELETE /services/experiment-folders/**` (folders, members, and sets)
 
 ## Authentication and Terms
 - `AuthService` checks the current session with `GET /services/activeUser`.
@@ -75,7 +78,7 @@ flowchart TD
 - PDF exports are split between experiment result export and distribution/descriptive statistics export services.
 
 ## Runtime and Deployment
-- The Dockerfile builds with Node 20 and serves the Angular output with nginx.
+- The Dockerfile builds with Node 22 and serves the Angular output with nginx.
 - `docker-entrypoint.sh` writes `/usr/share/nginx/html/assets/env.js` from runtime environment variables.
 - Runtime env values include backend proxy context/server, MIP version, notebook settings, and guided tutorial defaults.
 - `nginx.conf.template` proxies `/${PLATFORM_BACKEND_CONTEXT}/` to the backend and `/${JUPYTER_CONTEXT}/` to Jupyter only when notebook support is enabled.

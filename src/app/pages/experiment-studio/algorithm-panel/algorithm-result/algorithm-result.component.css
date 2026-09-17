@@ -2,8 +2,7 @@
 
 :host {
   display: block;
-  font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.875rem;
   color: #1f2937;
   padding: 0.75rem 0;
@@ -32,7 +31,7 @@
   margin: 0;
   font-size: 0.95rem;
   font-weight: 700;
-  color: #026d6d;
+  color: var(--primary-color);
   letter-spacing: 0.02em;
 }
 
@@ -66,7 +65,7 @@
 
 .gen-charts h3 {
   font-size: 0.98rem;
-  color: #026d6d;
+  color: var(--primary-color);
   font-weight: 600;
   margin: 0 0 10px;
   letter-spacing: 0.02em;
@@ -133,8 +132,7 @@ td {
   padding: 0.5rem 0.85rem;
   border-bottom: 1px solid #e5ecec;
   white-space: nowrap;
-  font-family: "Roboto Mono", ui-monospace, SFMono-Regular, Menlo, Monaco,
-    Consolas, "Liberation Mono", "Courier New", monospace;
+  font-family: var(--font-mono);
   font-size: 0.82rem;
 }
 

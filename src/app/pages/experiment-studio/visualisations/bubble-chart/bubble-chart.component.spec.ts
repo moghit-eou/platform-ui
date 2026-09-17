@@ -63,9 +63,9 @@ describe('BubbleChartComponent tutorial highlighting', () => {
     expect((component as any).getPendingTutorialHighlightCode()).toBe('sex');
   });
 
-  it('removes the tutorial highlight once the target is added to a role list', () => {
+  it('removes the tutorial highlight once the target is added to the pool', () => {
     guideState.activeStepId.set('add-sex-covariate');
-    setInputs({ selectedCovariates: [{ code: 'sex', label: 'Sex', type: 'text' }] });
+    setInputs({ selectedVariables: [{ code: 'sex', label: 'Sex', type: 'text' }] });
 
     expect((component as any).getPendingTutorialHighlightCode()).toBeNull();
   });
@@ -73,12 +73,22 @@ describe('BubbleChartComponent tutorial highlighting', () => {
   it('keeps Age highlighted until it is added to Variables for the Age add step', () => {
     guideState.activeStepId.set('add-age-variable');
     guideState.expectedTutorialCovariate.set('age');
-    setInputs({ selectedCovariates: [{ code: 'age_value', label: 'Age', type: 'real' }] });
 
     expect((component as any).getPendingTutorialHighlightCode()).toBe('age_value');
 
     setInputs({ selectedVariables: [{ code: 'age_value', label: 'Age', type: 'real' }] });
 
     expect((component as any).getPendingTutorialHighlightCode()).toBeNull();
+  });
+
+  it('hides the In pool legend state while the pool is empty', () => {
+    const legend = fixture.nativeElement.querySelector('.map-legend') as HTMLElement;
+
+    expect(legend.textContent).toContain('Available');
+    expect(legend.textContent).not.toContain('In pool');
+
+    setInputs({ selectedVariables: [{ code: 'age_value', label: 'Age', type: 'real' }] });
+
+    expect(legend.textContent).toContain('In pool');
   });
 });

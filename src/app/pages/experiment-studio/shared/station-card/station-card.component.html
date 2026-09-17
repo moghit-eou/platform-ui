@@ -1,0 +1,48 @@
+<section class="station-card" [class.is-open]="open()">
+  <ng-template #heading>
+    @if (icon()) {
+    <span class="station-card-icon" aria-hidden="true"><i [class]="icon()"></i></span>
+    }
+    <span class="station-card-heading">
+      <span class="station-card-title">{{ title() }}</span>
+      @if (description()) {
+      <span class="station-card-description">{{ description() }}</span>
+      }
+    </span>
+    @if (statusLabel()) {
+    <span
+      class="preprocessing-state-chip"
+      [class.state-pending]="status() === 'pending'"
+      [class.state-applied]="status() === 'applied'"
+      [class.state-default]="status() === 'default'"
+      >{{ statusLabel() }}</span
+    >
+    }
+    @if (collapsible()) {
+    <i class="fas fa-chevron-down station-card-chevron" aria-hidden="true"></i>
+    }
+  </ng-template>
+
+  @if (collapsible() || icon() || title() || description() || statusLabel()) {
+  <div class="station-card-header-row" [class.is-static]="!collapsible()">
+    @if (collapsible()) {
+    <button type="button" class="station-card-header" [attr.aria-expanded]="open()" (click)="openChange.emit(!open())">
+      <ng-container *ngTemplateOutlet="heading"></ng-container>
+    </button>
+    } @else {
+    <div class="station-card-header">
+      <ng-container *ngTemplateOutlet="heading"></ng-container>
+    </div>
+    }
+    <ng-content select="[stationAction]"></ng-content>
+  </div>
+  }
+
+  <div class="station-card-body">
+    <ng-content></ng-content>
+  </div>
+
+  <div class="station-card-footer">
+    <ng-content select="[stationFooter]"></ng-content>
+  </div>
+</section>

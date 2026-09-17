@@ -45,8 +45,10 @@ const EMPTY_METADATA_TREE: D3HierarchyNode = {
 export class OntologyTreeBrowserComponent {
   readonly data = input<D3HierarchyNode | null>(null);
   readonly highlightNode = input<D3HierarchyNode | null>(null);
+  readonly poolVariables = input<D3HierarchyNode[]>([]);
   readonly selectedNodeChange = output<D3HierarchyNode>();
   readonly nodeDoubleClicked = output<D3HierarchyNode>();
+  readonly variablePoolToggle = output<D3HierarchyNode>();
 
   @ViewChildren('treeRowButton') private treeRowButtons?: QueryList<ElementRef<HTMLButtonElement>>;
 
@@ -61,9 +63,15 @@ export class OntologyTreeBrowserComponent {
     const groupId = this.selectedGroupId() ?? index.rootId;
     return index.groupsById[groupId] ?? index.groupsById[index.rootId];
   });
-  readonly selectedVariable = computed(() => {
-    const variableId = this.selectedVariableId();
-    return variableId ? this.index().variablesById[variableId] ?? null : null;
+  /**
+   * Middle-pane heading. Uses the selected group's own name, but when the
+   * selected group is the tree root (the pathology/data-model root) it shows a
+   * neutral "Contents" so the pathology name is not re-headed a third time
+   * (it already appears in the context chip and the tree root).
+   */
+  readonly contentsPaneTitle = computed(() => {
+    const index = this.index();
+    return this.selectedGroup().id === index.rootId ? 'Contents' : this.selectedGroup().label;
   });
   readonly selectedChildGroups = computed(() => {
     const index = this.index();
@@ -96,6 +104,15 @@ export class OntologyTreeBrowserComponent {
     visit(index.groupsById[index.rootId], 0);
     return rows;
   });
+  readonly contentsPaneSubtitle = computed(() => {
+    const group = this.selectedGroup();
+    return `${this.pluralize(group.directGroupCount, 'group')} · ${this.pluralize(group.totalVariableCount, 'variable')}`;
+  });
+
+  pluralize(count: number, singular: string): string {
+    return `${count} ${singular}${count === 1 ? '' : 's'}`;
+  }
+
   constructor() {
     effect(() => {
       const index = this.index();
@@ -201,6 +218,21 @@ export class OntologyTreeBrowserComponent {
 
   isVariableSelected(variableId: string): boolean {
     return this.selectedVariableId() === variableId;
+  }
+
+  isVariableInPool(variable: NormalizedVariableNode): boolean {
+    return this.poolVariables().some((node) => {
+      const code = String(node?.code ?? '');
+      return code !== '' && code === variable.code;
+    });
+  }
+
+  /** Row click selects; a click on the Add/Remove affordance also toggles the pool. */
+  onVariableRowClick(event: MouseEvent, variable: NormalizedVariableNode): void {
+    this.selectVariable(variable);
+    if ((event.target as HTMLElement).closest('.row-add, .row-remove')) {
+      this.variablePoolToggle.emit(variable.original);
+    }
   }
 
   treePadding(depth: number): number {

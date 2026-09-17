@@ -178,25 +178,10 @@ describe('ExperimentStudioService', () => {
     sessionStorage.clear();
   });
 
-  it('resolves legacy histogram_sql catalog entries to histogram', () => {
-    service.setSelectedDataModel(mockDataModel);
-    service.setSelectedDatasets(['ds1']);
-    service.backendAlgorithms.set({
-      histogram_sql: {
-        ...mockHistogramAlgo,
-        name: 'histogram_sql',
-        label: 'Histogram (SQL)',
-      } as any,
-    });
-
-    const body = service.buildRequestBody('histogram', ['var1']);
-
-    expect(body.analysis.algorithm.name).toBe('histogram_sql');
-  });
 
   it('builds request body for histogram with active data model and datasets', () => {
     // Arrange
-    service.setSelectedDataModel(mockDataModel);
+    service.selectedDataModel.set(mockDataModel);
     service.setSelectedDatasets(['ds1']);
 
     // Act
@@ -207,6 +192,7 @@ describe('ExperimentStudioService', () => {
     expect(body.analysis.inputdata.data_model).toBe('dm:1');
     expect(body.analysis.inputdata.datasets).toEqual(['ds1']);
     expect(body.analysis.algorithm.y).toEqual(['var1']);
+    expect(body.analysis.inputdata.variables).toEqual(['var1']);
     expect(body.analysis.inputdata.filters).toBeNull();
     expect(body.analysis.preprocessing).toEqual(preprocessingSteps({
       missing_values_handler: {
@@ -217,8 +203,29 @@ describe('ExperimentStudioService', () => {
     expect(body.mipVersion).toBeUndefined();
   });
 
+  it('includes a previewed histogram variable in inputdata.variables when the pool is empty', () => {
+    service.selectedDataModel.set(mockDataModel);
+    service.setSelectedDatasets(['ds1']);
+
+    const body = service.buildRequestBody('histogram', ['inr']);
+
+    expect(body.analysis.algorithm.y).toEqual(['inr']);
+    expect(body.analysis.inputdata.variables).toEqual(['inr']);
+  });
+
+  it('unions the previewed histogram variable with existing pool CDEs', () => {
+    service.selectedDataModel.set(mockDataModel);
+    service.setSelectedDatasets(['ds1']);
+    service.setVariables([{ code: 'age', label: 'Age' }]);
+
+    const body = service.buildRequestBody('histogram', ['inr']);
+
+    expect(body.analysis.inputdata.variables).toEqual(['age', 'inr']);
+    expect(body.analysis.algorithm.y).toEqual(['inr']);
+  });
+
   it('does not apply stored descriptive preprocessing to histogram preview requests without an override', () => {
-    service.setSelectedDataModel(mockDataModel);
+    service.selectedDataModel.set(mockDataModel);
     service.setSelectedDatasets(['ds1']);
     service.setAppliedDescriptivePreprocessing({
       missing_values_handler: {
@@ -236,7 +243,7 @@ describe('ExperimentStudioService', () => {
   });
 
   it('uses an explicit preprocessing override for histogram preview requests', () => {
-    service.setSelectedDataModel(mockDataModel);
+    service.selectedDataModel.set(mockDataModel);
     service.setSelectedDatasets(['ds1']);
     const applied = {
       missing_values_handler: {
@@ -250,7 +257,7 @@ describe('ExperimentStudioService', () => {
   });
 
   it('filters applied descriptive preprocessing to histogram y variables only', () => {
-    service.setSelectedDataModel(mockDataModel);
+    service.selectedDataModel.set(mockDataModel);
     service.setSelectedDatasets(['ds1']);
     const applied = {
       missing_values_handler: {
@@ -278,7 +285,7 @@ describe('ExperimentStudioService', () => {
   });
 
   it('skips preprocessing for histogram preview when override is explicitly null', () => {
-    service.setSelectedDataModel(mockDataModel);
+    service.selectedDataModel.set(mockDataModel);
     service.setSelectedDatasets(['ds1']);
     service.setAppliedDescriptivePreprocessing({
       missing_values_handler: {
@@ -292,7 +299,7 @@ describe('ExperimentStudioService', () => {
   });
 
   it('does not send validation_datasets for histogram when inputdata spec includes validation_datasets slot', () => {
-    service.setSelectedDataModel(mockDataModel);
+    service.selectedDataModel.set(mockDataModel);
     service.setSelectedDatasets(['ds1']);
     const histogram = service.backendAlgorithms()['histogram'];
     service.backendAlgorithms.set({
@@ -313,7 +320,7 @@ describe('ExperimentStudioService', () => {
   });
 
   it('builds spec-driven inputdata with array roles and validation datasets', () => {
-    service.setSelectedDataModel(mockDataModel);
+    service.selectedDataModel.set(mockDataModel);
     service.setSelectedDatasets(['ds1']);
     service.backendAlgorithms.set({
       validation_algo: {
@@ -337,6 +344,11 @@ describe('ExperimentStudioService', () => {
       } as any,
     });
 
+    service.setVariables([
+      { code: 'y1', label: 'Y1', type: 'real' } as any,
+      { code: 'x1', label: 'X1', type: 'real' } as any,
+    ]);
+
     const body = service.buildRequestBody('validation_algo', ['y1'], ['x1']);
 
     expect(body.analysis.inputdata).toEqual(jasmine.objectContaining({
@@ -353,7 +365,7 @@ describe('ExperimentStudioService', () => {
   });
 
   it('adds default drop preprocessing for non-describe algorithm requests', () => {
-    service.setSelectedDataModel(mockDataModel);
+    service.selectedDataModel.set(mockDataModel);
     service.setSelectedDatasets(['ds1']);
 
     const body = service.buildRequestBody('mock_algo', ['var1'], ['cov1']);
@@ -369,7 +381,7 @@ describe('ExperimentStudioService', () => {
   });
 
   it('does not add default preprocessing for describe requests', () => {
-    service.setSelectedDataModel(mockDataModel);
+    service.selectedDataModel.set(mockDataModel);
     service.setSelectedDatasets(['ds1']);
 
     const body = service.buildRequestBody('describe', ['var1']);
@@ -378,7 +390,7 @@ describe('ExperimentStudioService', () => {
   });
 
   it('does not add default preprocessing for outlier_report requests', () => {
-    service.setSelectedDataModel(mockDataModel);
+    service.selectedDataModel.set(mockDataModel);
     service.setSelectedDatasets(['ds1']);
     service.setVariables([{ code: 'age', label: 'Age', type: 'real' } as any]);
 
@@ -407,9 +419,9 @@ describe('ExperimentStudioService', () => {
 
     expect(mock?.isDisabled).toBeTrue();
     expect(mock?.availability?.available).toBeFalse();
-    expect(mock?.availability?.summary).toBe('Variable needs at least 1, selected 0.');
+    expect(mock?.availability?.summary).toBe('Outcome needs at least 1 (none assigned).');
     expect(mock?.availability?.details.find((detail) => detail.role === 'y')).toEqual(jasmine.objectContaining({
-      label: 'Variable',
+      label: 'Outcome',
       minCount: 1,
       selectedCount: 0,
       satisfied: false,
@@ -418,20 +430,20 @@ describe('ExperimentStudioService', () => {
 
 
   it('keeps the selected algorithm when current selections make it unavailable', () => {
-    service.setVariables([{ code: 'age', label: 'Age', type: 'real' } as any]);
+    service.setAlgorithmY([{ code: 'age', label: 'Age', type: 'real' } as any]);
     const selected = service.backendAlgorithms()['mock_algo'];
     service.selectedAlgorithm.set(selected);
 
     expect(service.isAlgorithmAvailable('mock_algo')).toBeTrue();
 
-    service.setVariables([]);
+    service.setAlgorithmY([]);
 
     expect(service.isAlgorithmAvailable('mock_algo')).toBeFalse();
     expect(service.selectedAlgorithm()?.name).toBe('mock_algo');
   });
 
   it('sends raw descriptive overview requests without preprocessing', () => {
-    service.setSelectedDataModel(mockDataModel);
+    service.selectedDataModel.set(mockDataModel);
     service.setSelectedDatasets(['ds1']);
 
     service.loadDescriptiveOverview(['age']).subscribe();
@@ -442,8 +454,103 @@ describe('ExperimentStudioService', () => {
     req.flush({ result: { featurewise: [] } });
   });
 
+  it('keeps the cohort filter out of the step 0 source snapshot only', () => {
+    service.selectedDataModel.set(mockDataModel);
+    service.setSelectedDatasets(['ds1']);
+    // A filter on a CDE that is not in the variable pool.
+    service.setFilterLogic({ condition: 'AND', rules: [{ field: 'site', operator: 'equal', value: 'A' }] } as any);
+
+    service.loadDescriptiveOverview(['age']).subscribe();
+    const rawReq = httpMock.expectOne('/services/experiments/transient');
+    expect(rawReq.request.body.analysis.inputdata.filters).not.toBeNull();
+    expect(rawReq.request.body.analysis.inputdata.variables).toContain('site');
+    rawReq.flush({ result: { featurewise: [] } });
+
+    // Step 0 describes the data as selected: no filter payload, and the filter
+    // field is no longer dragged into the input pool.
+    service.loadDescriptiveOverview(['age'], null, null, null).subscribe();
+    const sourceReq = httpMock.expectOne('/services/experiments/transient');
+    expect(sourceReq.request.body.analysis.inputdata.filters).toBeNull();
+    expect(sourceReq.request.body.analysis.inputdata.variables).not.toContain('site');
+    expect(sourceReq.request.body.analysis.preprocessing).toBeNull();
+    sourceReq.flush({ result: { featurewise: [] } });
+  });
+
+  it('describes a filter override without touching the stored cohort', () => {
+    service.selectedDataModel.set(mockDataModel);
+    service.setSelectedDatasets(['ds1']);
+    const stored = { condition: 'AND', rules: [{ field: 'site', operator: 'equal', value: 'A' }] } as any;
+    const pending = { condition: 'AND', rules: [{ field: 'score', operator: 'greater', value: 65 }] } as any;
+    service.setFilterLogic(stored);
+
+    // The Cohort Filtering preview sends what the editor holds, unapplied.
+    service.loadDescriptiveOverview(['age'], null, null, pending).subscribe();
+    const pendingReq = httpMock.expectOne('/services/experiments/transient');
+    expect(pendingReq.request.body.analysis.inputdata.filters).toEqual(pending);
+    expect(pendingReq.request.body.analysis.inputdata.variables).toContain('score');
+    expect(pendingReq.request.body.analysis.inputdata.variables).not.toContain('site');
+    pendingReq.flush({ result: { featurewise: [] } });
+
+    // An explicit null is "no rules", not "fall back to the store".
+    service.loadDescriptiveOverview(['age'], null, null, null).subscribe();
+    const clearedReq = httpMock.expectOne('/services/experiments/transient');
+    expect(clearedReq.request.body.analysis.inputdata.filters).toBeNull();
+    expect(clearedReq.request.body.analysis.inputdata.variables).not.toContain('site');
+    clearedReq.flush({ result: { featurewise: [] } });
+
+    // Leaving the override alone keeps the stored cohort.
+    service.loadDescriptiveOverview(['age']).subscribe();
+    const storedReq = httpMock.expectOne('/services/experiments/transient');
+    expect(storedReq.request.body.analysis.inputdata.filters).toEqual(stored);
+    storedReq.flush({ result: { featurewise: [] } });
+
+    // Previewing never writes the cohort.
+    expect(service.filterLogic()).toEqual(stored);
+  });
+
+  it('plots a histogram preview on the overridden cohort', () => {
+    service.selectedDataModel.set(mockDataModel);
+    service.setSelectedDatasets(['ds1']);
+    service.setFilterLogic({ condition: 'AND', rules: [{ field: 'site', operator: 'equal', value: 'A' }] } as any);
+    const pending = { condition: 'AND', rules: [{ field: 'score', operator: 'greater', value: 65 }] } as any;
+    const defaultDrop = { missing_values_handler: { strategies: { var1: 'drop' } } };
+
+    const body = service.buildRequestBody(
+      'histogram',
+      ['var1'],
+      null,
+      null,
+      null,
+      null,
+      defaultDrop,
+      pending
+    );
+
+    expect(body.analysis.inputdata.filters).toEqual(pending);
+    expect(body.analysis.preprocessing).toEqual(preprocessingSteps(defaultDrop));
+  });
+
+  it('forwards the cohort override from getAlgorithmResults to the transient request', () => {
+    service.selectedDataModel.set(mockDataModel);
+    service.setSelectedDatasets(['ds1']);
+    service.setFilterLogic({ condition: 'AND', rules: [{ field: 'site', operator: 'equal', value: 'A' }] } as any);
+    const pending = { condition: 'AND', rules: [{ field: 'score', operator: 'greater', value: 65 }] } as any;
+
+    service.getAlgorithmResults(
+      'histogram',
+      ['var1'],
+      null,
+      { missing_values_handler: { strategies: { var1: 'drop' } } },
+      pending
+    ).subscribe();
+
+    const req = httpMock.expectOne('/services/experiments/transient');
+    expect(req.request.body.analysis.inputdata.filters).toEqual(pending);
+    req.flush({ result: { histogram: [] } });
+  });
+
   it('sends processed descriptive overview requests with explicit preprocessing', () => {
-    service.setSelectedDataModel(mockDataModel);
+    service.selectedDataModel.set(mockDataModel);
     service.setSelectedDatasets(['ds1']);
     const preprocessing = {
       missing_values_handler: {
@@ -459,7 +566,7 @@ describe('ExperimentStudioService', () => {
   });
 
   it('does not use descriptive preview preprocessing in algorithm requests until it is stored as applied', () => {
-    service.setSelectedDataModel(mockDataModel);
+    service.selectedDataModel.set(mockDataModel);
     service.setSelectedDatasets(['ds1']);
 
     service.loadDescriptiveOverview(['age'], {
@@ -480,7 +587,7 @@ describe('ExperimentStudioService', () => {
   });
 
   it('uses applied descriptive preprocessing for later algorithm requests', () => {
-    service.setSelectedDataModel(mockDataModel);
+    service.selectedDataModel.set(mockDataModel);
     service.setSelectedDatasets(['ds1']);
     const applied = {
       missing_values_handler: {
@@ -495,7 +602,7 @@ describe('ExperimentStudioService', () => {
   });
 
   it('uses applied descriptive preprocessing with multiple preprocessing steps for later algorithm requests', () => {
-    service.setSelectedDataModel(mockDataModel);
+    service.selectedDataModel.set(mockDataModel);
     service.setSelectedDatasets(['ds1']);
     const applied = {
       missing_values_handler: {
@@ -518,7 +625,7 @@ describe('ExperimentStudioService', () => {
   });
 
   it('forwards applied outlier preprocessing together with missing values', () => {
-    service.setSelectedDataModel(mockDataModel);
+    service.selectedDataModel.set(mockDataModel);
     service.setSelectedDatasets(['ds1']);
     const applied = {
       missing_values_handler: {
@@ -585,9 +692,13 @@ describe('ExperimentStudioService', () => {
   });
 
   it('loads outlier report previews with outlier parameters and upstream missing preprocessing', (done) => {
-    service.setSelectedDataModel(mockDataModel);
-    service.setVariables([{ code: 'age', label: 'Age', type: 'real' } as any]);
-    service.setCovariates([{ code: 'bmi', label: 'BMI', type: 'real' } as any]);
+    service.selectedDataModel.set(mockDataModel);
+    service.setVariables([
+      { code: 'age', label: 'Age', type: 'real' } as any,
+      { code: 'bmi', label: 'BMI', type: 'real' } as any,
+    ]);
+    service.setAlgorithmY([{ code: 'age', label: 'Age', type: 'real' } as any]);
+    service.setAlgorithmX([{ code: 'bmi', label: 'BMI', type: 'real' } as any]);
 
     service.loadOutlierReportPreview(
       ['age', 'bmi'],
@@ -633,9 +744,10 @@ describe('ExperimentStudioService', () => {
   });
 
   it('keeps nominal variables and numeric covariates in distinct outlier report input roles', (done) => {
-    service.setSelectedDataModel(mockDataModel);
-    service.setVariables([{ code: 'sex', label: 'Sex', type: 'nominal' } as any]);
-    service.setCovariates([{ code: 'age', label: 'Age', type: 'real' } as any]);
+    service.selectedDataModel.set(mockDataModel);
+    service.setVariables([{ code: 'age', label: 'Age', type: 'real' } as any]);
+    service.setAlgorithmY([{ code: 'sex', label: 'Sex', type: 'nominal' } as any]);
+    service.setAlgorithmX([{ code: 'age', label: 'Age', type: 'real' } as any]);
 
     service.loadOutlierReportPreview(
       ['age'],
@@ -665,8 +777,9 @@ describe('ExperimentStudioService', () => {
   });
 
   it('sends covariate-only outlier report codes through y only', (done) => {
-    service.setSelectedDataModel(mockDataModel);
-    service.setCovariates([{ code: 'age', label: 'Age', type: 'real' } as any]);
+    service.selectedDataModel.set(mockDataModel);
+    service.setVariables([{ code: 'age', label: 'Age', type: 'real' } as any]);
+    service.setAlgorithmX([{ code: 'age', label: 'Age', type: 'real' } as any]);
 
     service.loadOutlierReportPreview(
       ['age'],
@@ -702,7 +815,7 @@ describe('ExperimentStudioService', () => {
 
     service.crossSectionalModels.set([defaultModel]);
     service.longitudinalModels.set([alternateModel]);
-    service.setSelectedDataModel(alternateModel);
+    service.selectedDataModel.set(alternateModel);
     service.setVariables([{ code: 'v1', label: 'V1' } as any]);
 
     service.resetStudioStateForGuide();
@@ -735,11 +848,28 @@ describe('ExperimentStudioService', () => {
     expect(service.selectedDatasets()).toEqual(['ds-a', 'ds-b']);
   });
 
-  it('resetStudioState clears selections and errors', (done) => {
+  it('clears variables once when datasets become empty, without retriggering', () => {
+    service.setSelectedDatasets(['ds1']);
+    service.setVariables([{ code: 'age', label: 'Age' } as any]);
+    service.setAlgorithmY([{ code: 'age', label: 'Age' } as any]);
+
+    const warn = spyOn(console, 'warn');
+    service.setSelectedDatasets([]);
+    TestBed.flushEffects();
+
+    expect(service.selectedVariables()).toEqual([]);
+    expect(service.algorithmY()).toEqual([]);
+    const resetWarnings = warn.calls.allArgs().filter((args) =>
+      String(args[0]).includes('No datasets selected')
+    );
+    expect(resetWarnings.length).toBe(1);
+  });
+
+  it('resetStudioState clears selections and errors', () => {
     const errorService = TestBed.inject(ErrorService);
 
     // Arrange
-    service.setSelectedDataModel(mockDataModel);
+    service.selectedDataModel.set(mockDataModel);
     service.setSelectedDatasets(['ds1']);
     service.setVariables([{ code: 'v1', label: 'V1' } as any]);
     errorService.setError('Oops');
@@ -751,10 +881,7 @@ describe('ExperimentStudioService', () => {
     expect(service.selectedDataModel()).toBeNull();
     expect(service.selectedDatasets()).toEqual([]);
     expect(service.selectedVariables()).toEqual([]);
-    errorService.error$.subscribe((msg) => {
-      expect(msg).toBeNull();
-      done();
-    });
+    expect(errorService.error()).toBeNull();
   });
 
   it('returns null from runSelectedAlgorithm when no algorithm is selected', () => {
@@ -766,7 +893,7 @@ describe('ExperimentStudioService', () => {
   });
 
   it('keeps an algorithm available when multiple filter variables are selected', () => {
-    service.setVariables([{ code: 'age', label: 'Age', type: 'real' } as any]);
+    service.setAlgorithmY([{ code: 'age', label: 'Age', type: 'real' } as any]);
     service.setFilters([
       { code: 'age', label: 'Age', type: 'real' } as any,
       { code: 'event_type', label: 'Event Type', type: 'text' } as any,
@@ -776,7 +903,7 @@ describe('ExperimentStudioService', () => {
   });
 
   it('coerces numeric parameter strings before building request payloads', () => {
-    service.setSelectedDataModel(mockDataModel);
+    service.selectedDataModel.set(mockDataModel);
     service.setSelectedDatasets(['ds1']);
     service.algorithmConfigurations.set({
       mock_algo: { alpha: '0.05' },
@@ -788,7 +915,7 @@ describe('ExperimentStudioService', () => {
   });
 
   it('keeps enum select parameter strings even when their schema type is int', () => {
-    service.setSelectedDataModel(mockDataModel);
+    service.selectedDataModel.set(mockDataModel);
     service.setSelectedDatasets(['ds1']);
     const algo = service.backendAlgorithms()['mock_algo'];
     service.backendAlgorithms.set({
@@ -823,7 +950,7 @@ describe('ExperimentStudioService', () => {
   });
 
   it('omits unset positive_class from experiment request parameters', () => {
-    service.setSelectedDataModel(mockDataModel);
+    service.selectedDataModel.set(mockDataModel);
     service.setSelectedDatasets(['ds1']);
     service.algorithmConfigurations.set({
       mock_algo: { alpha: 0.05 },
@@ -836,7 +963,7 @@ describe('ExperimentStudioService', () => {
   });
 
   it('builds binned Mann-Whitney requests with group enum codes and missing-value preprocessing', () => {
-    service.setSelectedDataModel(mockDataModel);
+    service.selectedDataModel.set(mockDataModel);
     service.setSelectedDatasets(['ds1']);
     service.backendAlgorithms.set({
       ...service.backendAlgorithms(),
@@ -899,7 +1026,7 @@ describe('ExperimentStudioService', () => {
   });
 
   it('keeps enum multi-select parameter values as strings even when their schema type is int', () => {
-    service.setSelectedDataModel(mockDataModel);
+    service.selectedDataModel.set(mockDataModel);
     service.setSelectedDatasets(['ds1']);
     const algo = service.backendAlgorithms()['mock_algo'];
     service.backendAlgorithms.set({
@@ -994,12 +1121,333 @@ describe('ExperimentStudioService', () => {
 
     expect(service.selectedDataModel()?.code).toBe('dm');
     expect(service.selectedDatasets()).toEqual(['ds1']);
-    expect(service.selectedVariables().map((variable) => variable.code)).toEqual(['age']);
-    expect(service.selectedCovariates().map((variable) => variable.code)).toEqual(['sex']);
+    // Pool holds the unified y + x CDEs.
+    expect(service.selectedVariables().map((variable) => variable.code)).toEqual(['age', 'sex']);
+    expect(service.algorithmY().map((variable) => variable.code)).toEqual(['age']);
+    expect(service.algorithmX().map((variable) => variable.code)).toEqual(['sex']);
     expect(service.selectedFilters().map((variable) => variable.code)).toEqual(['site']);
     expect(service.filterLogic()).toEqual(filters);
     expect(service.algorithmConfigurations()['mock_algo']).toEqual({ alpha: 0.01 });
     expect(service.appliedPreprocessingConfig()).toEqual(preprocessing);
     expect(service.isShared()).toBeTrue();
+  });
+
+  it('keeps y/x roles separated from the pool when a variable is added to the pool', () => {
+    service.setAlgorithmY([{ code: 'age', label: 'Age' }]);
+    service.setAlgorithmX([{ code: 'sex', label: 'Sex' }]);
+
+    // Adding a new pool item does not assign it to either role.
+    service.setVariables([
+      { code: 'age', label: 'Age' },
+      { code: 'sex', label: 'Sex' },
+      { code: 'bmi', label: 'BMI' },
+    ]);
+
+    expect(service.selectedVariables().map((v) => v.code)).toEqual(['age', 'sex', 'bmi']);
+    expect(service.algorithmY().map((v) => v.code)).toEqual(['age']);
+    expect(service.algorithmX().map((v) => v.code)).toEqual(['sex']);
+  });
+
+  it('exposes the created transformation column in the assignable pool but not in inputdata.variables', () => {
+    service.selectedDataModel.set(mockDataModel);
+    service.setSelectedDatasets(['ds1']);
+    service.setVariables([{ code: 'age', label: 'Age' }]);
+    service.setAlgorithmY([{ code: 'age', label: 'Age' }]);
+    service.setTransformationPreprocessing([{
+      code: 'derived_col',
+      rules: { A: {}, B: {} },
+      default_enumeration: 'A',
+    }]);
+    service.setAlgorithmX([{ code: 'derived_col', label: 'derived_col' }]);
+
+    const assignable = service.algorithmAssignableVariables();
+    const created = assignable.find((v) => v.code === 'derived_col');
+    expect(created).toBeTruthy();
+    expect(created?.isCreatedColumn).toBeTrue();
+    expect(created?.enumerations).toEqual([
+      { code: 'A', label: 'A' },
+      { code: 'B', label: 'B' },
+    ]);
+
+    const body = service.buildRequestBody('mock_algo');
+    expect(body.analysis.algorithm.y).toEqual(['age']);
+    expect(body.analysis.algorithm.x).toEqual(['derived_col']);
+    // Derived column codes are stripped from the source CDE list.
+    expect(body.analysis.inputdata.variables).toEqual(['age']);
+    expect(body.analysis.inputdata.variables).not.toContain('derived_col');
+  });
+
+  it('sends two applied creators as two steps of the same name', () => {
+    service.selectedDataModel.set(mockDataModel);
+    service.setSelectedDatasets(['ds1']);
+    service.setVariables([
+      { code: 'mrs', label: 'mrs' },
+      { code: 'age', label: 'Age' },
+    ]);
+    service.setAlgorithmY([{ code: 'age', label: 'Age' }]);
+    const good = {
+      code: 'mrs_good_outcome',
+      strategy: 'filter_rules',
+      rules: {
+        good: {
+          condition: 'AND',
+          rules: [{ id: 'mrs-le-2', field: 'mrs', type: 'real', input: 'number', operator: '<=', value: 2 }],
+        },
+      },
+    };
+    const bad = {
+      code: 'mrs_bad_outcome',
+      strategy: 'filter_rules',
+      rules: {
+        bad: {
+          condition: 'AND',
+          rules: [{ id: 'mrs-gt-2', field: 'mrs', type: 'real', input: 'number', operator: '>', value: 2 }],
+        },
+      },
+      default_enumeration: 'unknown',
+    };
+
+    service.setTransformationPreprocessing([good, bad]);
+
+    // Two or more creators persist as an ordered array under the one config key.
+    expect(service.appliedPreprocessingConfig()?.['categorical_column_creator']).toEqual([good, bad]);
+
+    service.setAlgorithmX([
+      { code: 'mrs_good_outcome', label: 'mrs_good_outcome', isCreatedColumn: true },
+      { code: 'mrs_bad_outcome', label: 'mrs_bad_outcome', isCreatedColumn: true },
+    ]);
+
+    // Every derived column is assignable.
+    expect(service.algorithmAssignableVariables().map((v) => v.code))
+      .toEqual(['mrs', 'age', 'mrs_good_outcome', 'mrs_bad_outcome']);
+
+    const body = service.buildRequestBody('mock_algo');
+    const creators = (body.analysis.preprocessing as AnalysisPreprocessingStep[])
+      .filter((step) => step.name === 'categorical_column_creator');
+    // The engine takes the repeated step name in draft order.
+    expect(creators.map((step) => step.parameters['code'])).toEqual(['mrs_good_outcome', 'mrs_bad_outcome']);
+    expect(creators[1].parameters['default_enumeration']).toBe('unknown');
+
+    expect(body.analysis.algorithm.y).toEqual(['age']);
+    expect(body.analysis.algorithm.x).toEqual(['mrs_good_outcome', 'mrs_bad_outcome']);
+    // Both derived codes are stripped from the source CDE list; their rule
+    // sources are still sent.
+    expect(body.analysis.inputdata.variables).toEqual(['mrs', 'age']);
+  });
+
+  it('keeps a stored cohort filter tree exactly as stored', () => {
+    service.hydrateFromBackendExperiment({
+      uuid: 'exp-filter-shape',
+      name: 'Saved cohort',
+      created: '',
+      finished: '',
+      shared: false,
+      viewed: false,
+      status: 'success',
+      analysis: {
+        inputdata: {
+          data_model: 'dm:1',
+          datasets: ['ds1'],
+          filters: {
+            condition: 'AND',
+            rules: [
+              { id: 'sex', field: 'sex', operator: 'in', value: ['1', '2'], type: 'string' },
+              // Stored without its value key; the reference filter client sends null for these.
+              { id: 'age', field: 'age', operator: 'is_not_null', type: 'integer' },
+            ],
+          },
+          variables: ['sex', 'age'],
+        },
+        preprocessing: null,
+        algorithm: { name: 'mock_algo', y: ['age'], x: ['sex'], parameters: {} },
+      },
+    } as any);
+    httpMock.expectOne('/services/data-models').flush([mockDataModel]);
+
+    // Loading never rewrites or fills in a stored rule…
+    expect((service.filterLogic()?.rules as any[])[0])
+      .toEqual(jasmine.objectContaining({ field: 'sex', operator: 'in', value: ['1', '2'] }));
+    // …including a unary rule whose own client omitted the value key.
+    expect((service.filterLogic()?.rules as any[])[1])
+      .toEqual(jasmine.objectContaining({ field: 'age', operator: 'is_not_null', type: 'integer' }));
+    expect('value' in ((service.filterLogic()?.rules as any[])[1])).toBeFalse();
+
+    service.selectedDataModel.set(mockDataModel);
+    service.setSelectedDatasets(['ds1']);
+    service.setVariables([
+      { code: 'sex', label: 'Sex' },
+      { code: 'age', label: 'Age' },
+    ]);
+    service.setAlgorithmY([{ code: 'age', label: 'Age' }]);
+    service.setAlgorithmX([{ code: 'sex', label: 'Sex' }]);
+
+    const sentRules = service.buildRequestBody('mock_algo').analysis.inputdata.filters.rules as any[];
+    expect(sentRules[0].value).toEqual(['1', '2']);
+    expect('value' in sentRules[1]).toBeFalse();
+  });
+
+  it('hydrates every saved creator step, not just the last one with that name', () => {
+    const good = { code: 'mrs_good_outcome', strategy: 'filter_rules', rules: { good: {} } };
+    const bad = { code: 'mrs_bad_outcome', strategy: 'filter_rules', rules: { bad: {} } };
+
+    service.hydrateFromBackendExperiment({
+      uuid: 'exp-derived-pair',
+      name: 'Saved experiment',
+      created: '',
+      finished: '',
+      shared: false,
+      viewed: false,
+      status: 'success',
+      analysis: {
+        inputdata: {
+          data_model: 'dm:1',
+          datasets: ['ds1'],
+          variables: ['age'],
+        },
+        preprocessing: [
+          { name: 'categorical_column_creator', parameters: good },
+          { name: 'categorical_column_creator', parameters: bad },
+        ],
+        algorithm: {
+          name: 'mock_algo',
+          y: ['age'],
+          x: ['mrs_good_outcome', 'mrs_bad_outcome'],
+          parameters: {},
+        },
+      },
+      createdBy: {
+        username: 'user',
+        fullname: 'User',
+        email: 'user@example.org',
+        subjectId: 'subject',
+        agreeNDA: true,
+      },
+    });
+
+    const req = httpMock.expectOne('/services/data-models');
+    req.flush([mockDataModel]);
+
+    // Repeated steps of the same name collect into an array so the edit form
+    // can rebuild both cards.
+    expect(service.appliedPreprocessingConfig()?.['categorical_column_creator']).toEqual([good, bad]);
+    expect(service.algorithmAssignableVariables().map((v) => v.code))
+      .toEqual(['age', 'mrs_good_outcome', 'mrs_bad_outcome']);
+  });
+
+  it('includes unassigned pool CDEs used as transformation sources in inputdata.variables', () => {
+    service.selectedDataModel.set(mockDataModel);
+    service.setSelectedDatasets(['ds1']);
+    service.setVariables([
+      { code: 'mrs', label: 'mrs' },
+      { code: 'age', label: 'Age' },
+    ]);
+    service.setAlgorithmY([{ code: 'age', label: 'Age' }]);
+    service.setTransformationPreprocessing([{
+      code: 'mrs_good_outcome',
+      strategy: 'filter_rules',
+      rules: {
+        good: {
+          condition: 'AND',
+          rules: [{ id: 'mrs', field: 'mrs', type: 'real', input: 'number', operator: '<=', value: 2 }],
+        },
+      },
+    }]);
+    service.setAlgorithmX([{ code: 'mrs_good_outcome', label: 'mrs_good_outcome' }]);
+
+    const body = service.buildRequestBody('mock_algo');
+    // 'mrs' is in the pool and referenced by the transformation rule filters, so
+    // it must be sent as a source CDE even though it is not assigned to y/x.
+    expect(body.analysis.inputdata.variables).toEqual(['mrs', 'age']);
+    expect(body.analysis.inputdata.variables).not.toContain('mrs_good_outcome');
+    expect(body.analysis.algorithm.y).toEqual(['age']);
+    expect(body.analysis.algorithm.x).toEqual(['mrs_good_outcome']);
+  });
+
+  it('drops a renamed created column from roles when the transformation code changes', () => {
+    service.selectedDataModel.set(mockDataModel);
+    service.setSelectedDatasets(['ds1']);
+    service.setVariables([{ code: 'age', label: 'Age' }]);
+    service.setAlgorithmY([{ code: 'age', label: 'Age' }]);
+    service.setTransformationPreprocessing([{
+      code: 'old_col',
+      rules: { A: {} },
+      default_enumeration: 'A',
+    }]);
+    // The role UI assigns the live transformation node (isCreatedColumn: true).
+    service.setAlgorithmX([{ code: 'old_col', label: 'old_col', isCreatedColumn: true }]);
+
+    expect(service.algorithmX().map((v) => v.code)).toEqual(['old_col']);
+
+    // Renaming the created column makes the old code unassignable, so it is
+    // pruned from the x role automatically.
+    service.setTransformationPreprocessing([{
+      code: 'new_col',
+      rules: { A: {} },
+      default_enumeration: 'A',
+    }]);
+
+    expect(service.algorithmX()).toEqual([]);
+    expect(service.algorithmY().map((v) => v.code)).toEqual(['age']);
+  });
+
+  it('hydrates saved y/x roles including a derived code as a synthetic node', () => {
+    service.hydrateFromBackendExperiment({
+      uuid: 'exp-derived',
+      name: 'Saved experiment',
+      created: '',
+      finished: '',
+      shared: false,
+      viewed: false,
+      status: 'success',
+      analysis: {
+        inputdata: {
+          data_model: 'dm:1',
+          datasets: ['ds1'],
+          variables: ['age', 'sex', 'derived_col'],
+        },
+        preprocessing: null,
+        algorithm: {
+          name: 'mock_algo',
+          y: ['age'],
+          x: ['derived_col'],
+          parameters: {},
+        },
+      },
+      createdBy: {
+        username: 'user',
+        fullname: 'User',
+        email: 'user@example.org',
+        subjectId: 'subject',
+        agreeNDA: true,
+      },
+    });
+
+    const req = httpMock.expectOne('/services/data-models');
+    req.flush([mockDataModel]);
+
+    // Only real CDEs populate the variables-panel pool; the derived code is a
+    // synthetic assignable role node, not a pool member. Real CDEs saved in
+    // inputdata.variables (here 'sex') are restored to the pool too, even when
+    // they are not assigned to y/x.
+    expect(service.selectedVariables().map((v) => v.code)).toEqual(['age', 'sex']);
+    expect(service.algorithmY().map((v) => v.code)).toEqual(['age']);
+    expect(service.algorithmX().map((v) => v.code)).toEqual(['derived_col']);
+    expect(service.algorithmX()[0]?.isCreatedColumn).toBeTrue();
+    expect(service.algorithmAssignableVariables().map((v) => v.code)).toEqual(['age', 'sex', 'derived_col']);
+  });
+
+  it('removes an item from the pool and prunes it from assigned y/x roles', () => {
+    service.setAlgorithmY([{ code: 'age', label: 'Age' }]);
+    service.setAlgorithmX([{ code: 'sex', label: 'Sex' }]);
+    service.setVariables([
+      { code: 'age', label: 'Age' },
+      { code: 'sex', label: 'Sex' },
+    ]);
+
+    // Removing 'sex' from the pool should prune it from algorithmX.
+    service.setVariables([{ code: 'age', label: 'Age' }]);
+
+    expect(service.algorithmY().map((v) => v.code)).toEqual(['age']);
+    expect(service.algorithmX()).toEqual([]);
   });
 });

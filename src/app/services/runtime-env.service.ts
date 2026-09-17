@@ -8,12 +8,12 @@ interface RuntimeEnv {
   JUPYTER_CONTEXT_PATH?: unknown;
 }
 
-export interface RuntimeVersionEntry {
+interface RuntimeVersionEntry {
   label: string;
   value: string;
 }
 
-export interface RuntimeGuideTarget {
+interface RuntimeGuideTarget {
   value: string;
   label: string;
 }

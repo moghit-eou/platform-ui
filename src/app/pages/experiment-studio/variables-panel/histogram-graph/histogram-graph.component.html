@@ -3,7 +3,7 @@
   <div class="histogram-graph-full" id="histogram-chart-container">
     @if (data(); as histogramData) {
       @if (histogramData.bins && histogramData.counts) {
-      <app-histogram [data]="histogramData" [config]="{ color: '#2b33e9' }"></app-histogram>
+      <app-histogram [data]="histogramData" [config]="{ color: '#2b33e9', orientation: horizontal() ? 'horizontal' : 'vertical' }"></app-histogram>
           }
     }
   </div>

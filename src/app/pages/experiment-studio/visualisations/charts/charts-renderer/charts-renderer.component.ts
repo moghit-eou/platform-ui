@@ -1,7 +1,7 @@
-import { Component, AfterViewInit, QueryList, ViewChildren, NgZone, inject, ChangeDetectionStrategy, OnChanges, input } from '@angular/core';
+import { Component, ChangeDetectionStrategy, OnChanges, input } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ECharts, EChartsOption } from 'echarts';
-import { NgxEchartsModule, NgxEchartsDirective } from 'ngx-echarts';
+import { EChartsOption } from 'echarts';
+import { NgxEchartsModule } from 'ngx-echarts';
 import { SimpleChanges } from '@angular/core';
 
 @Component({
@@ -11,14 +11,10 @@ import { SimpleChanges } from '@angular/core';
   styleUrl: './charts-renderer.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class ChartRendererComponent implements AfterViewInit, OnChanges {
-  private zone = inject(NgZone);
+export class ChartRendererComponent implements OnChanges {
   private readonly brandChartColors = ['#2B33E9', '#7F9CE8', '#FFBA08', '#DFEFE4'];
   readonly charts = input<EChartsOption[]>([]);
   themedCharts: EChartsOption[] = [];
-  @ViewChildren(NgxEchartsDirective) echartsDirectives!: QueryList<NgxEchartsDirective>;
-
-  private instances: ECharts[] = [];
 
   constructor() { }
 
@@ -73,19 +69,6 @@ export class ChartRendererComponent implements AfterViewInit, OnChanges {
     return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
   }
 
-  ngAfterViewInit(): void {
-    this.zone.runOutsideAngular(() => {
-      setTimeout(() => {
-        this.instances = this.echartsDirectives
-          .map(d => (d as any).getInstance?.())
-          .filter((i): i is ECharts => !!i);
-      }, 1000);
-    });
-  }
-
-  getInstances(): ECharts[] {
-    return this.instances;
-  }
 
   chartHeight(chart: EChartsOption): number {
     const custom = (chart as EChartsOption & { mipChartHeight?: number }).mipChartHeight;

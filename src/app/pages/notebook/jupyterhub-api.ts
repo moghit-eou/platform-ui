@@ -27,7 +27,7 @@ export class HubApiError extends Error {
 
 const DEFAULT_SERVER_NAME = '';
 
-export function getDefaultServerState(user: HubUser): HubServerState | undefined {
+function getDefaultServerState(user: HubUser): HubServerState | undefined {
     return user.servers?.[DEFAULT_SERVER_NAME];
 }
 
@@ -36,7 +36,7 @@ export function isServerReady(user: HubUser): boolean {
     return Boolean(server?.ready);
 }
 
-export function isServerPending(user: HubUser): boolean {
+function isServerPending(user: HubUser): boolean {
     const server = getDefaultServerState(user);
     return Boolean(server?.pending);
 }
@@ -87,7 +87,7 @@ export function buildLabUrl(basePath: string, username: string): string {
     return `${normalizedBase}/user/${encodeURIComponent(username)}/lab`;
 }
 
-export interface WaitForServerOptions {
+interface WaitForServerOptions {
     pollIntervalMs?: number;
     timeoutMs?: number;
     onProgress?: (message: string) => void;

@@ -16,7 +16,6 @@ export const AlgorithmNames = {
     FISHER_EXACT: 'fisher_exact',
     OUTLIER_REPORT: 'outlier_report',
     LINEAR_SVM: 'linear_svm',
-    LOGISTIC_REGRESSION_FEDAVERAGE_FLOWER: 'logistic_regression_fedaverage_flower',
 };
 
 export const VariableTypes = {

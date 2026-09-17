@@ -4,8 +4,7 @@ import { ExperimentStudioService } from '../../../../services/experiment-studio.
 
 describe('ChartBuilderService', () => {
   const experimentServiceStub = {
-    selectedVariables: () => [],
-    selectedCovariates: () => [],
+    algorithmAssignableVariables: () => [],
     selectedFilters: () => [],
     getDatasetLabelMap: () => ({ 'dataset-a': 'Dataset A' }),
   };

@@ -428,7 +428,6 @@ export function mapAlgorithmResultEnums(
         return mapped;
       }
     case 'histogram':
-    case 'histogram_sql':
       return mapMultipleHistograms(result, safeEnumMaps, yVar);
     case 'linear_regression':
     case 'linear_regression_cv':
@@ -450,29 +449,11 @@ export function mapAlgorithmResultEnums(
       if (Array.isArray(mapped.terms)) {
         mapped.terms = mapAnovaTerms(mapped.terms, labelMap);
       }
-      if (mapped.sum_sq && typeof mapped.sum_sq === 'object' && !Array.isArray(mapped.sum_sq)) {
-        mapped.sum_sq = mapTwoWayAnovaKeys(mapped.sum_sq, labelMap);
-      }
-      if (mapped.df && typeof mapped.df === 'object' && !Array.isArray(mapped.df)) {
-        mapped.df = mapTwoWayAnovaKeys(mapped.df, labelMap);
-      }
-      if (mapped.ms && typeof mapped.ms === 'object' && !Array.isArray(mapped.ms)) {
-        mapped.ms = mapTwoWayAnovaKeys(mapped.ms, labelMap);
-      }
-      if (mapped.f_stat && typeof mapped.f_stat === 'object' && !Array.isArray(mapped.f_stat)) {
-        mapped.f_stat = mapTwoWayAnovaKeys(mapped.f_stat, labelMap);
-      }
-      if (mapped.f_value && typeof mapped.f_value === 'object' && !Array.isArray(mapped.f_value)) {
-        mapped.f_value = mapTwoWayAnovaKeys(mapped.f_value, labelMap);
-      }
-      if (mapped.p_value && typeof mapped.p_value === 'object' && !Array.isArray(mapped.p_value)) {
-        mapped.p_value = mapTwoWayAnovaKeys(mapped.p_value, labelMap);
-      }
-      if (mapped.pvalue && typeof mapped.pvalue === 'object' && !Array.isArray(mapped.pvalue)) {
-        mapped.pvalue = mapTwoWayAnovaKeys(mapped.pvalue, labelMap);
-      }
-      if (mapped.f_pvalue && typeof mapped.f_pvalue === 'object' && !Array.isArray(mapped.f_pvalue)) {
-        mapped.f_pvalue = mapTwoWayAnovaKeys(mapped.f_pvalue, labelMap);
+      const twoWayKeys = ['sum_sq', 'df', 'ms', 'f_stat', 'f_value', 'p_value', 'pvalue', 'f_pvalue'];
+      for (const key of twoWayKeys) {
+        if (mapped[key] && typeof mapped[key] === 'object' && !Array.isArray(mapped[key])) {
+          mapped[key] = mapTwoWayAnovaKeys(mapped[key], labelMap);
+        }
       }
       return mapped;
     }

@@ -1,167 +1,135 @@
-@if (experimentRows().length >= 1) {
+@if (experiments().length) {
 <header class="compare-header">
-  <div>
-    <span class="meta-pill"
-      style="margin-bottom: 8px; display: inline-block; background: rgba(43, 51, 233, 0.1); color: var(--primary-color); padding: 4px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;">Comparison
-      Mode</span>
+  <div class="compare-heading">
+    @if (originFolderName(); as folderName) {
+    <!-- Back to the analysis set that opened this compare. The dashboard keeps the folder
+         selected and restores the list selection the compare replaced. -->
+    <button type="button" class="compare-back-btn" (click)="backToFolder.emit()"
+      [title]="'Back to the ' + folderName + ' folder'">
+      <i class="fas fa-arrow-left" aria-hidden="true"></i>
+      Back to {{ folderName }}
+    </button>
+    }
     <h3>Compare experiments</h3>
-    <p>
-      Select at least two experiments from the list to see them side by side.
-    </p>
-  </div>
-
-  <!-- Layout selector -->
-  <div class="layout-select">
-    <label for="layoutSelect">Layout</label>
-    <select id="layoutSelect" [ngModel]="selectedLayout" (ngModelChange)="onLayoutChange($event)">
-      <option [ngValue]="2">2 per row</option>
-      <option [ngValue]="3">3 per row</option>
-    </select>
+    <p>{{ compareHeadline() }}</p>
   </div>
 </header>
 
-<div class="compare-rows">
-  @for (row of experimentRows(); track row.index) {
-  <section
-    class="compare-row"
-    [class.cols-2]="layoutCols() === 2"
-    [class.cols-3]="layoutCols() === 3"
-    [class.expanded]="isRowExpanded(row.index)"
-    [class.collapsed]="!isRowExpanded(row.index)"
-  >
-    <header class="row-header">
-      <div class="row-label">
-        <span class="row-title"> Set {{ row.index + 1 }} </span>
-        <span class="row-count">
-          ({{ row.items.length }} experiment{{
-          row.items.length > 1 ? "s" : ""
-          }})
+<!-- Two runs side by side, read left to right: folder-set runs first, then the algorithm
+     groups. Any remaining runs wrap underneath. -->
+<div class="compare-columns">
+  @for (column of columns(); track column.item.exp.id) {
+  <section class="compare-column">
+    <header class="column-header">
+      <span class="run-index">{{ column.number }}</span>
+      <div class="column-id">
+        <span class="column-name" [title]="column.item.exp.name">
+          {{ column.item.exp.name || 'Untitled Investigation' }}
+        </span>
+        <span class="run-meta">
+          <span class="run-algo">
+            <i class="fas fa-flask"></i>{{ algorithmLabel(column.item.exp.algorithmName) }}
+          </span>
+          <app-experiment-status [status]="column.item.exp.status" />
+          <span class="run-date">{{ column.item.exp.dateCreated | date : "mediumDate" }}</span>
         </span>
       </div>
-
-      <button type="button" class="row-toggle-btn" (click)="toggleRow(row.index)">
-        <span>{{ isRowExpanded(row.index) ? "Collapse" : "Expand" }}</span>
-        <i class="fas" [class.fa-chevron-up]="isRowExpanded(row.index)" [class.fa-chevron-down]="!isRowExpanded(row.index)"></i>
-      </button>
+      @if (column.setTag; as setTag) {
+      <span class="column-set-tag" [title]="'In set ' + setTag">{{ setTag }}</span>
+      }
     </header>
 
-    @if (isRowExpanded(row.index)) {
-    <div class="compare-grid">
-      @for (item of row.items; track item.exp.id) {
-      <article class="compare-card">
-        <header class="compare-card-header">
-          <div class="title-block">
-            <h4 [title]="item.exp.name">
-              {{ item.exp.name || "Untitled Investigation" }}
-            </h4>
-            <p class="algo-line">
-              <i class="fas fa-flask"></i>
-              {{ item.exp.algorithmName || "Unknown algorithm" }}
-            </p>
+    <div class="column-body">
+      <div class="compare-config">
+        <button type="button" class="config-toggle" (click)="toggleConfig(column.item.exp.id)">
+          <span>{{ isConfigExpanded(column.item.exp.id) ? "Hide Configuration" : "Show Configuration" }}</span>
+          <i class="fas" [class.fa-chevron-down]="!isConfigExpanded(column.item.exp.id)"
+            [class.fa-chevron-up]="isConfigExpanded(column.item.exp.id)"></i>
+        </button>
+
+        @if (isConfigExpanded(column.item.exp.id)) {
+        <div class="config-body">
+          <div class="config-kv-grid">
+            <div class="kv">
+              <span class="k">Algorithm</span>
+              <span class="v">{{ column.item.exp.algorithmName }}</span>
+            </div>
+            <div class="kv">
+              <span class="k">Domain</span>
+              <span class="v">{{ column.item.exp.domain || '—' }}</span>
+            </div>
           </div>
 
-          <span class="status-chip" [class.completed]="item.exp.status === 'success'"
-            [class.error]="item.exp.status === 'error'">
-            {{ item.exp.status }}
-          </span>
-        </header>
-
-        <!-- compact details table -->
-        <table class="details-table">
-          <tbody>
-            <tr>
-              <th>Date</th>
-              <td>{{ item.exp.dateCreated | date : "medium" }}</td>
-            </tr>
-            <tr>
-              <th>Author</th>
-              <td>
-                {{ item.exp.author || item.exp.authorEmail || "Unknown" }}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-
-        <!-- CONFIG (collapsible) -->
-        <section class="compare-config">
-          <button type="button" class="config-toggle" (click)="toggleConfig(item.exp.id)">
-            <span>Configuration</span>
-            <i class="fas" [class.fa-chevron-up]="isConfigExpanded(item.exp.id)" [class.fa-chevron-down]="!isConfigExpanded(item.exp.id)"></i>
-          </button>
-
-          @if (isConfigExpanded(item.exp.id)) {
-          <div class="config-body">
-            <!-- Top row: Domain + Datasets -->
-            <div class="config-kv-grid">
-              <div class="kv">
-                <span class="k">Domain</span>
-                <span class="v">{{
-                  item.exp.domain || "Not specified"
-                  }}</span>
-              </div>
-
-              <div class="kv">
-                <span class="k">Datasets</span>
-                <span class="v">
-                  @if (item.exp.datasets?.length) {
-                  {{ item.exp.datasets?.join(", ") }}
-                  } @else { Not specified }
-                </span>
-              </div>
+          <div class="config-tags-row">
+            <span class="k">Datasets</span>
+            @if (column.item.exp.datasets?.length) {
+            <div class="tag-list">
+              @for (d of column.item.exp.datasets; track d) {
+              <span class="tag">{{ d }}</span>
+              }
             </div>
-
-            <!-- Tags: Variables/Covariates/Filters -->
-            @if (getVariablesWithLabels(item.exp).length) {
-            <div class="config-tags-row">
-              <span class="k">Variables (Y)</span>
-              <div class="tag-list">
-                @for (v of getVariablesWithLabels(item.exp); track v.code) {
-                <span class="tag" [title]="v.code">{{ v.label }}</span>
-                }
-              </div>
-            </div>
-            } @if (getCovariatesWithLabels(item.exp).length) {
-            <div class="config-tags-row">
-              <span class="k">Covariates (X)</span>
-              <div class="tag-list">
-                @for (c of getCovariatesWithLabels(item.exp); track c.code) {
-                <span class="tag" [title]="c.code">{{ c.label }}</span>
-                }
-              </div>
-            </div>
-            } @if (getFiltersWithLabels(item.exp).length) {
-            <div class="config-tags-row">
-              <span class="k">Filters</span>
-              <div class="tag-list">
-                @for (f of getFiltersWithLabels(item.exp); track f.code) {
-                <span class="tag" [title]="f.code">{{ f.label }}</span>
-                }
-              </div>
-            </div>
+            } @else {
+            <span class="v">—</span>
             }
           </div>
-          }
-        </section>
 
-        <!-- results -->
-        <section class="compare-results">
-          @if (item.state.loading) {
-          <p class="muted-text">Loading results...</p>
-          } @else if (item.state.error) {
-          <p class="error-text">{{ item.state.error }}</p>
-          } @else if (item.state.result) {
-          <app-algorithm-result [result]="enrichResult(item.exp, item.state.result)"
-            [schema]="getOutputSchemaFor(item.exp)" [algorithm]="item.exp.algorithmName"
-            [enumMaps]="getEnumMapsFor(item.exp)" [yVar]="getYVarFor(item.exp)" [xVar]="getXVarFor(item.exp)"
-            [labelMap]="getLabelMapFor(item.exp)"></app-algorithm-result>
-          } @else {
-          <p class="muted-text">No results available.</p>
-          }
-        </section>
-      </article>
-      }
+          <div class="config-tags-row">
+            <span class="k">Variables</span>
+            @if (getVariablesWithLabels(column.item.exp).length) {
+            <div class="tag-list">
+              @for (opt of getVariablesWithLabels(column.item.exp); track opt.code) {
+              <span class="tag" [title]="opt.code">{{ opt.label }}</span>
+              }
+            </div>
+            } @else {
+            <span class="v">—</span>
+            }
+          </div>
+
+          <div class="config-tags-row">
+            <span class="k">Covariates</span>
+            @if (getCovariatesWithLabels(column.item.exp).length) {
+            <div class="tag-list">
+              @for (opt of getCovariatesWithLabels(column.item.exp); track opt.code) {
+              <span class="tag" [title]="opt.code">{{ opt.label }}</span>
+              }
+            </div>
+            } @else {
+            <span class="v">—</span>
+            }
+          </div>
+
+          <div class="config-tags-row">
+            <span class="k">Filters</span>
+            @if (getFiltersWithLabels(column.item.exp).length) {
+            <div class="tag-list">
+              @for (opt of getFiltersWithLabels(column.item.exp); track opt.code) {
+              <span class="tag" [title]="opt.code">{{ opt.label }}</span>
+              }
+            </div>
+            } @else {
+            <span class="v">—</span>
+            }
+          </div>
+        </div>
+        }
+      </div>
+
+      <div class="compare-results">
+        @if (column.item.state.loading) {
+        <span class="muted-text">Loading results…</span>
+        } @else if (column.item.state.error) {
+        <span class="error-text">{{ column.item.state.error }}</span>
+        } @else if (column.item.state.result) {
+        <app-algorithm-result [result]="enrichResult(column.item.exp, column.item.state.result)"
+          [schema]="getOutputSchemaFor(column.item.exp)" [algorithm]="column.item.exp.algorithmName"
+          [enumMaps]="getEnumMapsFor(column.item.exp)" [yVar]="getYVarFor(column.item.exp)"
+          [xVar]="getXVarFor(column.item.exp)" [labelMap]="getLabelMapFor(column.item.exp)"></app-algorithm-result>
+        } @else {
+        <span class="muted-text">No results available.</span>
+        }
+      </div>
     </div>
-    }
   </section>
   }
 </div>

@@ -1,0 +1,71 @@
+<button
+  type="button"
+  class="selected-variables-trigger"
+  [attr.aria-expanded]="isOpen()"
+  aria-controls="selected-variables-popover"
+  [attr.aria-label]="'Selected variables: ' + variables().length"
+  (click)="toggle(); $event.stopPropagation()"
+>
+  <span class="selected-variables-trigger-count">{{ variables().length }}</span>
+</button>
+
+@if (isOpen()) {
+<div class="selected-variables-popover" id="selected-variables-popover" role="dialog" aria-label="Selected variables">
+  <div class="selected-variables-popover-header">
+    <span class="selected-variables-popover-title">Selected variables</span>
+    @if (variables().length > 0) {
+    <button
+      type="button"
+      class="panel-secondary-btn parameter-clear-btn"
+      aria-label="Clear all variables"
+      (click)="clearList()"
+    >
+      <i class="fas fa-trash-alt" aria-hidden="true"></i>
+      <span>Clear all</span>
+    </button>
+    }
+  </div>
+
+  <table class="selected-vars-table">
+    <thead>
+      <tr>
+        <th scope="col">Variable</th>
+        <th scope="col">Type</th>
+        <th scope="col" class="selected-vars-th-actions" aria-label="Actions"></th>
+      </tr>
+    </thead>
+    <tbody>
+      @if (variables().length === 0) {
+      <tr>
+        <td class="parameter-empty" colspan="3">No variables in this experiment yet.</td>
+      </tr>
+      }
+      @for (variable of variables(); track variable.code ?? variable.label) {
+      <tr
+        class="selected-vars-row"
+        [class.is-selected]="selectedNode()?.code === variable.code"
+        (click)="onVariableClick(variable)"
+      >
+        <td class="selected-var-name">
+          <span class="selected-var-label">{{ variable.label }}</span>
+          @if (variable.code) {
+          <span class="selected-var-code">{{ variable.code }}</span>
+          }
+        </td>
+        <td class="selected-var-type">{{ variable.type }}</td>
+        <td class="selected-var-td-actions">
+          <button
+            type="button"
+            class="parameter-remove-btn"
+            [attr.aria-label]="'Remove ' + variable.label"
+            (click)="removeItem(variable); $event.stopPropagation()"
+          >
+            <i class="fas fa-times" aria-hidden="true"></i>
+          </button>
+        </td>
+      </tr>
+      }
+    </tbody>
+  </table>
+</div>
+}

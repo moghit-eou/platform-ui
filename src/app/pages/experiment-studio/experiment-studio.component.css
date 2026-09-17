@@ -3,37 +3,177 @@
   position: relative;
 }
 
-/* Page wrapper */
+/* Page wrapper. No --header-height term: the bar is sticky and sits above this box.
+   --studio-sub-header-height stays because row 2 is still fixed and out of the flow. */
 .experiment-studio-page {
   --warning-banner-space: 0px;
-  padding: 16px 16px;
+  --studio-sub-header-height: 44px;
+  padding: calc(var(--studio-sub-header-height) + 8px) var(--studio-page-gutter) 16px;
   position: relative;
   background: transparent;
   color: var(--text-main);
-  font-family: 'Alaska Regular', 'Alaska', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: var(--font-sans);
   box-sizing: border-box;
-  overflow-x: hidden;
+  /* overflow-x: clip so the window stays the scroller */
+  overflow-x: clip;
 }
 
 .experiment-studio-page.has-pathology-warning {
   --warning-banner-space: 96px;
-  padding-top: calc(32px + var(--warning-banner-space));
+  padding-top: calc(var(--studio-sub-header-height) + 24px + var(--warning-banner-space));
+}
+
+/*
+ * Row 2 of the same bar as the header: same surface, same bottom border, same height.
+ * It used to be an inset tinted card with backdrop-filter, which both broke DESIGN.md
+ * (`--glass-blur: none`, "do not reintroduce frost") and read as two different teams'
+ * work stacked on top of each other.
+ * The surface is full-bleed; only the content is inset. `--chrome-inline-padding` is the
+ * floor (it matches row 1), `.sub-header-inner` is free to indent further.
+ */
+.studio-sub-header {
+  position: fixed;
+  top: var(--header-height);
+  left: 0;
+  right: 0;
+  z-index: 9990;
+  display: flex;
+  align-items: stretch;
+  height: var(--studio-sub-header-height);
+  padding: 0 var(--chrome-inline-padding);
+  box-sizing: border-box;
+  background: var(--header-surface);
+  border-bottom: 1px solid var(--header-border);
+}
+
+/*
+ * Row 2 exists only on this route, so it can share the measure of the panels below it
+ * without re-indenting the bar that every other route shows: the CTA ends on the card's
+ * right border instead of overhanging it, and the stepper starts on the panels' left
+ * border instead of left of them. Both effects are (100% - --studio-inner-max) / 2 wide
+ * at viewports past the cap, so an inset on the bar itself would have been wrong on
+ * every other route; capping the content is the only way to get the alignment.
+ */
+.sub-header-inner {
+  width: 100%;
+  max-width: var(--studio-inner-max, 1320px);
+  margin-inline: auto;
+  min-width: 0;
+  display: grid;
+  /* Side tracks are content-sized so the fixed CTA can never be squeezed to 0 and
+     overflow leftwards over the stepper; the stepper track is the only flexible one. */
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.sub-header-prev {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  padding: 6px 8px;
+  border-radius: var(--radius-md, 6px);
+  cursor: pointer;
+  transition: color 0.15s ease, opacity 0.15s ease;
+}
+
+.sub-header-prev:hover {
+  color: var(--primary-color);
+}
+
+.sub-header-prev:focus-visible {
+  color: var(--primary-color);
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+.sub-header-prev i {
+  font-size: 0.8rem;
+}
+
+.sub-header-prev-placeholder {
+  justify-self: start;
+}
+
+.studio-sub-header app-studio-stepper {
+  /* stretch, not center: center would size the host to max-content and let it
+     spill out of its track. The inner .stepper-track does the centering. */
+  justify-self: stretch;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.sub-header-cta {
+  justify-self: end;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  background: var(--primary-color);
+  color: #ffffff;
+  border: 1px solid var(--primary-color);
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: 0 1px 2px rgba(43, 51, 233, 0.18);
+}
+
+.sub-header-cta:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--primary-color) 88%, #000000);
+}
+
+.sub-header-cta:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+.sub-header-cta:disabled {
+  background: color-mix(in srgb, var(--text-muted) 22%, #ffffff);
+  border-color: var(--border-color, #e2e8f0);
+  color: var(--text-muted);
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+@media (max-width: 768px) {
+  .studio-sub-header {
+    padding: 0 12px;
+  }
+
+  .sub-header-cta {
+    padding: 6px 10px;
+    font-size: 0.75rem;
+  }
 }
 
 :host {
   --studio-card-bg: var(--card-bg);
   --studio-card-border: var(--border-color);
   --studio-card-shadow: var(--shadow-md);
-  --studio-card-header-bg: #f8fafc;
+  --studio-card-header-bg: #ffffff;
   --studio-card-header-border: var(--border-color);
   --studio-content-max: 720px;
+  /* Full-width step surfaces (Data Handling pipeline rail) — narrower than the
+     1320px panel so a wide summary table does not stretch every station card. */
+  --studio-step-max: 1160px;
+  /* Compact width for the pipeline's overview rows (header, dormant nodes,
+     terminal). A dormant row only carries a title and one action, so the full
+     1160px rail left ~600px of dead space between them. */
+  --studio-pipeline-overview-max: 860px;
 }
 
-/* Inner wrapper */
+/* Inner wrapper: centers the whole studio content on the page. */
 .studio-inner {
-  margin: 0;
+  margin: 0 auto;
   width: 100%;
-  max-width: none;
+  max-width: var(--studio-inner-max, 1320px);
   display: flex;
   align-items: flex-start;
 }
@@ -42,360 +182,17 @@
   position: relative;
 }
 
-.studio-sidenav {
-  position: fixed;
-  top: calc(80px + var(--warning-banner-space));
-  left: 16px;
-  width: 210px;
-  height: fit-content;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  padding: 16px 12px;
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-border);
-  border-radius: 24px;
-  box-shadow: var(--glass-shadow);
-  max-height: calc(100vh - 120px - var(--warning-banner-space));
-  overflow: visible;
-  z-index: 1000;
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* Base Collapsed Styles (Shared between auto-collapse and manual toggle) */
-.studio-sidenav.is-collapsed {
-  width: 72px !important;
-  left: 16px !important;
-  padding: 16px 0 !important;
-  gap: 20px !important;
-  align-items: center !important;
-}
-
-.studio-sidenav.is-collapsed .studio-rail-context-title,
-.studio-sidenav.is-collapsed .studio-rail-section-title,
-.studio-sidenav.is-collapsed .studio-rail-label,
-.studio-sidenav.is-collapsed .studio-descriptive-progress,
-.studio-sidenav.is-collapsed .studio-rail-context-text,
-.studio-sidenav.is-collapsed .studio-rail-item::after {
-  display: none !important;
-}
-
-.studio-sidenav.is-collapsed .studio-rail-context-link,
-.studio-sidenav.is-collapsed .studio-rail-item {
-  justify-content: center !important;
-  padding: 12px !important;
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  margin: 0 auto;
-  transform: none !important;
-}
-
-.studio-sidenav.is-collapsed .studio-rail-icon {
-  font-size: 1.1rem !important;
-  margin: 0 !important;
-}
-
-/* Tier 2: Medium Screens (Laptops) - Fixed Icon Rail */
-@media (min-width: 1201px) and (max-width: 1650px) {
-  .studio-sidenav {
-    width: 72px !important;
-    left: 16px !important;
-    padding: 16px 0 !important;
-    gap: 20px !important;
-    align-items: center !important;
-  }
-
-  /* Hide labels and titles in icon rail mode */
-  .studio-sidenav .studio-rail-context-title,
-  .studio-sidenav .studio-rail-section-title,
-  .studio-sidenav .studio-rail-label,
-  .studio-sidenav .studio-descriptive-progress,
-  .studio-sidenav .studio-rail-context-text,
-  .studio-sidenav .studio-rail-item::after {
-    display: none !important;
-  }
-
-  .studio-sidenav .studio-rail-context-link,
-  .studio-sidenav .studio-rail-item {
-    justify-content: center !important;
-    padding: 12px !important;
-    width: 44px;
-    height: 44px;
-    border-radius: 12px;
-    margin: 0 auto;
-    transform: none !important;
-  }
-
-  .studio-sidenav .studio-rail-icon {
-    font-size: 1.1rem !important;
-    margin: 0 !important;
-  }
-
-  .studio-main {
-    padding-left: 104px !important;
-  }
-}
-
-/* Tier 3: Narrow Screens (Mobile/Tablet) - Hidden/Drawer */
-@media (max-width: 1200px) {
-  .studio-sidenav {
-    left: -260px;
-    /* Fully hidden */
-    top: calc(100px + var(--warning-banner-space));
-    height: calc(100vh - 120px - var(--warning-banner-space));
-    border-radius: 24px;
-    box-shadow: 0 20px 50px rgba(15, 23, 42, 0.15);
-    width: 210px;
-    /* Full width when drawer opens */
-  }
-
-  .studio-main {
-    padding-left: 0 !important;
-  }
-}
-
-
-.studio-rail-context {
-  padding: 16px 4px;
-  transition: all 0.3s ease;
-}
-
-.studio-rail-context-title {
-  font-size: 0.72rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: #64748b;
-  margin-bottom: 20px;
+/* Visually hidden live region used for the once-per-unlock announcement. */
+.studio-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
   white-space: nowrap;
-}
-
-.studio-rail-context-link {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 14px;
-  background: rgba(43, 51, 233, 0.06);
-  border-radius: 12px;
-  color: var(--primary-color);
-  text-decoration: none;
-  font-size: 0.82rem;
-  font-weight: 600;
-  transition: all 0.2s ease;
-  white-space: nowrap;
-}
-
-.studio-rail-context-link:hover {
-  background: white;
-  color: var(--primary-color);
-  border-color: var(--primary-color);
-  box-shadow: var(--shadow-sm);
-}
-
-
-.studio-rail-section {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding-top: 10px;
-  border-top: 1px solid rgba(148, 163, 184, 0.2);
-}
-
-.studio-rail-section-title {
-  padding-left: 12px;
-  margin-bottom: 12px;
-  font-size: 0.65rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: #94a3b8;
-  position: relative;
-}
-
-.studio-rail-section-title.is-active {
-  color: var(--primary-color);
-}
-
-.studio-rail-section-title.is-active::before {
-  content: '';
-  position: absolute;
-  left: -2px;
-  top: 2px;
-  width: 6px;
-  height: 6px;
-  border-radius: 3px;
-  background: var(--primary-color);
-}
-
-
-.studio-rail-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
-  border-radius: 12px;
-  color: #475569;
-  text-decoration: none;
-  font-size: 0.88rem;
-  font-weight: 600;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  margin-bottom: 4px;
-}
-
-.studio-rail-item:hover,
-.studio-rail-item.is-preview {
-  background: rgba(43, 51, 233, 0.08);
-  color: var(--primary-color);
-  transform: translateX(4px);
-}
-
-.studio-rail-item.is-preview:not(.is-active) {
-  box-shadow: inset 0 0 0 1px rgba(43, 51, 233, 0.14);
-}
-
-.studio-rail-item.is-active {
-  background: var(--primary-color);
-  color: #ffffff;
-  box-shadow: 0 4px 12px rgba(43, 51, 233, 0.2);
-  transform: none;
-}
-
-.studio-rail-item.is-active:hover,
-.studio-rail-item.is-active.is-preview {
-  background: var(--primary-color);
-  color: #ffffff;
-  transform: none;
-}
-
-.studio-rail-item.is-muted:not(.is-active) {
-  opacity: 0.54;
-}
-
-.studio-rail-item.is-active .studio-rail-icon {
-  color: #ffffff;
-}
-
-.studio-rail-item::after {
-  content: '›';
-  position: absolute;
-  right: 8px;
-  opacity: 0;
-  color: currentColor;
-  transition: opacity 0.18s ease, transform 0.18s ease;
-  transform: translateX(-2px);
-}
-
-.studio-rail-item:hover::after {
-  opacity: 0.45;
-  transform: translateX(0);
-}
-
-.studio-descriptive-progress {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin: 12px 0 16px 12px;
-  padding-left: 0;
-  border-left: none;
-  position: relative;
-}
-
-/* Vertical timeline connecting line */
-.studio-descriptive-progress::before {
-  content: '';
-  position: absolute;
-  top: 20px;
-  bottom: 20px;
-  left: 20px; /* 8px padding + 12px half-circle = 20px center */
-  width: 2px;
-  background: color-mix(in srgb, var(--primary-color) 15%, #cbd5e1);
-  z-index: 0;
-}
-
-.studio-progress-step {
-  appearance: none;
-  border: 1px solid transparent;
-  background: transparent;
-  color: var(--text-muted, #64748b);
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 8px;
-  border-radius: 12px;
-  font-size: 0.72rem;
-  line-height: 1.25;
-  font-weight: 600;
-  text-align: left;
-  cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  position: relative;
-  z-index: 1;
-}
-
-.studio-progress-step:hover {
-  background: rgba(255, 255, 255, 0.6);
-  color: var(--primary-color);
-  transform: translateX(2px);
-}
-
-.studio-progress-step.is-active {
-  background: white;
-  color: var(--primary-color);
-  font-weight: 700;
-  border-color: rgba(43, 51, 233, 0.15);
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
-  transform: translateX(4px);
-}
-
-.studio-progress-num {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: color-mix(in srgb, var(--glass-bg, #f8fafc) 80%, white);
-  color: var(--text-muted, #64748b);
-  font-size: 0.72rem;
-  font-weight: 800;
-  flex: 0 0 auto;
-  border: 2px solid color-mix(in srgb, var(--primary-color) 15%, #cbd5e1);
-  transition: all 0.2s ease;
-  z-index: 2;
-}
-
-.studio-progress-step.is-active .studio-progress-num {
-  background: var(--primary-color, #2B33E9);
-  color: #ffffff;
-  border-color: var(--primary-color, #2B33E9);
-  box-shadow: 0 2px 8px rgba(43, 51, 233, 0.3);
-}
-
-.studio-progress-label {
-  flex: 1;
-}
-
-
-.studio-rail-scroll {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  min-height: 0;
-  flex: 1 1 auto;
-  overflow-y: auto;
-  padding-right: 4px;
-}
-
-
-
-/* Mobile Hidden State */
-@media (max-width: 1200px) {
-  .studio-main {
-    padding-left: 0 !important;
-  }
+  border: 0;
 }
 
 .global-error-banner {
@@ -410,13 +207,13 @@
   max-width: 1200px;
   margin: 0 auto;
   z-index: 2000;
-  background: linear-gradient(135deg, #fee2e2, #fecaca);
-  border: 1px solid #f87171;
+  background: color-mix(in srgb, var(--danger) 12%, white);
+  border: 1px solid color-mix(in srgb, var(--danger) 35%, transparent);
   color: #7f1d1d;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   padding: 10px 14px;
   margin-top: 3%;
-  box-shadow: 0 8px 18px rgba(127, 29, 29, 0.12);
+  box-shadow: none;
 }
 
 .pathology-warning-banner {
@@ -425,19 +222,18 @@
   align-items: flex-start;
   gap: 10px;
   position: fixed;
-  top: calc(var(--header-height) + 12px);
+  /* Below the sub-header, not underneath it: the banner used to start at header+12px,
+     which put its top 32px behind the sub-header while the page still reserved 96px. */
+  top: calc(var(--header-height) + var(--studio-sub-header-height) + 12px);
   left: 16px;
   right: 16px;
   z-index: 2100;
-  border: 1px solid rgba(255, 186, 8, 0.25);
-  background: rgba(255, 186, 8, 0.08); /* Keep premium looking */
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  color: color-mix(in srgb, var(--primary-color, #2B33E9) 70%, var(--accent-color, #FFBA08) 30%);
-  box-shadow: 0 10px 30px rgba(255, 186, 8, 0.08);
+  border: 1px solid color-mix(in srgb, var(--accent-color) 35%, transparent);
+  background: color-mix(in srgb, var(--accent-color) 12%, white);
+  color: #7c2d12;
+  box-shadow: none;
   margin: 0;
-  border-left: 6px solid #ffba08;
-  border-radius: 16px;
+  border-radius: var(--radius-lg);
   box-sizing: border-box;
   padding: 12px 14px;
 }
@@ -515,6 +311,11 @@
   font-weight: 700;
 }
 
+.warning-heading {
+  font-weight: 700;
+  color: #8c5b00;
+}
+
 .warning-content ul {
   margin: 0;
   padding-left: 18px;
@@ -532,14 +333,17 @@
   line-height: 1;
   cursor: pointer;
   padding: 4px 6px;
-  border-radius: 6px;
-  transition: background-color 0.15s ease, color 0.15s ease;
+  border-radius: 8px;
 }
 
-.banner-close:hover,
+.banner-close:hover {
+  background: rgba(127, 29, 29, 0.08);
+}
+
 .banner-close:focus-visible {
   background: rgba(127, 29, 29, 0.08);
-  outline: none;
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
 }
 
 .section-warning-banner .banner-close:hover,
@@ -547,59 +351,36 @@
   background: rgba(107, 78, 0, 0.08);
 }
 
-
 /* Main vertical layout */
 .studio-main {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 20px;
   width: 100%;
   margin: 0;
-  padding-left: 240px;
-  /* Synchronized sidebar offset */
-  transition: all 0.25s ease;
   min-width: 0;
-  /* Critical for grid item scaling */
 }
 
-.studio-main.sidebar-collapsed {
-  padding-left: 88px;
-}
-
-/* Section wrapper around panels */
+/* Rail-switched views: only the active view is visible; the others stay
+   mounted but hidden so state is preserved. */
 .studio-section {
   max-width: 100%;
   margin-bottom: 0;
-  scroll-margin-top: calc(var(--header-height) + var(--warning-banner-space) + 80px);
+  display: none;
+  scroll-margin-top: calc(
+    var(--header-height, 64px) + var(--studio-sub-header-height, 44px) + var(--warning-banner-space, 0px) + 16px
+  );
 }
 
-/* Light frame */
-.studio-section--variables,
-.studio-section--statistics,
-.studio-section--algorithm {
-  padding: 28px;
-  border-radius: var(--radius-lg);
-  background: rgba(255, 255, 255, 0.45);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  box-shadow:
-    0 4px 6px -1px rgba(43, 51, 233, 0.03),
-    0 10px 15px -3px rgba(43, 51, 233, 0.05),
-    0 20px 25px -5px rgba(43, 51, 233, 0.08);
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  transition: all 0.2s ease;
-  overflow: hidden;
-  /* For top border accents */
-  position: relative;
-  /* Entrance Animation */
-  animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+.studio-section.is-visible {
+  display: block;
+  animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @keyframes slideUp {
   from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(12px);
   }
 
   to {
@@ -608,98 +389,117 @@
   }
 }
 
-/* Stagger Animations */
-.studio-section--variables {
-  animation-delay: 0.1s;
-  margin-top: 48px;
-}
-
+.studio-section--variables,
 .studio-section--statistics {
-  animation-delay: 0.2s;
+  padding: 16px 20px 20px;
+  border-radius: var(--radius-lg);
+  background: #ffffff;
+  position: relative;
+  /* Clip to the rounded frame. overflow:visible lets station cards paint outside
+     the panel when the page scrolls under the stepper, so they look stacked on a
+     second sheet. clip does not create a nested scroller. */
+  overflow: clip;
 }
 
 .studio-section--algorithm {
-  animation-delay: 0.3s;
+  padding: 0;
+  background: transparent;
+  position: relative;
 }
 
-
-.studio-section.is-muted {
-  opacity: 0.56;
-  filter: saturate(0.72);
+/* Inline empty state for locked steps */
+.studio-section-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 8px;
+  padding: 64px 24px;
+  min-height: 320px;
 }
 
-.studio-section.is-current,
-.studio-section.is-muted:hover,
-.studio-section:focus-within {
-  opacity: 1;
-  filter: none;
+/* Overlay empty state: covers a locked step's panel (kept mounted underneath) */
+.studio-section-empty-state--overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  min-height: 0;
+  padding: 64px 24px;
+  background: rgba(248, 250, 252, 0.9);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border-radius: var(--radius-lg);
 }
 
-.studio-section.is-current {
-  box-shadow:
-    0 6px 8px -2px rgba(43, 51, 233, 0.04),
-    0 14px 20px -5px rgba(43, 51, 233, 0.07),
-    0 28px 34px -10px rgba(43, 51, 233, 0.1);
-  outline: 2px solid rgba(43, 51, 233, 0.12);
-  outline-offset: 2px;
-  transition:
-    opacity 0.22s ease,
-    filter 0.22s ease,
-    box-shadow 0.22s ease,
-    outline-color 0.22s ease;
-}
-
-.studio-section:not(.is-current) {
-  transition:
-    opacity 0.22s ease,
-    filter 0.22s ease,
-    box-shadow 0.22s ease;
-}
-
-
-.studio-section-state-note {
+.studio-section-empty-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 20px;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  margin: 0 0 16px;
-  padding: 8px 12px;
-  border: 1px solid rgba(43, 51, 233, 0.1);
-  border-radius: var(--radius-lg, 12px);
-  background: rgba(255, 255, 255, 0.52);
-  color: var(--text-muted);
-  font-size: 0.78rem;
-  font-weight: 700;
+  justify-content: center;
+  font-size: 1.6rem;
+  color: var(--primary-color);
+  background: rgba(43, 51, 233, 0.08);
+  margin-bottom: 8px;
 }
 
-.studio-section-state-note i {
+.studio-section-empty-state h3 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+.studio-section-empty-state p {
+  margin: 0;
+  max-width: 420px;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.studio-section-empty-action {
+  appearance: none;
+  border: 1px solid rgba(43, 51, 233, 0.25);
+  background: rgba(43, 51, 233, 0.08);
   color: var(--primary-color);
-  opacity: 0.68;
+  font-weight: 700;
+  font-size: 0.85rem;
+  padding: 10px 16px;
+  border-radius: 12px;
+  cursor: pointer;
+  margin-top: 12px;
+  transition: background-color 0.2s ease;
+}
+
+.studio-section-empty-action:hover {
+  background: rgba(43, 51, 233, 0.14);
 }
 
 .studio-section--warning {
   margin-top: -6px;
+  display: block;
 }
-
 
 /* Responsive */
 @media (max-width: 960px) {
   .experiment-studio-page {
-    padding: 16px;
-    margin-top: 4%;
+    /* Must keep the sub-header in the offset — dropping it tucked the first panel under the bar. */
+    padding: calc(var(--studio-sub-header-height) + 12px) var(--studio-page-gutter) 16px;
   }
 
   .studio-inner {
     max-width: 100%;
   }
 
-
   .studio-main {
-    gap: 12px;
+    gap: 16px;
   }
 
   .studio-section--variables,
-  .studio-section--statistics,
-  .studio-section--algorithm {
+  .studio-section--statistics {
     border-radius: var(--radius-lg, 12px);
     padding: 6px 4px;
   }

@@ -1,14 +1,4 @@
 <div>
-  <div class="studio-panel-header">
-    <div class="header-main">
-      <i class="fas fa-database panel-icon" aria-hidden="true"></i>
-      <div class="header-text">
-        <p>DATASETS & VARIABLES</p>
-        <span class="header-subtitle">Select data models, datasets, variables, and covariates.</span>
-      </div>
-    </div>
-  </div>
-
   <div class="selectors-row" id="dataset-selection"></div>
 
   <!-- Main area -->
@@ -17,58 +7,112 @@
       <div class="bubble-column" data-guide="variable-browser">
         <section class="bubble-chart-section" id="data-model-visualization" data-guide="variable-selection">
           <div class="visualization-toolbar">
-            <div class="visualization-toolbar-section visualization-toolbar-selectors">
-              <div class="bubble-selectors">
+            <div
+              class="visualization-toolbar-section visualization-toolbar-context"
+              #contextSection
+              data-guide="study-context">
+              <button
+                type="button"
+                class="study-context-chip"
+                [attr.aria-expanded]="contextOpen()"
+                [attr.title]="contextChipTitle"
+                (click)="toggleContext()">
+                <span class="study-context-value">
+                  {{ selectedDataModel()?.label ?? 'Select pathology' }}
+                </span>
+                @if (selectedDataModel()) {
+                <span class="study-context-sep" aria-hidden="true">·</span>
+                <span class="study-context-count" [title]="contextChipTitle">
+                  <i class="fas fa-hospital" aria-hidden="true"></i>
+                  <span>{{ selectedDatasetCount() }}</span>
+                </span>
+                }
+                <i class="fas fa-chevron-down study-context-chevron" aria-hidden="true"></i>
+              </button>
+              @if (contextOpen()) {
+              <div class="study-context-panel" role="region" aria-label="Study context settings">
                 <app-data-model-selector [crossSectionalModels]="crossSectionalModels"
                   [longitudinalModels]="longitudinalModels" [defaultModel]="selectedDataModel()"
                   (dataModelChange)="onSelectedDataModelChange($event)">
                 </app-data-model-selector>
 
+                <div class="study-context-divider" aria-hidden="true"></div>
+
                 <app-dataset-selector
                   [datasets]="availableDatasets"
-                  [selectedDatasetCodes]="experimentStudioService.selectedDatasets()"
-                  [autoSelectAll]="!experimentStudioService.editingExistingExperiment()">
+                  [selectedDatasetCodes]="experimentStudioService.selectedDatasets()">
                 </app-dataset-selector>
+              </div>
+              }
+            </div>
+
+            @if (d3Data) {
+            <div class="visualization-toolbar-modes">
+              <div
+                class="metadata-browser-switcher"
+                role="group"
+                aria-label="Metadata browser view"
+                [style.--segment-active-index]="metadataBrowserModeIndex()">
+                <span class="metadata-segment-track" aria-hidden="true">
+                  <span class="metadata-segment-indicator"></span>
+                </span>
+                @for (mode of metadataBrowserModes; track mode.value) {
+                <button
+                  type="button"
+                  class="metadata-mode-btn"
+                  [class.active]="metadataBrowserMode() === mode.value"
+                  [attr.aria-pressed]="metadataBrowserMode() === mode.value"
+                  [attr.aria-label]="mode.label"
+                  [title]="mode.title"
+                  (click)="setMetadataBrowserMode(mode.value)"
+                >
+                  <i [class]="mode.icon" aria-hidden="true"></i>
+                  <span>{{ mode.label }}</span>
+                </button>
+                }
               </div>
             </div>
 
-            <div class="visualization-toolbar-divider" aria-hidden="true"></div>
-
-            <div class="visualization-toolbar-section visualization-toolbar-search">
-              <span class="visualization-field-label">Search</span>
-              @if (d3Data) {
-              <app-search-bar [dataModelHierarchy]="d3Data" (searchResultSelected)="onSearchSelected($event)">
-              </app-search-bar>
+            <div
+              class="visualization-toolbar-section visualization-toolbar-search"
+              #searchSection
+              data-guide="search-bar"
+              [class.is-open]="searchExpanded()">
+              <button
+                type="button"
+                class="search-toggle-btn"
+                [class.is-active]="searchExpanded()"
+                [attr.aria-expanded]="searchExpanded()"
+                [title]="searchExpanded() ? 'Close search' : 'Search variables or groups'"
+                aria-label="Search variables or groups"
+                (click)="toggleSearch()">
+                <i class="fas fa-search" aria-hidden="true"></i>
+              </button>
+              @if (searchExpanded()) {
+              <div class="search-popover">
+                <app-search-bar [dataModelHierarchy]="d3Data" (searchResultSelected)="onSearchSelected($event)">
+                </app-search-bar>
+              </div>
               }
             </div>
+            }
           </div>
 
           @if (selectedDataModel() && d3Data) {
-          <div class="metadata-browser-shell" data-guide="variable-visualizations">
-            <div class="metadata-browser-switcher" role="group" aria-label="Metadata browser view">
-              @for (mode of metadataBrowserModes; track mode.value) {
-              <button
-                type="button"
-                class="metadata-mode-btn"
-                [class.active]="metadataBrowserMode() === mode.value"
-                [attr.aria-pressed]="metadataBrowserMode() === mode.value"
-                [title]="mode.title"
-                (click)="setMetadataBrowserMode(mode.value)"
-              >
-                <i [class]="mode.icon" aria-hidden="true"></i>
-                <span>{{ mode.label }}</span>
-              </button>
-              }
-            </div>
-
+          <div
+            class="metadata-browser-shell"
+            [class.is-map]="metadataBrowserMode() === 'bubble'"
+            data-guide="variable-visualizations">
             <div class="metadata-browser-content">
               @switch (metadataBrowserMode()) {
                 @case ('ontology') {
                 <app-ontology-tree-browser
                   [data]="d3Data"
                   [highlightNode]="highlightNode"
+                  [poolVariables]="selectedVariables"
                   (selectedNodeChange)="onMetadataBrowserNodeSelected($event)"
-                  (nodeDoubleClicked)="onNodeDoubleClicked($event)">
+                  (nodeDoubleClicked)="onNodeDoubleClicked($event)"
+                  (variablePoolToggle)="toggleSelectedNodeInPool()">
                 </app-ontology-tree-browser>
                 }
                 @case ('collapsible') {
@@ -76,7 +120,6 @@
                   [data]="d3Data"
                   [highlightNode]="highlightNode"
                   [selectedVariables]="selectedVariables"
-                  [selectedCovariates]="selectedCovariates"
                   (selectedNodeChange)="onMetadataBrowserNodeSelected($event)"
                   (nodeDoubleClicked)="onNodeDoubleClicked($event)">
                 </app-collapsible-tree-browser>
@@ -86,7 +129,6 @@
                   [d3Data]="d3Data"
                   [highlightNode]="highlightNode"
                   [selectedVariables]="selectedVariables"
-                  [selectedCovariates]="selectedCovariates"
                   (selectedNodeChange)="onBubbleNodeSelected($event)"
                   (nodeDoubleClicked)="onNodeDoubleClicked($event)">
                 </app-bubble-chart>
@@ -99,16 +141,28 @@
       </div>
 
       <aside class="right-column">
-        <!-- Parameters listing -->
-        <section class="panel-block variable-filter-container parameters-panel" id="parameters-listing"
-          data-guide="variable-containers">
-          <app-variable-filter-selection #variableFilterSelection [selectedNode]="selectedNode"
-            (variableClicked)="onVariableClicked($event)"></app-variable-filter-selection>
-        </section>
-
         <!-- Node details: histogram + metadata -->
         <section class="panel-block histogram-panel" id="histogram-graph" data-guide="variable-details">
           <div class="details-panel-header">
+            <div class="details-panel-controls" id="parameters-listing">
+              <button
+                type="button"
+                class="selection-toggle-btn"
+                data-guide="guide-add-variable"
+                [class.pulse-hint--variable]="!isSelectedNodeInPool() && !!selectedNode"
+                [class.is-remove]="isSelectedNodeInPool()"
+                [disabled]="selectionToggleDisabled()"
+                [title]="selectionToggleTitle()"
+                (click)="toggleSelectedNodeInPool()">
+                <i class="fas" [class.fa-plus]="!isSelectedNodeInPool()" [class.fa-minus]="isSelectedNodeInPool()" aria-hidden="true"></i>
+                <span>{{ selectionToggleLabel() }}</span>
+              </button>
+              <app-selected-variables
+                data-guide="variable-containers"
+                [selectedNode]="selectedNode"
+                (variableClicked)="onVariableClicked($event)">
+              </app-selected-variables>
+            </div>
             <div class="details-panel-header-main">
               <div class="details-panel-title-block">
                 @if (selectedNode) {
@@ -123,24 +177,9 @@
                 </div>
                 } @else {
                 <h2 class="details-panel-title">Select a variable</h2>
-                <p class="details-panel-subtitle">Click a variable or group in the browser to explore its chart and metadata.</p>
+                <p class="details-panel-subtitle">Click a variable or group to see its chart and metadata.</p>
                 }
               </div>
-              @if (activeDetailsTab() === 'histogram') {
-              <div class="histogram-export-group" aria-label="Export histogram">
-                <button type="button" class="histogram-export-btn"
-                  [disabled]="isExportDisabled() || isExporting()"
-                  (click)="exportHistogramCsv()" title="Export CSV">
-                  <i class="fa fa-file-text-o" aria-hidden="true"></i>
-                  <span>CSV</span>
-                </button>
-                <button type="button" class="histogram-export-btn" [disabled]="isExportDisabled() || isExporting()"
-                  (click)="exportHistogramPdf()" title="Export PDF">
-                  <i class="fa fa-file-pdf-o" aria-hidden="true"></i>
-                  <span>PDF</span>
-                </button>
-              </div>
-              }
             </div>
             <div
               class="details-segment"
@@ -193,6 +232,34 @@
             </div>
             }
             <div class="histogram-graph-area">
+              @if (histogramData() || groupHistogramData()) {
+              <div class="histogram-export-group" aria-label="Export histogram">
+                <button type="button" class="studio-export-btn"
+                  [disabled]="isExportDisabled() || isExporting()"
+                  [attr.aria-expanded]="exportMenuOpen()"
+                  aria-haspopup="menu"
+                  (click)="toggleExportMenu()" title="Export histogram">
+                  <i class="fa fa-download" aria-hidden="true"></i>
+                  <span>Export</span>
+                  <i class="fa fa-chevron-down histogram-export-caret" [class.open]="exportMenuOpen()"
+                    aria-hidden="true"></i>
+                </button>
+                @if (exportMenuOpen()) {
+                <div class="studio-export-menu" role="menu" aria-label="Export histogram">
+                  <button type="button" class="studio-export-menu-item" role="menuitem"
+                    (click)="exportHistogramCsv()" title="Export CSV">
+                    <i class="fa fa-file-csv" aria-hidden="true"></i>
+                    <span>CSV</span>
+                  </button>
+                  <button type="button" class="studio-export-menu-item" role="menuitem"
+                    (click)="exportHistogramPdf()" title="Export PDF">
+                    <i class="fa fa-file-pdf" aria-hidden="true"></i>
+                    <span>PDF</span>
+                  </button>
+                </div>
+                }
+              </div>
+              }
               <div class="histogram-graph" #histogramExport>
                 @if (isLoadingHistogram()) {
                 <div class="histogram-loader">
@@ -212,33 +279,17 @@
                 <div class="message-container error">
                   <p>{{ errorMessage() }}</p>
                 </div>
+                } @else if (emptyChartMessage()) {
+                <div class="message-container empty">
+                  <p>{{ emptyChartMessage() }}</p>
+                </div>
                 } @else if (!selectedNode) {
-                <div class="message-container empty-state-welcome">
-                  <div class="empty-state-icon">
-                    <i class="fas fa-magic"></i>
-                  </div>
-                  <h3>Welcome to Experiment Studio</h3>
-                  <p>Explore your pathology by clicking the chart or use the search bar to find variables.</p>
-                  <div class="empty-state-actions">
-                    <div class="hint-item">
-                      <i class="fas fa-mouse-pointer"></i>
-                      <span><b>Single-click</b> to view the histogram. <b>Double-click</b> to add a variable</span>
-                    </div>
-                    <div class="hint-item">
-                      <i class="fas fa-list-ul"></i>
-                      <span><b>Open Details</b> to inspect metadata and enumerations</span>
-                    </div>
-                  </div>
+                <div class="message-container empty-state-clinical">
+                  <h3>No variable selected</h3>
+                  <p>Click a variable in the browser to see its chart and details.</p>
                 </div>
                 } @else if (groupHistogramData()) {
-                @if (showGroupVariableSelectionMessage()) {
-                <div class="message-container info">
-                  <p>Please select one of the variables in the representation on the left to see its histogram in the
-                    selected centers.</p>
-                </div>
-                } @else {
                 <app-histogram-graph [data]="groupHistogramData()"></app-histogram-graph>
-                }
                 } @else if (histogramData()) {
                 <app-histogram-graph [data]="histogramData()"></app-histogram-graph>
                 }

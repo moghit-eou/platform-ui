@@ -1,28 +1,5 @@
-<div [class.modal-wrapper]="!inline()" [class.inline-filter-builder]="inline()">
-  @if (!inline()) {
-  <div class="modal-overlay" (click)="cancel()"></div>
-  }
-
+<div class="inline-filter-builder">
   <div class="filter-modal">
-    @if (!inline()) {
-    <div class="filter-modal-header">
-      <div class="header-left">
-        <i class="fas fa-filter header-icon"></i>
-        <h3>Filters & Formula</h3>
-      </div>
-      <button class="close-top-btn" (click)="cancel()" aria-label="Close modal">
-        <i class="fas fa-times"></i>
-      </button>
-    </div>
-    }
-
-    <div class="filter-helper">
-      <div class="helper-content">
-        <i class="fas fa-info-circle info-icon"></i>
-        <p>Build filter logic from editable condition and group blocks. Connector chips define how neighboring blocks are combined.</p>
-      </div>
-    </div>
-
     <div class="filter-modal-body">
       @if(allFilterVariables().length > 0) {
       <ng-container
@@ -41,149 +18,214 @@
       <div class="where-error" role="alert">{{ filterError() }}</div>
       }
       } @else {
-      <div class="where-error" role="status">No filterable variables are available for this pathology.</div>
+      <div class="where-error" role="status">{{ emptyPoolMessage() }}</div>
       }
-    </div>
-
-    <div class="filter-modal-footer">
-      <div class="footer-left">
-        @if (activeRulesCount() > 0) {
-        <div class="status-badge">
-          <span class="pulse-dot"></span>
-          {{ activeRulesCount() }} Active Rule{{ activeRulesCount() === 1 ? "" : "s" }}
-        </div>
-        } @else {
-        <span class="status-text muted">No filters applied</span>
-        }
-      </div>
-
-      <div class="filter-actions">
-        <button class="btn-secondary" type="button" (click)="clearFilters()">Clear</button>
-        @if (!inline()) {
-        <button class="btn-secondary" type="button" (click)="cancel()">Cancel</button>
-        }
-        <button class="btn-primary-gradient" type="button" [disabled]="activeRulesCount() === 0" (click)="saveFilters()">
-          <i class="fas fa-check icon-left"></i>
-          Apply Filters
-        </button>
-      </div>
     </div>
   </div>
 </div>
 
 <ng-template #groupTemplate let-group="group" let-depth="depth" let-removable="removable">
-  <div
-    class="filter-block-group"
-    [class.is-root]="depth === 0"
-    [class.depth-1]="depth === 1"
-    [class.depth-2]="depth === 2"
-    [class.depth-3]="depth === 3"
-    [class.depth-4]="depth === 4"
-    [class.depth-5]="depth >= 5"
-  >
+  <div class="filter-block-group" [class.is-root]="depth === 0" [class.is-nested]="depth > 0">
     <div class="filter-group-header">
-      <div class="filter-group-title">
-        <i class="fas fa-layer-group"></i>
-        <span>{{ depth === 0 ? 'Filter group' : 'Nested group' }}</span>
+      <div class="filter-group-scope">
+        <i class="fas fa-layer-group scope-icon" aria-hidden="true"></i>
+        <span class="scope-text">{{ depth === 0 ? 'Match' : 'Nested group — Match' }}</span>
+        <select
+          class="scope-logic-select"
+          [ngModel]="groupCondition(group)"
+          (ngModelChange)="setGroupCondition(group.id, $event)"
+        >
+          <option value="AND">ALL (AND)</option>
+          <option value="OR">ANY (OR)</option>
+        </select>
+        <span class="scope-text">{{ depth === 0 ? 'of the following conditions:' : 'of these:' }}</span>
       </div>
+
       <div class="filter-group-actions">
-        <button type="button" class="builder-token-btn" (click)="addCondition(group.id, 0)">
-          <i class="fas fa-plus"></i> Condition
-        </button>
-        <button type="button" class="builder-token-btn" (click)="addGroup(group.id, 0)">
-          <i class="fas fa-plus"></i> Group
-        </button>
         @if (removable) {
-        <button type="button" class="builder-token-btn muted" (click)="removeBlock(group.id)">
-          <i class="fas fa-trash"></i>
-        </button>
+          <button
+            type="button"
+            class="builder-token-btn muted"
+            title="Remove group"
+            (click)="removeBlock(group.id)"
+          >
+            <i class="fas fa-trash" aria-hidden="true"></i>
+          </button>
         }
       </div>
     </div>
 
     @if (group.rules.length === 0) {
-    <div class="empty-filter-group">
-      <span>No conditions yet.</span>
-      <button type="button" class="builder-token-btn" (click)="addCondition(group.id, 0)">Add condition</button>
-    </div>
-    }
-
-    <div class="filter-block-list">
-      @for (block of group.rules; track block.id; let i = $index) {
-        @if (i > 0) {
-        <div class="connector-row">
-          <button type="button" class="insert-chip" (click)="addCondition(group.id, i)">
-            <i class="fas fa-plus"></i>
+      <div class="empty-filter-group">
+        <span>No conditions yet.</span>
+        <div class="empty-group-actions">
+          <button type="button" class="builder-token-btn" (click)="addCondition(group.id, 0)">
+            <i class="fas fa-plus" aria-hidden="true"></i> Add condition
           </button>
-          <select class="connector-select" [ngModel]="block.connector ?? 'AND'" (ngModelChange)="setBlockConnector(group.id, block.id, $event)">
-            <option ngValue="AND">AND</option>
-            <option ngValue="OR">OR</option>
-          </select>
-          <button type="button" class="insert-chip" (click)="addGroup(group.id, i)">
-            <i class="fas fa-object-group"></i>
+          <button type="button" class="builder-token-btn muted" (click)="addGroup(group.id, 0)">
+            <i class="fas fa-layer-group" aria-hidden="true"></i> Group
           </button>
         </div>
-        }
+      </div>
+    } @else {
+      <div class="filter-tree-rail">
+        @for (block of group.rules; track block.id) {
+          <div class="filter-tree-node">
+            @if (block.kind === 'condition') {
+              <!--
+                <details>/<summary> owns the resting/expanded switch: click and keyboard come
+                with the element, activeBlockId only force-opens a row the builder just added.
+              -->
+              <details class="condition-row" [open]="activeBlockId() === block.id">
+                <summary class="compact-condition-row" (click)="toggleActiveBlock(block.id)">
+                  <span class="compact-left">
+                    <span class="compact-variable">{{ block.variableText || 'Select variable...' }}</span>
+                    <span class="compact-operator">{{ operatorDisplayLabel(block.operator) }}</span>
+                    @if (!isUnaryOperator(block.operator)) {
+                      <span class="compact-value" [title]="compactValueSummary(block)">
+                        {{ compactValueSummary(block) }}
+                      </span>
+                    }
+                  </span>
+                  <span class="compact-right">
+                    @if (variableType(block)) {
+                      <span class="type-badge">{{ variableType(block) }}</span>
+                    }
+                    <button
+                      type="button"
+                      class="compact-delete-btn"
+                      title="Remove condition"
+                      (click)="$event.preventDefault(); removeBlock(block.id)"
+                    >
+                      <i class="fas fa-trash-can" aria-hidden="true"></i>
+                    </button>
+                  </span>
+                </summary>
 
-        @if (block.kind === 'condition') {
-        <div class="condition-block">
-          <div class="condition-fields">
-            <label>
-              <span>Variable</span>
-              <input type="text" [attr.list]="'filter-variable-options-' + block.id" [ngModel]="block.variableText"
-                (ngModelChange)="onConditionVariableTextChange(block.id, $event)" placeholder="Type to find a variable">
-              <datalist [id]="'filter-variable-options-' + block.id">
-                @for (field of visibleFilterVariables(block.variableText); track field.code) {
-                <option [value]="variableDisplayLabel(field)"></option>
-                }
-              </datalist>
-            </label>
-            <label>
-              <span>Operator</span>
-              <select [ngModel]="block.operator" (ngModelChange)="setConditionOperator(block.id, $event)">
-                @for (operator of operatorOptions(block); track operator) {
-                <option [ngValue]="operator">{{ operatorDisplayLabel(operator) }}</option>
-                }
-              </select>
-            </label>
-            @if (!isUnaryOperator(block.operator)) {
-            <label>
-              <span>Value</span>
-              @if (selectedFilter(block)?.type === 'nominal' && categoryOptions(block).length > 0) {
-              <select [ngModel]="block.value" (ngModelChange)="setConditionValue(block.id, $event)">
-                <option value="">Choose category</option>
-                @for (category of categoryOptions(block); track category.value) {
-                <option [ngValue]="category.value">{{ category.label }}</option>
-                }
-              </select>
-              } @else {
-              <input type="text" [ngModel]="block.value" (ngModelChange)="setConditionValue(block.id, $event)" placeholder="Value">
-              }
-            </label>
+                <div class="expanded-row">
+                  <div class="expanded-row-fields">
+                    <div class="condition-fields">
+                        <div class="field-col field-variable">
+                          <input
+                            type="text"
+                            class="filter-field-input"
+                            [attr.list]="'filter-variable-options-' + block.id"
+                            [ngModel]="block.variableText"
+                            (ngModelChange)="onConditionVariableTextChange(block.id, $event)"
+                            placeholder="Type to find a variable"
+                          />
+                          @if (variableType(block)) {
+                            <span class="type-badge is-inline">{{ variableType(block) }}</span>
+                          }
+                          <datalist [id]="'filter-variable-options-' + block.id">
+                            @for (field of visibleFilterVariables(block.variableText); track field.code) {
+                              <option [value]="variableDisplayLabel(field)"></option>
+                            }
+                          </datalist>
+                        </div>
+
+                        <div class="field-col field-operator">
+                          <select
+                            class="filter-field-input"
+                            [ngModel]="block.operator"
+                            (ngModelChange)="setConditionOperator(block.id, $event)"
+                          >
+                            @for (operator of operatorOptions(block); track operator) {
+                              <option [ngValue]="operator">{{ operatorDisplayLabel(operator) }}</option>
+                            }
+                          </select>
+                        </div>
+
+                        <div class="field-col field-value" [class.is-multi]="isMultiValueOperator(block.operator)">
+                          @if (isUnaryOperator(block.operator)) {
+                            <input
+                              type="text"
+                              class="filter-field-input unary-disabled"
+                              disabled
+                              value="— (not required)"
+                            />
+                          } @else if (isMultiValueOperator(block.operator) && categoryOptions(block).length > 0) {
+                            <div class="value-chip-picker">
+                              <div
+                                class="value-chip-list"
+                                role="group"
+                                [attr.aria-label]="'Categories for ' + (block.field || 'this variable')"
+                              >
+                                @for (category of categoryOptions(block); track category.value) {
+                                  <button
+                                    type="button"
+                                    class="value-chip"
+                                    [class.is-selected]="isCategorySelected(block, category.value)"
+                                    [attr.aria-pressed]="isCategorySelected(block, category.value)"
+                                    (click)="toggleCategory(block.id, category.value)"
+                                  >{{ category.label }}</button>
+                                }
+                              </div>
+                              <span class="value-chip-count">
+                                {{ block.values.length }} of {{ categoryOptions(block).length }}
+                                {{ categoryOptions(block).length === 1 ? 'category' : 'categories' }} selected
+                              </span>
+                            </div>
+                          } @else if (isMultiValueOperator(block.operator)) {
+                            <input
+                              type="text"
+                              class="filter-field-input"
+                              [ngModel]="block.values.join(', ')"
+                              (ngModelChange)="setMultiValueText(block.id, $event)"
+                              placeholder="Value 1, Value 2, …"
+                            />
+                          } @else if (selectedFilter(block)?.type === 'nominal' && categoryOptions(block).length > 0) {
+                            <select
+                              class="filter-field-input"
+                              [ngModel]="block.values[0] ?? ''"
+                              (ngModelChange)="setConditionValue(block.id, $event)"
+                            >
+                              <option value="">Choose category</option>
+                              @for (category of categoryOptions(block); track category.value) {
+                                <option [ngValue]="category.value">{{ category.label }}</option>
+                              }
+                            </select>
+                          } @else {
+                            <input
+                              type="text"
+                              class="filter-field-input"
+                              [ngModel]="block.values[0] ?? ''"
+                              (ngModelChange)="setConditionValue(block.id, $event)"
+                              placeholder="Value"
+                            />
+                          }
+                        </div>
+                      </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    class="compact-delete-btn is-expanded-action"
+                    title="Remove condition"
+                    (click)="removeBlock(block.id)"
+                  >
+                    <i class="fas fa-trash-can" aria-hidden="true"></i>
+                  </button>
+                </div>
+              </details>
+            } @else {
+              <ng-container
+                [ngTemplateOutlet]="groupTemplate"
+                [ngTemplateOutletContext]="{ group: block, depth: depth + 1, removable: true }">
+              </ng-container>
             }
           </div>
-          <button type="button" class="remove-block-btn" (click)="removeBlock(block.id)" aria-label="Remove condition">
-            <i class="fas fa-times"></i>
-          </button>
-        </div>
-        } @else {
-        <ng-container
-          [ngTemplateOutlet]="groupTemplate"
-          [ngTemplateOutletContext]="{ group: block, depth: depth + 1, removable: true }">
-        </ng-container>
         }
-      }
+      </div>
 
-      @if (group.rules.length > 0) {
-      <div class="connector-row is-tail">
-        <button type="button" class="insert-chip" (click)="addCondition(group.id, group.rules.length)">
-          <i class="fas fa-plus"></i> Condition
+      <div class="filter-group-foot">
+        <button type="button" class="builder-token-btn" (click)="addCondition(group.id, group.rules.length)">
+          <i class="fas fa-plus" aria-hidden="true"></i> Condition
         </button>
-        <button type="button" class="insert-chip" (click)="addGroup(group.id, group.rules.length)">
-          <i class="fas fa-plus"></i> Group
+        <button type="button" class="builder-token-btn muted" (click)="addGroup(group.id, group.rules.length)">
+          <i class="fas fa-layer-group" aria-hidden="true"></i> Group
         </button>
       </div>
-      }
-    </div>
+    }
   </div>
 </ng-template>

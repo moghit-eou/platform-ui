@@ -1,0 +1,8 @@
+<div class="station-list-row">
+  <div class="station-list-row-content">
+    <ng-content></ng-content>
+  </div>
+  <button type="button" class="station-list-row-remove" [attr.aria-label]="removeLabel()" (click)="remove.emit()">
+    <i class="fas fa-trash" aria-hidden="true"></i>
+  </button>
+</div>

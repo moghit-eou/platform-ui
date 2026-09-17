@@ -6,18 +6,28 @@ Use this page to choose the smallest feature context.
 
 Path: `src/app/pages/experiment-studio/`
 
-Owns data model/dataset selection, variables, filters, algorithm config, runs,
-transient previews, charts, tables, histograms, and metadata views.
+One step view at a time behind a sticky stepper (`activeSection`); the views stay
+mounted and are hidden with CSS, so open editors and in-flight runs survive a step
+change.
+
+Owns data model/dataset selection, the variable pool and its outcome/predictor
+roles, filters, the Data review pipeline, algorithm config, runs, transient
+previews, charts, tables, histograms, and metadata views.
 
 Start with:
 
-- `ExperimentStudioComponent`
-- `ExperimentStudioService`
+- `ExperimentStudioComponent` (step shell) and `StudioStepperComponent` (step rail)
+- `ExperimentStudioService` (selection, algorithm roles, run state)
+- `execution-panel/` for run status/results and
+  `algorithm-panel/algorithm-role-assignment/` for the y/x slots
+- `shared/station-card`, `shared/station-action-bar`, `shared/station-list-row` for
+  the cards and footers every Data review step reuses
 - relevant model under `src/app/models/`
 - `06-algorithm-mapping-index.md` for algorithm output/config tasks
 
-Search keys: `selectedDataModel`, `dataset`, `variable`, `filter`, `transient`,
-`histogram`, `describe`, algorithm name.
+Search keys: `activeSection`, `selectedDataModel`, `dataset`, `variable`,
+`algorithmY`, `algorithmX`, `algorithmAssignableVariables`, `filter`, `transient`,
+`histogram`, `describe`, `runResult`, algorithm name.
 
 ## Experiments Dashboard
 

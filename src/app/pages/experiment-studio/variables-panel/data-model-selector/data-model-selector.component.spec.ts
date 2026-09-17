@@ -23,6 +23,22 @@ describe('DataModelSelectorComponent', () => {
     released: true,
   };
 
+  const tbiModel: DataModel = {
+    uuid: 'tbi-model',
+    code: 'tbi',
+    version: '2.0',
+    label: 'Traumatic Brain Injury',
+    released: true,
+  };
+
+  const longitudinalModel: DataModel = {
+    uuid: 'long-model',
+    code: 'long',
+    version: '1.0',
+    label: 'Longitudinal Example',
+    released: true,
+  };
+
   beforeEach(() => {
     TestBed.configureTestingModule({
       imports: [DataModelSelectorComponent],
@@ -43,5 +59,33 @@ describe('DataModelSelectorComponent', () => {
 
     expect(component.selectedDataModel).toBe(catalogModel);
     expect(component.dataModelChange.emit).not.toHaveBeenCalled();
+  });
+
+  it('renders one chip per model and marks the selected chip', () => {
+    fixture.componentRef.setInput('crossSectionalModels', [catalogModel, tbiModel]);
+    fixture.componentRef.setInput('longitudinalModels', [longitudinalModel]);
+    fixture.componentRef.setInput('defaultModel', catalogModel);
+    fixture.detectChanges();
+
+    const chips = fixture.nativeElement.querySelectorAll('.studio-chip');
+    expect(chips.length).toBe(3);
+    expect(chips[0].textContent).toContain('Stroke 3.7');
+    expect(chips[0].classList.contains('is-selected')).toBeTrue();
+    expect(chips[0].querySelector('input')!.checked).toBeTrue();
+    expect(chips[1].querySelector('input')!.checked).toBeFalse();
+  });
+
+  it('selects a model via its chip and emits the change', () => {
+    const emitSpy = spyOn(component.dataModelChange, 'emit');
+    fixture.componentRef.setInput('crossSectionalModels', [catalogModel, tbiModel]);
+    fixture.componentRef.setInput('defaultModel', catalogModel);
+    fixture.detectChanges();
+
+    const chips = fixture.nativeElement.querySelectorAll('.studio-chip');
+    (chips[1] as HTMLElement).click();
+    fixture.detectChanges();
+
+    expect(component.selectedDataModel).toBe(tbiModel);
+    expect(emitSpy).toHaveBeenCalledWith(tbiModel);
   });
 });
