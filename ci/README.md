@@ -11,7 +11,6 @@ Following the OWASP DevSecOps model, scanning is split into three independent pi
 | **SAST** (Static Application Security Testing) | `sast.yml` | Application source code | OpenGrep |
 
 ## Table of Contents
-
 - [1. Repository layout](#1-repository-layout)
 - [2. Architecture](#2-architecture)
 - [3. Tool installation (`setup-tools.sh`)](#3-tool-installation-setup-toolssh)
